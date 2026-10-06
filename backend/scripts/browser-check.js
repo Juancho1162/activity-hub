@@ -1,4 +1,4 @@
-// Real Firefox -> unchanged React Static Assets -> workerd -> disposable D1.
+// Real Firefox -> encrypted React client -> workerd -> disposable D1.
 // Uses only its own browser profile; generated access data stays in memory.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
@@ -21,7 +21,7 @@ async function waitFor(check, label) {
 }
 let socket, browser;
 try {
-  const { url } = await fixture({ after: callback => cleanup.push(callback) }, { assets: true, webOrigin: null });
+  const { url, DB } = await fixture({ after: callback => cleanup.push(callback) }, { assets: true, webOrigin: null, legacy: false });
   const origin = url.origin;
   assert.equal((await fetch(`${origin}/health`)).status, 200);
   const portServer = createServer().listen(0, '127.0.0.1');
@@ -89,11 +89,28 @@ try {
   })()`, ctx);
   const login = async (code, ctx = context) => { await input('access-code', code, ctx); await click('Entrar', ctx); };
   const currentAccount = (ctx = context) => evaluate("fetch('/auth/session').then(r=>r.json()).then(p=>p.account_id)", ctx);
-  const api = async (route, ctx = context) => JSON.parse(await evaluate(`(async()=>{
-    const p=await(await fetch('/auth/session')).json();
-    const r=await fetch(${JSON.stringify(route)},{headers:{'X-Activity-Account':p.account_id}});
-    return JSON.stringify({status:r.status,body:await r.json()});
-  })()`, ctx));
+  // Independent test oracle: decrypt only our synthetic accounts in memory.
+  const codes = new Map();
+  async function api(route, ctx = context) {
+    const id = await currentAccount(ctx);
+    const result = JSON.parse(await evaluate(`(async()=>{
+      const r=await fetch('/api/vault',{headers:{'X-Activity-Account':${JSON.stringify(id)}}});
+      return JSON.stringify({status:r.status,body:await r.json()});
+    })()`, ctx));
+    if (result.status !== 200) return result;
+    const box = result.body;
+    const normalized = codes.get(id).replaceAll('-', '').toUpperCase();
+    const encoder = new TextEncoder();
+    const material = await crypto.subtle.importKey('raw', encoder.encode(normalized), 'HKDF', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt:encoder.encode('activity-hub:private-storage:v1'),info:encoder.encode('content-encryption')},material,{name:'AES-GCM',length:256},false,['decrypt']);
+    const bytes = await crypto.subtle.decrypt({name:'AES-GCM',iv:Buffer.from(box.iv,'base64'),additionalData:encoder.encode(`activity-hub:vault:v1:${id}:${box.version}`),tagLength:128},key,Buffer.from(box.ciphertext,'base64'));
+    const content = JSON.parse(new TextDecoder().decode(bytes));
+    const query = new URL(route, origin);
+    const items = query.pathname === '/api/history'
+      ? content.checks.filter(ch=>ch.day>=query.searchParams.get('start') && ch.day<=query.searchParams.get('end'))
+      : content.fronts.filter(f=>!query.searchParams.has('search') || f.name.includes(query.searchParams.get('search')));
+    return {status:200,body:{items,total:items.length},version:box.version};
+  }
   async function createAccount(ctx = context) {
     await click('Crear cuenta', ctx);
     await waitFor(() => evaluate("document.getElementById('signup-code')!==null", ctx), 'signup code');
@@ -103,6 +120,7 @@ try {
     await evaluate("document.getElementById('saved-code').click()", ctx);
     await click('Entrar en mi cuenta', ctx);
     await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')", ctx), 'empty private account');
+    codes.set(await currentAccount(ctx), code);
     return code;
   }
   async function screenshot(name, width) {
@@ -148,30 +166,34 @@ try {
   await click('Registro');
   const { context: otherTab } = await command('browsingContext.create', { type: 'tab' });
   await navigate(otherTab);
-  await waitFor(() => evaluate("document.querySelector('.session-controls')!==null", otherTab), 'second tab resumes A');
-  await click('Cerrar sesión', otherTab);
+  await waitFor(() => evaluate("document.querySelector('#access-code')!==null", otherTab), 'second tab requires decryption code');
+  assert.equal(await evaluate("document.querySelector('.app-shell')===null", otherTab), true, 'remembered session does not reveal content');
+  await click('Cerrar sesión', otherTab); // Closing a remembered session needs no decryption code.
   await waitFor(() => evaluate("document.querySelector('#access-code')!==null", otherTab), 'logout A');
   const codeB = await createAccount(otherTab);
   const accountB = await currentAccount(otherTab);
   assert.ok(accountA !== accountB);
   await evaluate("window.dispatchEvent(new Event('focus'))");
-  await waitFor(() => evaluate("document.querySelector('#continue-account')!==null"), 'account change detected');
-  await click('Continuar con esta cuenta');
+  await waitFor(() => evaluate("document.querySelector('#access-code')!==null"), 'account change requires B key');
+  await login(codeB);
   await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')"), 'B remains empty');
   await click('Cerrar sesión');
   await waitFor(() => evaluate("document.querySelector('#access-code')!==null"), 'leave B');
   await login(codeA);
   await waitFor(() => evaluate("document.querySelectorAll('.activity-check[role=checkbox]').length===1"), 'permanent A code reused');
 
-  const keys = [];
+  let committedWrites = 0;
   let blocked = null;
   onEvent = ({ method, params }) => {
-    if (method !== 'network.responseStarted' || params.context !== context || params.request.method !== 'POST' || params.request.url !== `${origin}/api/fronts`) return;
-    const key = params.request.headers.find(h => h.name.toLowerCase() === 'idempotency-key')?.value?.value;
-    if (key) keys.push(key);
+    if (method === 'network.responseStarted' && params.context === context && params.isBlocked && params.request.method === 'GET') {
+      void command('network.continueResponse', { request: params.request.request });
+      return;
+    }
+    if (method !== 'network.responseStarted' || params.context !== context || params.request.method !== 'PUT' || params.request.url !== `${origin}/api/vault`) return;
+    committedWrites++;
     if (params.isBlocked) blocked = params.request.request;
   };
-  const held = await command('network.addIntercept', { contexts: [context], phases: ['responseStarted'], urlPatterns: [{ type: 'string', pattern: `${origin}/api/fronts` }] });
+  const held = await command('network.addIntercept', { contexts: [context], phases: ['responseStarted'], urlPatterns: [{ type: 'string', pattern: `${origin}/api/vault` }] });
   await click('Nuevo frente');
   await waitFor(() => evaluate("document.activeElement?.id==='front-name'"), 'uncertain create editor');
   await input('front-name', 'Solicitud pendiente de A');
@@ -182,7 +204,9 @@ try {
   await waitFor(() => evaluate("document.body.textContent.includes('Solicitud sin confirmar')"), 'uncertain request shown');
   assert.equal((await api('/api/fronts?search=Solicitud%20pendiente%20de%20A')).body.total, 1);
   await navigate(otherTab);
-  await waitFor(() => evaluate("document.querySelector('.session-controls')!==null", otherTab), 'other tab resumes A again');
+  await waitFor(() => evaluate("document.querySelector('#access-code')!==null", otherTab), 'reloaded tab requires A key');
+  await login(codeA, otherTab);
+  await waitFor(() => evaluate("document.querySelector('.app-shell')!==null", otherTab), 'other tab decrypts A again');
   await click('Cerrar sesión', otherTab);
   await waitFor(() => evaluate("document.querySelector('#access-code')!==null", otherTab), 'revoke A');
   await login(codeB, otherTab);
@@ -197,8 +221,7 @@ try {
   await click('Reintentar solicitud');
   await waitFor(() => evaluate("!document.querySelector('[role=dialog]') && document.body.textContent.includes('Solicitud pendiente de A')"), 'explicit retry confirmed');
   assert.equal((await api('/api/fronts?search=Solicitud%20pendiente%20de%20A')).body.total, 1);
-  assert.equal(keys.length, 2);
-  assert.ok(keys[0] === keys[1], 'same idempotency key across reauthentication');
+  assert.equal(committedWrites, 1, 'encrypted replay confirms the existing commit without writing twice');
   assert.ok(await currentAccount() === accountA);
 
   let delayedLogout = null;
@@ -218,15 +241,20 @@ try {
   await waitFor(() => evaluate("document.querySelector('#continue-account')!==null"), 'late logout detects B');
   assert.ok(await currentAccount(otherTab) === accountB, 'late A logout preserves B cookie');
   await click('Continuar con esta cuenta');
-  await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')"), 'explicitly continue B');
+  await waitFor(() => evaluate("document.querySelector('#access-code')!==null"), 'B requires its private key');
+  await login(codeB);
+  await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')"), 'explicitly decrypt B');
   await click('Cerrar sesión');
   await waitFor(() => evaluate("document.querySelector('#access-code')!==null"), 'final logout');
   await navigate();
   await waitFor(() => evaluate("document.querySelector('#access-code')!==null"), 'logout survives reload');
   assert.equal(await evaluate("fetch('/api/fronts').then(r=>r.status)"), 401);
   assert.equal(await evaluate('sessionStorage.length===0 && localStorage.length<=1'), true, 'no persisted access data');
+  const counts = await DB.batch(['fronts', 'activity_checks', 'idempotency_requests'].map(table=>DB.prepare(`SELECT count(*) AS n FROM ${table}`)));
+  assert.ok(counts.every(row=>row.results[0].n===0), 'no plaintext domain rows or replays in D1');
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM encrypted_vaults').first()).n, 2);
   await command('session.end');
-  console.log('PASS Firefox → React Static Assets → workerd/D1: signup ACK, create/edit/check/history/dashboard, 1366/390 px, two accounts/tabs, lost committed response, same-key retry, delayed logout, reload.');
+  console.log('PASS Firefox → encrypted React → workerd/D1: signup ACK, create/edit/check/history/dashboard, 1366/390 px, two accounts/tabs, lost committed response, encrypted replay, delayed logout, unlock after reload, no plaintext in D1.');
   console.log(`Fictional activity screenshots: ${output}`);
 } finally {
   socket?.close();

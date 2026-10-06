@@ -3,12 +3,13 @@ import { madridSQL } from './time.js';
 
 // Refer to EVERY model column on EVERY database request. Preparing this query
 // fails closed for a missing table/column even when today's route doesn't use it.
-const SCHEMA_PROBE = `SELECT a.id,a.code_verifier,a.created_at,a.legacy_updated_at,
+const SCHEMA_PROBE = `SELECT a.id,a.code_verifier,a.auth_verifier,a.legacy_revision,a.created_at,a.legacy_updated_at,
  f.id,f.account_id,f.name,f.reference,f.state,f.created_at,f.updated_at,
  ch.front_id,ch.day,r.account_id,r.key,r.operation,r.target,r.payload,r.response,r.created_at,
  s.token_verifier,s.account_id,s.csrf_token,s.created_at,s.expires_at,
- t.action,t.window_started_at,t.attempts,c.nonce,c.now,c.account_id,c.today,c.status,c.response
- FROM accounts a,fronts f,activity_checks ch,idempotency_requests r,web_sessions s,action_throttle t,worker_batch_context c LIMIT 0`;
+ t.action,t.window_started_at,t.attempts,c.nonce,c.now,c.account_id,c.today,c.status,c.response,
+ v.account_id,v.version,v.iv,v.ciphertext,v.updated_at
+ FROM accounts a,fronts f,activity_checks ch,idempotency_requests r,web_sessions s,action_throttle t,worker_batch_context c,encrypted_vaults v LIMIT 0`;
 export const READY = `(SELECT count(*) FROM alembic_version)=1 AND (SELECT version_num FROM alembic_version)='0003'
  AND (SELECT count(*) FROM worker_schema)=1 AND (SELECT version FROM worker_schema)='0001'
  AND EXISTS (SELECT 1 FROM sqlite_schema WHERE type='trigger' AND name='accounts_code_immutable' AND tbl_name='accounts')`;

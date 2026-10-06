@@ -98,7 +98,7 @@ export function canonicalPayload(value) {
   const sorted = Object.fromEntries(Object.keys(value).sort().map(key => [key, value[key]]));
   return JSON.stringify(sorted).replace(/[\u007f-\uffff]/g, unit => `\\u${unit.charCodeAt(0).toString(16).padStart(4, '0')}`);
 }
-export async function input(request, auth = false) {
+export async function input(request, auth = false, maxBytes = auth ? 1024 : 16384) {
   const type = request.headers.get('Content-Type');
   // Fetch coalesces duplicate Content-Type lines. A comma outside a quoted
   // parameter remains a list even when the first media type has a charset.
@@ -116,7 +116,7 @@ export async function input(request, auth = false) {
   // The installed FastAPI uses strict_content_type=True: an absent header
   // also fails validation. Keep application/json and application/*+json.
   if (!auth && !(media === 'application/json' || /^application\/[^\s/]+\+json$/.test(media || ''))) throw invalid();
-  // Auth bodies are bounded by actual streamed bytes, never Content-Length.
+  // Bound every body by actual streamed bytes, never by Content-Length.
   const reader = request.body?.getReader();
   const chunks = [];
   let length = 0;
@@ -125,7 +125,7 @@ export async function input(request, auth = false) {
       const { value, done } = await reader.read();
       if (done) break;
       length += value.length;
-      if (auth && length > 1024) { await reader.cancel(); throw new HttpError(413, 'Request too large'); }
+      if (length > maxBytes) { await reader.cancel(); throw new HttpError(413, 'Request too large'); }
       chunks.push(value);
     }
     const bytes = new Uint8Array(length);

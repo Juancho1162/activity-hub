@@ -25,3 +25,5 @@ htmlcov/
 .DS_Store
 .dev.vars
 .dev.vars.*
+/.release/
+/.wrangler/

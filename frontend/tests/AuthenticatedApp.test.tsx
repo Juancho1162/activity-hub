@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import AuthenticatedApp from "../src/AuthenticatedApp"
+import { createAuthClient } from "../src/lib/auth"
 import { deferred, front, page } from "./fixtures"
 
 const clock = () => new Date("2026-10-03T12:00:00Z")
@@ -38,12 +39,30 @@ async function enter() {
 const writes = (fetcher: ReturnType<typeof transport>) => fetcher.mock.calls.filter(([url, init]) => String(url).startsWith("/api/") && init?.method !== "GET")
 
 describe("Entrada privada sin perder solicitudes pendientes", () => {
+  it("permite cerrar una sesión recordada sin desbloquear para crear otra cuenta", async () => {
+    let signedIn = true
+    const fetcher = transport(url => {
+      if (url === '/auth/session') return signedIn ? response(session()) : denied()
+      if (url === '/auth/logout') { signedIn = false; return new Response(null, { status: 204 }) }
+    })
+    const factory = (fetch: typeof globalThis.fetch) => ({ ...createAuthClient(fetch), canRead: () => false })
+    render(<AuthenticatedApp authFactory={factory} fetcher={fetcher} clock={clock} />)
+    await screen.findByText(/Introduce tu código para descifrar/)
+    expect(fetcher.mock.calls.some(([url]) => String(url).startsWith('/api/'))).toBe(false)
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
+    await screen.findByText('Sesión cerrada en este dispositivo.')
+    await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
+    await screen.findByLabelText('Tu código permanente')
+    const logout = fetcher.mock.calls.find(([url]) => url === '/auth/logout')!
+    expect(new Headers(logout[1]?.headers).get('X-CSRF-Token')).toBe(csrfA)
+    expect(new Headers(logout[1]?.headers).get('X-Activity-Account')).toBe(accountA)
+  })
   it("alta muestra el único código, copia y exige guardarlo antes de entrar; luego lo borra", async () => {
     const copy = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copy } })
     const store = vi.spyOn(Storage.prototype, "setItem")
     const fetcher = transport()
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("button", { name: "Crear cuenta" }))
     const shown = await screen.findByLabelText("Tu código permanente") as HTMLTextAreaElement
     expect(shown.value).toBe(newCode)
@@ -76,7 +95,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   it("no duplica un alta en curso y conserva Retry-After al volver al formulario de entrada", async () => {
     const signingUp = deferred<Response>()
     const fetcher = transport((url) => url === "/auth/signup" ? signingUp.promise : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     const create = await screen.findByRole("button", { name: "Crear cuenta" })
     fireEvent.click(create); fireEvent.click(create)
     await screen.findByText(/Creando una cuenta vacía/)
@@ -91,7 +110,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   })
   it("un alta incierta no se repite por foco y una nueva creación es explícitamente otra cuenta", async () => {
     const fetcher = transport((url) => url === "/auth/signup" ? Promise.reject(new TypeError("private-marker")) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("button", { name: "Crear cuenta" }))
     expect((await screen.findByRole("alert")).textContent).toMatch(/Puede haberse creado.*otra cuenta/)
     fireEvent.focus(window); fireEvent(window, new Event("pageshow"))
@@ -108,7 +127,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined })
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true)
     const fetcher = transport()
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("button", { name: "Crear cuenta" }))
     await userEvent.click(await screen.findByRole("button", { name: "Copiar" }))
     await screen.findByText(/Selecciona el código/)
@@ -123,7 +142,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   it("el login ACK que devuelve otra cuenta no activa datos ni pierde el código guardado", async () => {
     let logins = 0
     const fetcher = transport((url) => url === "/auth/login" ? response(++logins === 1 ? session(csrfB, accountB) : session()) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("button", { name: "Crear cuenta" }))
     await userEvent.click(await screen.findByRole("checkbox", { name: "He guardado mi código" }))
     await userEvent.click(screen.getByRole("button", { name: "Entrar en mi cuenta" }))
@@ -143,7 +162,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
       if (url === "/auth/session") return response(++statuses === 1 ? session() : session(csrfB, accountB))
       if (url.endsWith("/check")) return response({ detail: "Account context changed" }, 409)
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("checkbox", { name: "Actividad en Guitarra" }))
     await screen.findByText(/La cuenta activa ha cambiado/)
     expect(screen.queryByText("Guitarra")).toBeNull()
@@ -166,7 +185,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
         return response(currentAccount === accountA ? { ...result, items: [], total: 0 } : { ...result, items: [{ ...result.items[0], front: { ...front, name: "Solo cuenta B" } }] })
       }
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("button", { name: "Crear cuenta" }))
     await userEvent.click(await screen.findByRole("checkbox", { name: "He guardado mi código" }))
     await userEvent.click(screen.getByRole("button", { name: "Entrar en mi cuenta" }))
@@ -185,7 +204,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   it("otra cuenta en segundo plano se anuncia y no hereda el borrador al continuar", async () => {
     let statuses = 0
     const fetcher = transport((url) => url === "/auth/session" ? response(++statuses === 1 ? session() : session(csrfB, accountB)) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("button", { name: "Nuevo frente" }))
     await userEvent.type(screen.getByLabelText("Nombre"), "Borrador de A")
     const reads = fetcher.mock.calls.filter(([url]) => String(url).startsWith("/api/")).length
@@ -208,7 +227,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
       if (url === "/auth/login") return response(session(csrfB))
       if (url.endsWith("/check")) { fireEvent(window, new Event("pageshow")); return oldWrite.promise }
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("checkbox", { name: "Actividad en Guitarra" }))
     await screen.findByLabelText("Código de acceso")
     expect(screen.getByText(/cuenta original/)).toBeTruthy()
@@ -227,7 +246,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
       if (url === "/auth/login") return response(++logins === 1 ? session(csrfB, accountB) : session(csrfB))
       if (url.endsWith("/check") && ++attempts === 1) return Promise.reject(new TypeError("Lost"))
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await screen.findByText("Guitarra")
     fireEvent.change(screen.getByLabelText("Fecha de registro"), { target: { value: "2026-10-02" } })
     await waitFor(() => expect(screen.getByRole("checkbox").getAttribute("aria-disabled")).toBe("false"))
@@ -263,7 +282,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
       if (url === "/auth/session") return response(++statuses === 1 ? session() : session(csrfB, accountB))
       if (url === "/auth/logout") return closing.promise
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("button", { name: "Cerrar sesión" }))
     await act(async () => { closing.resolve(new Response(null, { status: 204 })) })
     await screen.findByText(/La cuenta activa ha cambiado/)
@@ -276,7 +295,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
       if (url === "/auth/session") return response(++statuses === 1 ? session() : session(csrfB, accountB))
       if (url === "/auth/logout") return Promise.reject(new TypeError("Lost"))
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("button", { name: "Cerrar sesión" }))
     await userEvent.click(await screen.findByRole("button", { name: "Reintentar cierre" }))
     await screen.findByText(/La cuenta activa ha cambiado/)
@@ -289,7 +308,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   it("espera el estado de la cookie antes de consultar datos y presenta solo el código", async () => {
     const status = deferred<Response>()
     const fetcher = transport((url) => url === "/auth/session" ? status.promise : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     expect(screen.getByRole("status").textContent).toContain("Comprobando")
     expect(fetcher.mock.calls.map(([url]) => url)).toEqual(["/auth/session"])
     await act(async () => { status.resolve(denied()) })
@@ -302,7 +321,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   })
   it("reanuda una cookie válida sin pedir código y mantiene el transporte del mismo origen", async () => {
     const fetcher = transport((url) => url === "/auth/session" ? response(session()) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await screen.findByText("Guitarra")
     expect(screen.queryByLabelText("Código de acceso")).toBeNull()
     expect(fetcher.mock.calls.every(([, init]) => init?.credentials === "same-origin" && init.cache === "no-store" && init.redirect === "error")).toBe(true)
@@ -311,7 +330,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   it("borra el código al enviar, abre los datos solo tras éxito y escribe con CSRF", async () => {
     const login = deferred<Response>()
     const fetcher = transport((url) => url === "/auth/login" ? login.promise : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await enter()
     expect((screen.getByLabelText("Código de acceso") as HTMLInputElement).value).toBe("")
     expect(screen.queryByText("Guitarra")).toBeNull()
@@ -327,7 +346,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
     [401, /Código incorrecto/], [429, /Demasiados intentos/], [503, /servidor.*esquema/i], [403, /origen/i],
   ])("el rechazo de entrada %s no inventa autenticación", async (status, message) => {
     const fetcher = transport((url) => url === "/auth/login" ? response({ detail: "private-marker" }, status, { "Retry-After": "5" }) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await enter()
     expect((await screen.findByRole("alert")).textContent).toMatch(message)
     expect(screen.queryByText("Guitarra")).toBeNull()
@@ -338,7 +357,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   })
   it("un error de red al entrar permite un intento explícito, no una sesión ficticia", async () => {
     const fetcher = transport((url) => url === "/auth/login" ? Promise.reject(new TypeError("private-marker")) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await enter()
     expect((await screen.findByRole("alert")).textContent).toMatch(/conectar/)
     expect(screen.queryByText("Guitarra")).toBeNull()
@@ -347,7 +366,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   })
   it("un 401 de comprobación en segundo plano no borra el código escrito ni el límite de intentos", async () => {
     const fetcher = transport((url) => url === "/auth/login" ? response({}, 429, { "Retry-After": "60" }) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await enter()
     await screen.findByRole("alert")
     await userEvent.type(screen.getByLabelText("Código de acceso"), "next-test-code")
@@ -360,7 +379,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   })
   it("un esquema no disponible nunca ofrece inicializar cuentas desde terminal", async () => {
     const fetcher = transport((url) => url === "/auth/session" ? response({ detail: "Private access is not configured" }, 503) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     expect((await screen.findByRole("alert")).textContent).toMatch(/servidor.*esquema/i)
     expect(document.body.textContent).not.toMatch(/admin init|terminal|recuperación/i)
     expect(screen.getByRole("button", { name: "Reintentar conexión" })).toBeTruthy()
@@ -370,7 +389,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   })
   it("otro 503 explica servidor/esquema y README sin confundirlo con código incorrecto", async () => {
     const fetcher = transport((url) => url === "/auth/session" ? response({ detail: "Service unavailable" }, 503) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     expect((await screen.findByRole("alert")).textContent).toMatch(/servidor.*esquema/i)
     expect(screen.getByText(/README/)).toBeTruthy()
     expect(screen.queryByText(/Código incorrecto/)).toBeNull()
@@ -379,7 +398,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
   it("conserva el editor y su borrador al revocarse la cookie en una comprobación de foco", async () => {
     let reads = 0
     const fetcher = transport((url) => url === "/auth/session" ? (++reads === 1 ? response(session()) : denied()) : undefined)
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await screen.findByText("Guitarra")
     await userEvent.click(screen.getByRole("button", { name: "Nuevo frente" }))
     await userEvent.type(screen.getByLabelText("Nombre"), "Lectura pendiente")
@@ -402,7 +421,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
         if (attempts === 2) return denied()
       }
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await screen.findByText("Guitarra")
     fireEvent.change(screen.getByLabelText("Fecha de registro"), { target: { value: "2026-10-02" } })
     await waitFor(() => expect(screen.getByRole("checkbox").getAttribute("aria-disabled")).toBe("false"))
@@ -431,7 +450,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
       if (url === "/auth/session") return response(session(++statuses === 1 ? csrfA : csrfB))
       if (url.endsWith("/check") && ++checks === 1) return response({ detail: "Request forbidden" }, 403)
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("checkbox"))
     await waitFor(() => expect(statuses).toBe(2))
     const checkbox = await screen.findByRole("checkbox")
@@ -450,7 +469,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
         return statuses === 1 ? denied() : statuses === 2 ? beforeLogin.promise : statuses === 3 ? beforeLogout.promise : denied()
       }
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await screen.findByLabelText("Código de acceso")
     fireEvent.focus(window)
     await enter()
@@ -475,7 +494,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
       if (url === "/auth/login") return response(session(csrfB))
       if (url.endsWith("/check")) return oldWrite.promise
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("checkbox"))
     expect((screen.getByRole("button", { name: "Cerrar sesión" }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.focus(window)
@@ -493,7 +512,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
       if (url === "/auth/session") return ++statuses === 1 ? response(session()) : status.promise
       if (url === "/auth/logout") return Promise.reject(new TypeError("Lost response"))
     })
-    const { unmount } = render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    const { unmount } = render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await screen.findByText("Guitarra")
     await userEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }))
     await userEvent.click(await screen.findByRole("button", { name: "Reintentar cierre" }))
@@ -509,7 +528,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
       if (url === "/auth/session") return logouts >= 2 ? denied() : response(session())
       if (url === "/auth/logout" && ++logouts === 1) return Promise.reject(new TypeError("Lost response"))
     })
-    render(<AuthenticatedApp fetcher={fetcher} clock={clock} />)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await screen.findByText("Guitarra")
     await userEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }))
     await screen.findByRole("button", { name: "Reintentar cierre" })

@@ -7,7 +7,7 @@ Activity Hub agrupa herramientas con un propósito común, no una única aplicac
 
 **Prioridad actual: empezar por registro y seguimiento**, con interfaz web e integración con pi mediante MCP. El módulo de notificaciones se definirá más adelante; no bloquea el trabajo sobre registro.
 
-**Implementado y probado en local:** alta abierta desde la app, cuentas privadas e independientes, un único código fijo por cuenta, inicio y cierre de sesión, sin recuperación. Los códigos se generan al crear la cuenta en la web, no por terminal. Véanse [estado y comandos locales](#6-estado-real-y-verificación).
+**Versión inicial publicada:** registro diario, dashboard y cuentas independientes con código fijo, sin recuperación. **Incremento en curso:** cifrado en el navegador, CAPTCHA, límites de uso y publicación verificable en `feature/security-hardening`; todavía no desplegado. Véanse [estado y verificación](#6-estado-real-y-verificación) y [trabajo pendiente](#7-trabajo-previsto-y-siguiente-paso).
 
 ## 1. Notificaciones y asistencia
 
@@ -64,7 +64,7 @@ Quedan fuera de este primer módulo las notificaciones, correo, Teams, el dashbo
 
 ### Acceso privado acordado
 
-- **Alta abierta integrada en la app:** cualquiera puede crear una cuenta, sin invitaciones, Google, correo ni nombre de usuario. Sustituye el diseño anterior de propietario único y alta por terminal.
+- **Alta abierta integrada en la app:** sin invitaciones, Google, correo ni nombre de usuario; con CAPTCHA y máximo inicial de 100 cuentas. Sustituye el diseño anterior de propietario único y alta por terminal.
 - **Una cuenta, un código fijo.** El código secreto largo y aleatorio se genera únicamente al crear la cuenta y se muestra para guardarlo privadamente. No se cambia, regenera ni sustituye. Funciona como una contraseña, no como un identificador público.
 - **Sin recuperación de ningún tipo:** ni administrativa, ni desde una sesión abierta, ni mediante un segundo código. Si se pierde, no existe un procedimiento para recuperarlo o emitir otro para esa cuenta. Una sesión existente no habilita esa posibilidad.
 - **Crear cuenta / iniciar sesión / cerrar sesión**, dentro de la web. Entrar exige el código de una cuenta existente; un código incorrecto no crea una cuenta. Cerrar sesión no borra la cuenta ni sus datos.
@@ -126,43 +126,53 @@ Los laboratorios [cyberpunk](experiments/cyberpunk-ui/README.md), [artístico](e
 
 ## 5. Contratos y garantías
 
-La UI conserva registro diario en columnas, dashboard con orden global antes de paginar, nombres completos, calendarios plegables, foco/scroll y confirmación del servidor. Tema claro/oscuro con un clic, preferencia persistente y sincronización entre pestañas; los cambios visuales no descartan formularios ni solicitudes pendientes. La paleta y los componentes del frontend no se han modificado para esta promoción.
+Este es el contrato del incremento de seguridad en desarrollo. La publicación inicial `v0.1.0` usa todavía el protocolo anterior; el estado de despliegue figura en la sección 7.
 
-### Acceso y persistencia
+La UI conserva registro diario en columnas, dashboard con orden global antes de paginar, nombres completos, calendarios plegables, foco/scroll y confirmación del guardado. El tema claro/oscuro se conserva entre pestañas; cambiarlo no descarta formularios ni solicitudes pendientes.
 
-- Alta abierta de una cuenta vacía, código fijo de 32 símbolos aleatorios —160 bits— mostrado en ocho grupos. Se confirma que se ha guardado antes de entrar. Se aceptan mayúsculas/minúsculas ASCII, espacios y guiones; el código original no se almacena en la base.
-- Sesiones opacas de 256 bits con caducidad absoluta de 30 días, cookie HttpOnly/SameSite=Strict/Path=/ y Secure al usar HTTPS. Comprobación al volver a la pestaña y cada minuto. Logout revoca solo la sesión capturada y no borra una cookie posterior de otra cuenta.
-- Cuenta esperada en `X-Activity-Account`; escrituras con Origin exacto y `X-CSRF-Token`. La sesión se revalida dentro del batch que lee o modifica los datos. `/api` y `/auth`, también sus prefijos exactos, pasan por el Worker y llevan `no-store`; no caen en el HTML de la SPA.
-- Límites persistentes e independientes: 10 intentos de entrada y 5 altas por ventanas globales de 60 segundos. Un rechazo temporal no implica que un código se haya invalidado. La publicación conserva el registro abierto existente; capacidad y coste bajo carga quedan pendientes de medición.
-- Transacciones D1 con reloj SQL, unicidad de check por frente/día, aislamiento por cuenta y replay atómico. Madrid se resuelve al serializar la operación, incluidos medianoche y cambios de horario. No hay mutex en memoria, caché de respuestas privadas ni bypass de desarrollo.
-- Los enlaces son referencias; el backend no los visita. Nunca registrar códigos, cookies, tokens, bodies privados, SQL ni parámetros. No hay recuperación/rotación de códigos ni alta administrativa operativa.
+### Privacidad y acceso
 
-**Reintentos:** no hay actualización optimista ni reintentos automáticos. Ante una escritura incierta se bloquean nuevas escrituras y se ofrece reintentar la misma solicitud con su clave, contenido y fecha originales. El formulario se conserva congelado; el reintento está dentro del diálogo para ser accesible. Un rechazo de un reintento no borra la incertidumbre de la solicitud original; se conserva su identidad hasta obtener confirmación. Las respuestas de escritura se contrastan con el ID/contenido enviados, admitiendo la normalización de nombre y URL del backend. La identidad pendiente permanece **solo en memoria de esa pestaña**: se avisa antes de cerrarla/recargarla, pero no se garantiza recuperación tras cerrar el navegador. No se guardan actividad ni código en almacenamiento persistente del frontend; la única credencial persistente del navegador es la cookie de sesión HttpOnly. Si caduca o se revoca la sesión, se ocultan los datos y el editor, sin desmontar su estado pendiente. Volver a entrar **en la misma cuenta** permite un reintento explícito con la misma identidad y el CSRF actualizado. Entrar en otra cuenta no consume ni traslada la solicitud: queda bloqueada hasta volver a la original. Sin solicitudes pendientes, cambiar de cuenta reinicia borradores/vistas; los cambios detectados en otra pestaña requieren confirmación. El cierre de sesión está bloqueado mientras haya una escritura pendiente; un cierre de resultado incierto oculta los datos hasta confirmarlo o reintentarlo.
+- El navegador genera el código fijo de 32 símbolos aleatorios —160 bits— y lo muestra para guardarlo. Se aceptan mayúsculas/minúsculas ASCII, espacios y guiones. No se envía el código al servidor: se deriva una credencial de autenticación; D1 conserva otra huella de esa credencial.
+- Se deriva por separado una clave AES-GCM de 256 bits mediante HKDF. Nombres, enlaces, estados, fechas de actividad y respuestas originales de reintentos se cifran **antes de salir del navegador**. Cada guardado usa un IV aleatorio nuevo y autentica también la cuenta y la versión.
+- La clave permanece solo en memoria de la pestaña. Recargar, cerrar o abrir otra pestaña requiere introducir de nuevo el código, aunque la cookie de sesión siga vigente. Se puede cerrar esa sesión sin descifrar ni conocer el código; esto no recupera su contenido. No existe recuperación administrativa ni clave maestra del servidor.
+- D1 conserva contenido cifrado y metadatos operativos legibles: identificadores, verificadores de autenticación, sesiones, tamaños, versión y tiempos de sincronización. La garantía protege el contenido frente a consultar D1 o copias posteriores a la migración; no frente a un administrador que modifique deliberadamente el JavaScript servido, un dispositivo comprometido o las copias antiguas en texto legible.
+- Las cuentas anteriores conservan su código. Al entrar con el nuevo cliente, se actualiza su verificador y el navegador cifra el contenido y los reintentos anteriores. El servidor borra el original solo en la transacción que confirma el cifrado; una revisión del contenido detecta escrituras antiguas concurrentes. Hasta completar esa migración, una cuenta anterior puede conservar datos legibles en D1. Las copias históricas no se cifran retroactivamente.
+- Sesiones opacas de 256 bits, caducidad absoluta de 30 días y máximo de 20 sesiones por cuenta. Cookie HttpOnly/SameSite=Strict/Path=/ y Secure con prefijo `__Host-` en HTTPS. Comprobación al volver a la pestaña y cada minuto. Logout revoca la sesión capturada sin borrar una cookie posterior de otra cuenta.
+- Cuenta esperada en `X-Activity-Account`; escrituras con Origin exacto y `X-CSRF-Token`. Se revalida sesión/cuenta dentro del batch de D1. `/api` y `/auth`, incluidos sus prefijos exactos, pasan por el Worker y llevan `no-store`.
+- Los enlaces son referencias: no se visitan desde el servidor. No registrar códigos, cookies, tokens, cuerpos privados, SQL ni parámetros. Se añaden CSP y cabeceras contra incrustación, detección de tipos y envío de referentes.
 
-### Contratos implementados
+### Protección de capacidad
+
+- Alta con Turnstile validado en el servidor: éxito explícito, acción `signup` y hostname de producción exacto. Un error de verificación impide el alta. Solo el entorno HTTP de loopback admite pruebas sin CAPTCHA.
+- Máximo **100 cuentas**, aplicado dentro de la transacción de alta para que peticiones concurrentes no lo superen.
+- Un único documento cifrado por cuenta, con máximo **512 KiB de cifrado binario** —hasta 699 052 caracteres en base64—. Se limita el cuerpo real recibido incluso sin `Content-Length`. El total de documentos activos queda por debajo de 67 MiB para 100 cuentas; índices, metadatos, espacio interno de SQLite y copias añaden almacenamiento.
+- Límites iniciales por 60 segundos: **600 solicitudes dinámicas**, **120 por IP**, **10 por IP y ruta de alta/login** y **60 por cuenta autenticada**. Los primeros límites se comprueban antes de consultar D1. Sin cookie válida en formato, no se consulta D1. La configuración HTTPS incompleta falla cerrada.
+- Estos limitadores de Workers son locales a cada ubicación de Cloudflare y eventualmente consistentes: reducen abuso, pero **no constituyen un tope global de facturación ni garantizan no agotar la cuota diaria de D1**. Las lecturas autorizadas también consumen operaciones de contexto transaccional. Un ataque distribuido puede agotar cuota o degradar disponibilidad; no se ha realizado una prueba de carga alojada.
+- Interruptores de operación: `API_ENABLED`, `REGISTRATION_ENABLED` y `WRITES_ENABLED`. Permiten cerrar API, altas o escrituras sin eliminar datos. El cliente limita además a 200 frentes y 5000 respuestas de reintentos conservadas; el límite de bytes del servidor es el control que no puede eludir un cliente modificado.
+
+### Contrato de red y comportamiento del registro
 
 | Método y ruta | Operación |
 | --- | --- |
-| `POST /auth/signup` | JSON `{}` y Origin exacto; 201 `{account_id, code}` una vez, sin sesión/cookie. 409 si ya hay sesión válida; 429 límite. |
-| `GET /auth/session` | Sesión válida: `authenticated`, `account_id`, `csrf_token`, `expires_at`; 401 sin sesión, 503 sin esquema/servicio. |
-| `POST /auth/login` | JSON `{code}` y Origin exacto; emite sesión/cookie de esa cuenta, 401 incorrecto, 429 límite. |
-| `POST /auth/logout` | Cookie, `X-Activity-Account`, Origin y CSRF; revoca la sesión capturada, 204 sin `Set-Cookie`. |
-| `POST /api/fronts` | Crear frente; `Idempotency-Key` UUID obligatorio. |
-| `GET /api/fronts` | Consultar frentes con `states`, `search`, `limit` y `offset`. |
-| `GET /api/fronts/{front_id}` | Consultar un frente por UUID. |
-| `PATCH /api/fronts/{front_id}` | Editar nombre, referencia o estado. Omitir un campo lo conserva; `reference: null` borra solo el enlace. |
-| `PUT /api/fronts/{front_id}/check` | `{ "day": "today", "marked": true }`; UUID de idempotencia obligatorio. También fecha ISO estricta o `yesterday`. |
-| `GET /api/history` | Checks presentes dentro de `start`/`end` inclusivos; filtro opcional `front_id`. |
-| `GET /api/dashboard` | Frentes con fechas marcadas, último registro global y conteo del período; filtros/paginación. `order=created` por defecto; `order=activity_desc` ordena el conteo inclusivo descendente antes de paginar, con empates por creación/UUID. |
+| `GET /auth/config` | Sitekey pública, disponibilidad del alta e indicador de loopback; nunca devuelve secretos. |
+| `POST /auth/signup` | `{credential, turnstile_token}` y Origin exacto; 201 `{account_id}` sin cookie. El código se genera y muestra localmente. 403 por CAPTCHA/capacidad/cierre, 409 si existe sesión válida, 429 por límite. |
+| `GET /auth/session` | `authenticated`, `account_id`, `csrf_token`, `expires_at`; 401 sin sesión, 503 sin esquema/servicio. Una sesión válida no basta para descifrar. |
+| `POST /auth/login` | `{credential}` y Origin exacto; emite cookie de sesión. No recibe el código ni la clave de cifrado. |
+| `POST /auth/logout` | Cookie, cuenta esperada, Origin y CSRF; 204 sin `Set-Cookie`. |
+| `GET /api/vault` | Documento cifrado y versión; día actual de Madrid y reloj del servidor. Solo para migrar devuelve el contenido anterior de esa misma cuenta y su revisión. |
+| `PUT /api/vault` | `{version, day, iv, ciphertext, legacy_revision}`; versión esperada, día y revisión inicial comprobados dentro del batch. 409 si cambiaron, 413 por tamaño. Guarda cifrado y retira el original de forma atómica. |
 
-Límites técnicos: nombre recortado de 1–200 caracteres, sin NUL —validado también en SQLite—; referencia HTTP(S) de hasta 2048, nunca recorrida; estados `open`, `standby`, `archived`. Las consultas de frentes incluyen todos los estados si se omite el filtro. Búsqueda por subcadena literal, con las reglas de mayúsculas de SQLite `LIKE` —insensible para ASCII, no normalización lingüística completa—. Orden predeterminado de frentes por creación/UUID y de checks por fecha/UUID. Solo el dashboard admite además `order=activity_desc`; con el mismo denominador para todos los frentes, el conteo equivale al porcentaje sin redondear. Máximo 100 frentes o 1000 checks por página, `offset` hasta 100000 e intervalos de hasta 366 días; se pueden consultar períodos anteriores por tramos. Un UUID de frente inexistente **o de otra cuenta** devuelve 404, incluso en consultas sin actividad; intervalos o entradas inválidas devuelven 422.
+Las rutas antiguas `/api/fronts`, `/api/history` y `/api/dashboard` devuelven 410 tras autenticar. El cliente calcula listado, búsqueda, historial y dashboard después de descifrar. El servidor valida acceso, formato/tamaño del sobre, versión y contexto temporal; al no leer el contenido, no puede validar nombres, estados ni checks dentro del cifrado.
 
-Los reintentos de una misma cuenta con la misma clave y solicitud normalizada devuelven la **respuesta original**, sin reaplicar cambios sobre ediciones posteriores. La clave está ligada a la cuenta: el mismo UUID en otra cuenta es independiente y nunca devuelve datos ajenos. La fecha relativa se resuelve en Madrid una sola vez y se conserva al reintentar, incluso tras medianoche o reinicio. Reutilizar una clave con otro contenido, frente u operación devuelve 409. El registro interno de idempotencia se conserva sin caducidad en este bloque; una política futura no podrá romper esas garantías. No hay borrado permanente de frentes.
+Se conservan las reglas funcionales: nombre de 1–200 caracteres sin NUL; enlace HTTP(S) hasta 2048; estados `open`, `standby`, `archived`; un check por frente/día, sin fechas futuras; intervalos inclusivos de hasta 366 días. Búsqueda literal con comparación ASCII sin distinguir mayúsculas; orden por creación/UUID y, en dashboard, por actividad antes de paginar. No hay borrado permanente de frentes.
 
+**Concurrencia y reintentos:** el navegador lee, modifica y guarda con versión esperada. Ante un conflicto confirmado vuelve a leer y combina la operación, hasta cinco intentos; dos pestañas no sobrescriben a ciegas sus snapshots. Ante una pérdida de respuesta no se reintenta automáticamente: la UI conserva y bloquea la solicitud pendiente hasta confirmarla explícitamente. Las creaciones y checks guardan dentro del cifrado su clave, contenido y respuesta originales; repetirlos devuelve esa respuesta sin deshacer ediciones o desmarcados posteriores. Reutilizar una clave para otra operación devuelve conflicto. La fecha relativa queda fijada cuando se confirma por primera vez y se conserva en su replay.
 
-`/health` comprueba disponibilidad del esquema. `/docs`, `/redoc` y `/openapi.json`, auxiliares de FastAPI, no forman parte del Worker y devuelven JSON 404. La equivalencia verificada cubre la API de la app y sus casos de borde; las cabeceras Content-Type raw duplicadas y toda URI malformada no tienen una garantía de equivalencia universal.
+La identidad pendiente vive solo en memoria de la pestaña; se avisa antes de recargar/cerrar, pero no hay recuperación tras cerrarla. Un cambio de sesión oculta datos y editor sin trasladar la operación a otra cuenta. Volver a entrar en la original permite continuar con la misma identidad. Cerrar sesión queda bloqueado mientras haya una escritura pendiente; un logout incierto mantiene los datos ocultos hasta confirmarlo. Las respuestas originales no caducan automáticamente; al llegar al límite se conserva lo existente y se rechazan nuevos cambios.
 
-El conector futuro usará los mismos casos de uso, con una credencial independiente y permisos explícitos. No se reutiliza automáticamente el código web, no se configura pi y no se ofrecen SQL, shell o navegación arbitrarios mediante MCP.
+`/health` comprueba el esquema. `/docs`, `/redoc` y `/openapi.json` no forman parte del Worker y devuelven JSON 404. Las pruebas de equivalencia con Python corresponden al protocolo anterior, conservado en un handler de caracterización que no es el punto de entrada desplegado.
+
+El conector futuro pi/MCP necesita una credencial y un diseño explícito de acceso al contenido cifrado. El código web no se reutiliza automáticamente; esta ampliación no implementa MCP, LLM ni almacenamiento de claves de proveedores.
 
 ## 6. Estado real y verificación
 
@@ -275,11 +285,32 @@ Riesgos considerados en esta primera publicación: apuntar por error a datos loc
 | Datos entre implementaciones | Separados. La promoción de código no migra ni sincroniza cuentas/historial. Una transferencia requeriría procedimiento y petición específica. |
 | MCP de Activity Hub | Pendiente de concretar autenticación e implementar/probar el conector; el MCP de Cloudflare para Codex ya está instalado y autenticado. |
 | Alojamiento y copias | Worker y D1 publicados y comprobados por HTTPS/Firefox, base entregada sin datos de usuario. Límites/CPU/coste bajo carga, copia externa y recuperación pendientes. |
-| Git | Repositorio local: `main` conserva la publicación `v0.1.0`; `feature/information-agent` preparada para la ampliación. Sin remoto Git ni despliegue automático. Datos, credenciales y artefactos de ejecución excluidos. |
+| Git | Repositorio local: `main` conserva la publicación `v0.1.0`; incremento actual en `feature/security-hardening` y `feature/information-agent` preparada para la ampliación. Sin remoto Git ni despliegue automático. Datos, credenciales y artefactos de ejecución excluidos. |
 | Dispositivos | Safari/iPhone físico pendientes. |
 | Notificaciones y asistencia | MVP pendiente de definir; no iniciado. |
 
-**Publicación completada, 2026-10-06.** La versión actual puede usarse en Cloudflare creando una cuenta nueva. Se conservan los datos locales y el diseño de las ampliaciones, todavía sin implementar. **Siguiente paso:** concretar el primer incremento de Información a partir de la sección siguiente y desarrollarlo en `feature/information-agent`; publicar cambios posteriores de forma explícita desde la versión estable.
+**Publicación completada, 2026-10-06.** La versión publicada sigue siendo `v0.1.0`. **Trabajo actual:** seguridad y privacidad en `feature/security-hardening`, antes de continuar Información. El código en desarrollo no está desplegado.
+
+### Seguridad y publicación — incremento solicitado, 2026-10-06
+
+Decisiones confirmadas: registro abierto con CAPTCHA y máximo inicial de **100 cuentas**; contenido cifrado en el navegador, sin contenido legible al consultar D1 o sus copias. La garantía elegida no incluye a un administrador que modifique deliberadamente el cliente web para capturar claves. Identificadores, tamaños, versiones, tiempos de sincronización y metadatos de autenticación siguen siendo visibles. El cifrado de Cloudflare en reposo no sustituye este cifrado de aplicación.
+
+Implementación local verificada y revisión independiente completada. Todavía sin desplegar:
+
+- [x] Frenar peticiones antes de D1, limitar cuerpos y altas de forma atómica, acotar almacenamiento y sesiones por cuenta y añadir interruptores operativos.
+- [x] Cifrar nombres, enlaces y actividad en el navegador; separar la credencial de autenticación de la clave de cifrado. Mantener versiones y reintentos seguros entre pestañas. No almacenar el código ni la clave en persistencia del navegador; una nueva carga necesita desbloqueo con el código.
+- [x] Conservar las cuentas existentes. Migrar contenido antiguo desde el navegador sin borrar el original antes de confirmar la escritura cifrada. Las copias históricas anteriores no se cifran retroactivamente.
+- [ ] Integrar Turnstile y comprobar token válido, caducado/reutilizado y acción/hostname incorrectos. Widget creado mediante el OAuth existente de Wrangler, con permiso `challenge-widgets.write`; no hace falta un API token adicional. Secret `TURNSTILE_SECRET` instalado en el Worker. Metadatos del widget y sonda con token ficticio comprobados; falta el recorrido remoto con token real y su rechazo al reutilizarlo.
+- [x] Verificar acceso entre cuentas, conflictos concurrentes, respuestas perdidas, manipulación del cifrado y límites; revisión independiente y recorrido real en navegador.
+- [x] Estandarizar cambio en rama, pruebas/regresiones, preparación del artefacto, migraciones compatibles, despliegue y comprobación posterior. Git y Cloudflare son pasos distintos; no existe todavía remoto Git.
+
+**Evidencia del incremento:** `npm run release:prepare` pasa con **34 pruebas backend y 162 frontend**, sintaxis/tipos/build, dry-run de producción y ambos recorridos Firefox del protocolo cifrado. Incluye siete anchos, dos temas, 69 pares de contraste, cierre de sesión sin desbloquear, dos cuentas, migración, respuestas perdidas y rechazo de contenido manipulado. Las suites históricas se mantienen como caracterización; las nuevas cubren el protocolo cifrado. Verificado también el rechazo de publicación fuera de `main` y el dry-run del paquete congelado con `--no-bundle`. No se han añadido dependencias al proyecto.
+
+La primera revisión independiente encontró cuatro defectos: límite por cuenta omitido en la consulta de sesión, CAPTCHA demasiado ancho para móvil, orden incorrecto de timestamps con distinta precisión y ausencia de logout antes de desbloquear. Se reprodujeron mediante pruebas fallidas y se corrigieron; las regresiones y el conjunto completo pasan. Segunda revisión independiente: **PASS**, sin hallazgos accionables pendientes en los arreglos ni cambios cercanos; revisión estática, pruebas ejecutadas por la sesión principal. La caché local de Wrangler también se excluye de Git y de la huella del código.
+
+**Siguiente paso:** registrar el cambio revisado en Git, incorporarlo a `main` y publicar el artefacto preparado con los pasos protegidos de la [guía de operación](backend/README.md); comprobar alta Turnstile real y rechazo del token reutilizado. La migración y el código de seguridad no están aplicados a producción; añadir el secreto ha publicado una versión de configuración del código anterior.
+
+Premortem: una ráfaga consume D1 antes del rechazo (limitador previo y prueba de cero consultas); altas concurrentes superan 100 (control dentro del batch); dos pestañas pierden cambios (versionado y conflictos); una migración/copia o replay conserva texto legible (inspección con datos sintéticos y traslado atómico); una publicación omite límites/CAPTCHA o no coincide con el código probado (validación de configuración y artefacto antes de publicar).
 
 ## 8. Ampliación de información y aprendizaje — diseño conservado, 2026-10-06
 
@@ -293,6 +324,8 @@ Esta sección conserva las decisiones de la conversación para continuar el dise
 - La aplicación, el agente y los trabajos programados deben poder funcionar **alojados y accesibles desde la web, con el Mac apagado**. Un proceso que dependa del ordenador personal no cumple el objetivo.
 - Incorporar documentación adicional que el usuario quiera mantener: por ejemplo, información burocrática, guías docentes y reglas de evaluación que no estén en el correo. El formato y los conectores concretos aún deben cerrarse.
 - Ofrecer consulta conversacional y visibilidad global mediante resúmenes ejecutivos relevantes para el día y la semana siguiente. Conservar los diarios/resúmenes y sus referencias. El registro diario actual contiene checks: todavía no existe un diario narrativo.
+- **Prioridad revisada:** la ampliación LLM queda aplazada hasta completar seguridad. Cada usuario deberá aportar su propio acceso/cupo del proveedor; nunca se usará por defecto la credencial del administrador. No se implementa aún almacenamiento de claves de proveedores. La compatibilidad de suscripciones, API y cuotas deberá comprobarse con cada proveedor.
+- El requisito de cifrado en el navegador condiciona al agente alojado autónomo: no se podrá darle acceso al contenido con el navegador cerrado sin diseñar una delegación explícita de claves/procesamiento y explicar sus garantías. No guardar una clave maestra del servidor en D1 como supuesto aislamiento frente al administrador.
 
 ### Organización y fidelidad de la información
 

@@ -7,7 +7,7 @@ import { databaseClock, utcText } from '../src/time.js';
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export const origin = 'http://127.0.0.1:8787';
-export async function fixture(t, { migrate = true, webOrigin = origin, assets = false, main } = {}) {
+export async function fixture(t, { migrate = true, webOrigin = origin, assets = false, main, legacy = true } = {}) {
   await mkdir(path.join(root, '.state'), { recursive: true });
   const directory = await mkdtemp(path.join(root, '.state', 'gate-'));
   // Inline config rooted in our own empty directory avoids .dev.vars probes
@@ -16,7 +16,7 @@ export async function fixture(t, { migrate = true, webOrigin = origin, assets = 
   const config = {
     ...local,
     ...local.env.local,
-    main: path.join(root, local.main),
+    main: path.join(root, legacy ? 'tests/legacy-worker.js' : local.main),
     vars: { WEB_ORIGIN: webOrigin },
     d1_databases: local.env.local.d1_databases.map(db => ({ ...db, migrations_dir: path.join(root, db.migrations_dir) })),
   };
@@ -76,7 +76,7 @@ export async function counts(DB) {
 // Runs the same Worker fetch handler with a real workerd/D1 binding. Constructor
 // clocks and wrappers stay in tests; the deployable HTTP/env surface has no hook.
 export function localFetcher(DB, { clock = databaseClock, webOrigin = origin } = {}) {
-  const worker = createWorker({ clock });
+  const worker = createWorker({ clock, legacy: true });
   return (route, options) => worker.fetch(new Request(new URL(route, webOrigin), options), { DB, WEB_ORIGIN: webOrigin });
 }
 
@@ -135,7 +135,9 @@ export async function persistentFixture(t) {
   }
   t.after(async () => { await proxy?.dispose(); await rm(directory, { recursive: true, force: true }); });
   const initial = await open();
-  const sql = await readFile(path.join(root, 'migrations/0001_gate.sql'), 'utf8');
-  await initial.DB.batch(splitSqlQuery(sql).map(statement => initial.DB.prepare(statement)));
+  for (const migration of ['0001_gate.sql', '0002_private_storage.sql']) {
+    const sql = await readFile(path.join(root, `migrations/${migration}`), 'utf8');
+    await initial.DB.batch(splitSqlQuery(sql).map(statement => initial.DB.prepare(statement)));
+  }
   return { ...initial, async reopen() { await proxy.dispose(); return open(); } };
 }

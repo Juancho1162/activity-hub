@@ -56,18 +56,32 @@ export function publicSession(proof) {
 }
 export function loginInput(value) {
   try {
+    if (value && Object.hasOwn(value, 'credential')) {
+      object(value, ['credential']);
+      if (!/^[a-f0-9]{64}$/.test(value.credential) || typeof value.credential !== 'string') throw new Error();
+      return { credential: value.credential };
+    }
     object(value, ['code']);
     if (typeof value.code !== 'string' || [...value.code].length > 128) throw new Error();
     return value.code;
   } catch { throw new HttpError(400, 'Invalid request'); }
 }
 export function signupInput(value) {
-  try { object(value, []); } catch { throw new HttpError(400, 'Invalid request'); }
+  try {
+    if (value && Object.hasOwn(value, 'credential')) {
+      object(value, ['credential', 'turnstile_token']);
+      if (typeof value.credential !== 'string' || !/^[a-f0-9]{64}$/.test(value.credential)) throw new Error();
+      return value;
+    }
+    object(value, []);
+    return {};
+  } catch { throw new HttpError(400, 'Invalid request'); }
 }
 export class Auth {
   constructor(DB, clock) { this.DB = DB; this.clock = clock; }
   async authenticate(raw) {
     const verifier = await sessionVerifier(raw);
+    if (!verifier) throw new HttpError(401, 'Authentication required');
     const moment = this.clock();
     const rows = await batch(this.DB, [
       statement(this.DB, `SELECT (${READY}) AS ready`),
@@ -98,34 +112,43 @@ export class Auth {
     const ctx = context(this.DB, this.clock, null, { signupVerifier: await sessionVerifier(prior) });
     await ctx.finish({ 409: 'Sign out before creating an account' });
   }
-  async signup(prior) {
+  async signup(prior, credential) {
     const priorVerifier = await sessionVerifier(prior);
     for (let attempt = 0; attempt < 8; attempt++) {
-      const code = generatedCode();
-      const verifier = await hash('access-code', normalizeCode(code));
+      const code = credential ? null : generatedCode();
+      const verifier = credential ? await hash('browser-auth', credential) : await hash('access-code', normalizeCode(code));
       const id = crypto.randomUUID().replaceAll('-', '');
       const ctx = context(this.DB, this.clock, null, { signupVerifier: priorVerifier });
       const { c, nonce } = ctx;
-      ctx.add(`INSERT INTO accounts(id,code_verifier,created_at) SELECT ?,?,now FROM ${c} WHERE nonce=? AND status=200 ON CONFLICT(code_verifier) DO NOTHING`, [id, verifier, nonce]);
+      ctx.add(`UPDATE ${c} SET status=403 WHERE nonce=? AND status=200 AND (SELECT count(*) FROM accounts)>=100`, [nonce]);
+      ctx.add(`INSERT INTO accounts(id,code_verifier,auth_verifier,created_at) SELECT ?,?,?,now FROM ${c} WHERE nonce=? AND status=200 ON CONFLICT(code_verifier) DO NOTHING`, [id, verifier, credential ? verifier : null, nonce]);
       ctx.add(`UPDATE ${c} SET response=(SELECT json_object('id',id) FROM accounts WHERE id=?) WHERE nonce=? AND status=200`, [id, nonce]);
-      const result = await ctx.finish({ 409: 'Sign out before creating an account' });
-      if (result) return { account_id: uuidText(id), code };
+      const result = await ctx.finish({ 403: 'Registration capacity reached', 409: 'Sign out before creating an account' });
+      if (result) return { account_id: uuidText(id), ...(code ? { code } : {}) };
+      if (credential) throw new HttpError(409, 'Credential already registered');
       // Only a verifier collision retries. Arbitrary storage failures NEVER do.
     }
     throw unavailable();
   }
   async login(code, prior) {
+    const credential = typeof code === 'object' ? code.credential : null;
     const normalized = normalizeCode(code);
-    const verifier = await hash('access-code', normalized || '');
+    const verifier = credential ? await hash('browser-auth', credential) : await hash('access-code', normalized || '');
+    const lookup = credential ? '(auth_verifier=? OR (auth_verifier IS NULL AND code_verifier=?))' : '(auth_verifier IS NULL AND code_verifier=?)';
+    const lookupBindings = credential ? [verifier, credential] : [verifier];
     const raw = token();
     const csrf = token();
     const rawVerifier = await sessionVerifier(raw);
     const priorVerifier = await sessionVerifier(prior);
     const ctx = context(this.DB, this.clock);
     const { c, nonce } = ctx;
-    ctx.add(`UPDATE ${c} SET status=401 WHERE nonce=? AND status=200 AND (NOT ? OR NOT EXISTS (SELECT 1 FROM accounts WHERE code_verifier=?))`, [nonce, normalized ? 1 : 0, verifier]);
+    ctx.add(`UPDATE ${c} SET status=401 WHERE nonce=? AND status=200 AND (NOT ? OR NOT EXISTS (SELECT 1 FROM accounts WHERE ${lookup}))`, [nonce, normalized || credential ? 1 : 0, ...lookupBindings]);
+    if (credential) ctx.add(`UPDATE accounts SET code_verifier=?,auth_verifier=? WHERE auth_verifier IS NULL AND code_verifier=? AND (SELECT status FROM ${c} WHERE nonce=?)=200`, [verifier, verifier, credential, nonce]);
     ctx.add(`DELETE FROM web_sessions WHERE expires_at<=(SELECT now FROM ${c} WHERE nonce=?) AND (SELECT status FROM ${c} WHERE nonce=?)=200`, [nonce, nonce]);
     ctx.add(`DELETE FROM web_sessions WHERE token_verifier=? AND (SELECT status FROM ${c} WHERE nonce=?)=200`, [priorVerifier, nonce]);
+    ctx.add(`DELETE FROM web_sessions WHERE account_id=(SELECT id FROM accounts WHERE code_verifier=?) AND token_verifier NOT IN
+      (SELECT token_verifier FROM web_sessions WHERE account_id=(SELECT id FROM accounts WHERE code_verifier=?) ORDER BY created_at DESC,token_verifier DESC LIMIT 19)
+      AND (SELECT status FROM ${c} WHERE nonce=?)=200`, [verifier, verifier, nonce]);
     ctx.add(`INSERT INTO web_sessions(token_verifier,account_id,csrf_token,created_at,expires_at)
       SELECT ?,a.id,?,c.now,strftime('%Y-%m-%d %H:%M:%S',c.now,'+30 days')||substr(c.now,20)
       FROM accounts a,${c} c WHERE c.nonce=? AND c.status=200 AND a.code_verifier=?`, [rawVerifier, csrf, nonce, verifier]);

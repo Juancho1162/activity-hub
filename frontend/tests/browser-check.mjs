@@ -10,6 +10,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { fixture as workerFixture } from "../../backend/tests/fixture.js"
+import { browserVault } from "../../backend/tests/browser-vault.js"
 
 const root = fileURLToPath(new URL("../../", import.meta.url))
 const frontend = join(root, "frontend")
@@ -61,7 +62,7 @@ try {
     'user_pref("network.captive-portal-service.enabled", false);',
   ].join("\n"))
   const bidiPort = await freePort()
-  const { url } = await workerFixture({ after: callback => cleanup.push(callback) }, { assets: true, webOrigin: null })
+  const { url } = await workerFixture({ after: callback => cleanup.push(callback) }, { assets: true, webOrigin: null, legacy: false })
   const origin = url.origin
   assert.equal((await fetch(`${origin}/health`)).status, 200, "real primary Worker/D1 ready")
   assert.equal((await fetch(`${origin}/api/fronts`)).status, 401)
@@ -181,11 +182,9 @@ try {
   const selectValue = (id, value) => evaluate(`(() => { const input = document.getElementById(${JSON.stringify(id)}); input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event('change', {bubbles:true})); return true })()`)
   const login = async (code, ctx = context) => { await inputValue("access-code", code, ctx); await click("Entrar", ctx) }
   const account = (ctx = context) => evaluate("fetch('/auth/session').then(r=>r.json()).then(p=>p.account_id)", ctx)
-  const api = async (path, ctx = context) => JSON.parse(await evaluate(`(async () => {
-    const proof = await (await fetch('/auth/session')).json();
-    const response = await fetch(${JSON.stringify(path)}, {headers:{'X-Activity-Account':proof.account_id}});
-    return JSON.stringify({status:response.status, body:await response.json()});
-  })()`, ctx))
+  const encrypted = browserVault({evaluate, account, origin, defaultContext:context})
+  const pendingCodes = new Map()
+  const api = (path, ctx = context) => encrypted.query(path, ctx)
   async function createAccount(ctx = context) {
     await click("Crear cuenta", ctx)
     await waitFor(() => evaluate("document.getElementById('signup-code') !== null", ctx), "one-time signup code")
@@ -193,6 +192,7 @@ try {
     assert.ok(typeof code === "string" && code.length === 39, "generated account code format")
     assert.equal(await evaluate("fetch('/auth/session').then(r => r.status)", ctx), 401, "Signup must not authenticate before saving the code")
     assert.equal(await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Entrar en mi cuenta').disabled", ctx), true)
+    pendingCodes.set(ctx, code)
     return code
   }
   async function acknowledge(ctx = context) {
@@ -200,6 +200,7 @@ try {
     await click("Entrar en mi cuenta", ctx)
     await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')", ctx), "new account starts empty")
     assert.equal(await evaluate("document.querySelector('#signup-code') === null", ctx), true)
+    encrypted.remember(await account(ctx), pendingCodes.get(ctx))
   }
 
   async function assertDashboardRowGeometry(label) {
@@ -326,22 +327,14 @@ try {
   assert.equal(await evaluate("document.querySelector('.session-controls p').textContent.trim()"), `Cuenta ${accountA.slice(0, 8)}`, "Session caption only identifies the account")
   assert.equal(await evaluate("document.cookie.includes('activity_hub_session')"), false, "HttpOnly cookie")
   assert.equal(await evaluate("(async()=>{const p=await(await fetch('/auth/session')).json();return (await fetch('/api/fronts',{method:'POST',headers:{'Content-Type':'application/json','X-Activity-Account':p.account_id},body:'{}'})).status})()"), 403)
-  // Seed fictional activity through the authenticated public API, not SQL or overrides.
-  await evaluate(`(async()=>{
-    const p=await(await fetch('/auth/session')).json();
-    const day=document.getElementById('registration-day').value;
-    const send=async(path,body,method='POST')=>{
-      const r=await fetch(path,{method,headers:{'Content-Type':'application/json','X-Activity-Account':p.account_id,'X-CSRF-Token':p.csrf_token,'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify(body)});
-      if(!r.ok)throw new Error('Fixture request failed');return r.json();
-    };
-    for(const [name,state] of [['Guitarra','open'],['Curso de arquitectura','open'],['Lectura','standby'],['Proyecto terminado','archived']]){
-      const front=await send('/api/fronts',{name,state,reference:'https://example.test/material'});
-      for(const offset of [1,3,6]){const date=new Date(day+'T12:00:00Z');date.setUTCDate(date.getUTCDate()-offset);await send('/api/fronts/'+front.id+'/check',{day:date.toISOString().slice(0,10),marked:true},'PUT')}
-    }
-    return true;
-  })()`)
+  // Seed synthetic encrypted records through the normal authenticated vault.
+  const fixtureDay = await evaluate("document.getElementById('registration-day').value")
+  const offsetDay = (day, offset) => new Date(Date.parse(day+'T12:00:00Z')-offset*86400000).toISOString().slice(0,10)
+  await encrypted.seed([['Guitarra','open'],['Curso de arquitectura','open'],['Lectura','standby'],['Proyecto terminado','archived']].map(([name,state])=>({name,state,reference:'https://example.test/material',days:[1,3,6].map(offset=>offsetDay(fixtureDay,offset))})))
   await navigate()
-  await waitFor(() => evaluate("document.querySelectorAll('[role=checkbox].activity-check').length === 2"), "resumed account A rows")
+  await waitFor(() => evaluate("document.querySelector('#access-code') !== null"), "reload requires decryption code")
+  await login(codeA)
+  await waitFor(() => evaluate("document.querySelectorAll('[role=checkbox].activity-check').length === 2"), "decrypted account A rows")
   const withReference = await referenceGeometry()
   await evaluate("document.querySelector('[aria-label=\"Editar Guitarra\"]').click()")
   await waitFor(() => evaluate("document.getElementById('front-reference')!==null"), "edit fixture reference")
@@ -396,16 +389,19 @@ try {
   await screenshot("daily-mobile-rows", 390, 844)
   // Hold the re-read after a REAL check commit: the list must not collapse and
   // reset the browser scroll/focus while it waits for the refreshed snapshot.
-  const dailyReadUrl = await evaluate("performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname==='/api/dashboard').at(-1).name")
-  const checkUrl = `${origin}/api/fronts/${(await api('/api/fronts?search=Guitarra')).body.items[0].id}/check`
+  const dailyReadUrl = `${origin}/api/vault`
+  const checkUrl = dailyReadUrl
   let heldRefreshRequest = null
   let heldCheckRequest = null
+  let holdPostWriteRead = false
   onEvent = ({ method, params }) => {
-    if (method === "network.responseStarted" && params.context === context && params.request.method === "GET" && params.request.url === dailyReadUrl && params.isBlocked) heldRefreshRequest = params.request.request
+    if (method === "network.responseStarted" && params.context === context && params.request.method === "GET" && params.request.url === dailyReadUrl && params.isBlocked) {
+      if (holdPostWriteRead) heldRefreshRequest = params.request.request
+      else void command("network.continueResponse", {request:params.request.request})
+    }
     if (method === "network.responseStarted" && params.context === context && params.request.method === "PUT" && params.request.url === checkUrl && params.isBlocked) heldCheckRequest = params.request.request
   }
   const heldRefresh = await command("network.addIntercept", { contexts: [context], phases: ["responseStarted"], urlPatterns: [{ type: "string", pattern: dailyReadUrl }] })
-  const heldCheck = await command("network.addIntercept", { contexts: [context], phases: ["responseStarted"], urlPatterns: [{ type: "string", pattern: checkUrl }] })
   const beforeCheck = JSON.parse(await evaluate(`(() => {
     window.__checkTarget=document.querySelector('[role=checkbox].activity-check');
     window.__checkTarget.focus({preventScroll:true});
@@ -422,8 +418,8 @@ try {
   assert.deepEqual(await otherControlAppearance(), stableControls, "Sending one check must not flash unrelated controls")
   assert.equal(await evaluate("document.querySelector('.main-feedback').textContent.trim()"), "", "Sending a check must not show a progress popup")
   assert.equal(await evaluate("window.__checkTarget.getAttribute('aria-checked')"), "false", "No optimistic check before the response")
+  holdPostWriteRead = true
   await command("network.continueResponse", { request: heldCheckRequest })
-  await command("network.removeIntercept", { intercept: heldCheck.intercept })
   await waitFor(async () => heldRefreshRequest !== null, "hold read after confirmed check")
   assert.equal(await evaluate("getComputedStyle(window.__checkTarget).cursor"), "pointer", "Check cursor remains stable during the confirmed refresh")
   assert.deepEqual(await otherControlAppearance(), stableControls, "Refreshing after a check must not flash unrelated controls")
@@ -484,7 +480,9 @@ try {
   await screenshot("dashboard-narrow-collapsed", 320, 780)
   const { context: otherTab } = await command("browsingContext.create", { type: "tab" })
   await navigate(otherTab)
-  await waitFor(() => evaluate("document.querySelector('.session-controls') !== null", otherTab), "second tab resumes A for theme changes")
+  await waitFor(() => evaluate("document.querySelector('#access-code') !== null", otherTab), "new tab requires decryption code")
+  await login(codeA, otherTab)
+  await waitFor(() => evaluate("document.querySelector('.app-shell') !== null", otherTab), "second tab resumes A for theme changes")
   await click("Nuevo frente")
   await waitFor(() => evaluate("document.activeElement?.id === 'front-name'"), "editor focus")
   await inputValue("front-name", "Frente de prueba del navegador")
@@ -514,21 +512,9 @@ try {
 
   // A later-created leader must move ahead of the FIRST page, not just sort
   // within page two. Standby fixtures keep the existing daily/open checks intact.
-  const orderedNames = JSON.parse(await evaluate(`(async()=>{
-    const p=await(await fetch('/auth/session')).json(), names=[];
-    const topics=['Guitarra','Lectura técnica','Inglés','Diseño de interfaces','Fotografía','Estadística','Python','Escritura','Arquitectura','Bases de datos','Piano','Dibujo','Francés','Matemáticas','Historia','React','Cocina','Edición de vídeo','Redes','Tipografía','Electrónica','Documentación de '+ 'X'.repeat(160),'Laboratorio de interfaces y tipografía'];
-    const send=async(path,body,method='POST')=>{
-      const r=await fetch(path,{method,headers:{'Content-Type':'application/json','X-Activity-Account':p.account_id,'X-CSRF-Token':p.csrf_token,'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify(body)});
-      if(!r.ok)throw new Error('Order fixture failed');return r.json();
-    };
-    for(let i=1;i<=23;i++){
-      const name='Orden '+String(i).padStart(2,'0')+' · '+topics[i-1];names.push(name);
-      const front=await send('/api/fronts',{name,state:'standby',reference:null});
-      const offsets=i===1?[0]:i===23?[1,2,3,4,5,6]:Array.from({length:i%5},(_,j)=>8+j);
-      for(const offset of offsets){const day=new Date(${JSON.stringify(periodEnd)}+'T12:00:00Z');day.setUTCDate(day.getUTCDate()-offset);await send('/api/fronts/'+front.id+'/check',{day:day.toISOString().slice(0,10),marked:true},'PUT')}
-    }
-    return JSON.stringify(names);
-  })()`))
+  const topics=['Guitarra','Lectura técnica','Inglés','Diseño de interfaces','Fotografía','Estadística','Python','Escritura','Arquitectura','Bases de datos','Piano','Dibujo','Francés','Matemáticas','Historia','React','Cocina','Edición de vídeo','Redes','Tipografía','Electrónica','Documentación de '+ 'X'.repeat(160),'Laboratorio de interfaces y tipografía']
+  const orderedNames = topics.map((topic,index)=>'Orden '+String(index+1).padStart(2,'0')+' · '+topic)
+  await encrypted.seed(orderedNames.map((name,index)=>({name,state:'standby',reference:null,days:(index===0?[0]:index===22?[1,2,3,4,5,6]:Array.from({length:(index+1)%5},(_,j)=>8+j)).map(offset=>offsetDay(periodEnd,offset))})))
   await selectValue("state-filter", "standby")
   await inputValue("name-search", "Orden ")
   await waitFor(() => evaluate(`document.querySelectorAll('.front-card h2').length===20 && document.querySelector('.front-card h2').textContent===${JSON.stringify(orderedNames[22])}`), "later-created highest percentage reaches first filtered page")
@@ -625,8 +611,10 @@ try {
   await waitFor(() => evaluate("document.activeElement?.id === 'front-name'"), "A draft before account switch")
   await inputValue("front-name", "Borrador exclusivo de A")
   await navigate(otherTab)
+  await waitFor(() => evaluate("document.querySelector('#access-code') !== null", otherTab), "reloaded tab needs its key")
+  await login(codeA, otherTab)
   try {
-    await waitFor(() => evaluate("document.querySelector('.session-controls') !== null", otherTab), "second tab resumes A")
+    await waitFor(() => evaluate("document.querySelector('.app-shell') !== null", otherTab), "second tab resumes A")
   } catch (error) {
     console.log("Second-tab diagnostic", await evaluate(`(async()=>JSON.stringify({
       sessionStatus:(await fetch('/auth/session')).status,
@@ -650,8 +638,8 @@ try {
   assert.notEqual(accountA, accountB)
   assert.equal((await api(`/api/fronts/${stored.items[0].id}`, otherTab)).status, 404)
   await evaluate("window.dispatchEvent(new Event('focus'))")
-  await waitFor(() => evaluate("document.querySelector('#continue-account') !== null && document.querySelector('[role=dialog]') === null"), "A tab hides its draft when B takes over")
-  await click("Continuar con esta cuenta")
+  await waitFor(() => evaluate("document.querySelector('#access-code') !== null && document.querySelector('[role=dialog]') === null"), "A tab hides its draft and requires B key")
+  await login(codeB)
   await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')"), "explicitly continue into B, without A data")
   assert.equal(await evaluate("document.body.textContent.includes('Borrador exclusivo de A')"), false)
   await click("Cerrar sesión")
@@ -661,15 +649,15 @@ try {
   assert.equal(await account(), accountA)
 
   // Fail exactly the HTTP response AFTER the server committed a real creation.
-  const replayKeys = []
+  const encryptedWrites = []
   let blockedRequest = null
   onEvent = ({ method, params }) => {
-    if (method !== "network.responseStarted" || params.context !== context || params.request.method !== "POST" || params.request.url !== `${origin}/api/fronts`) return
-    const key = params.request.headers.find(h => h.name.toLowerCase() === "idempotency-key")?.value?.value
-    if (key) replayKeys.push(key)
+    if (method === "network.responseStarted" && params.context === context && params.isBlocked && params.request.method === "GET") { void command("network.continueResponse", {request:params.request.request}); return }
+    if (method !== "network.responseStarted" || params.context !== context || params.request.method !== "PUT" || params.request.url !== `${origin}/api/vault`) return
+    encryptedWrites.push(params.request.request)
     if (params.isBlocked) blockedRequest = params.request.request
   }
-  const { intercept } = await command("network.addIntercept", { contexts: [context], phases: ["responseStarted"], urlPatterns: [{ type: "string", pattern: `${origin}/api/fronts` }] })
+  const { intercept } = await command("network.addIntercept", { contexts: [context], phases: ["responseStarted"], urlPatterns: [{ type: "string", pattern: `${origin}/api/vault` }] })
   await click("Nuevo frente")
   await waitFor(() => evaluate("document.activeElement?.id === 'front-name'"), "pending create editor")
   await inputValue("front-name", "Solicitud pendiente de A")
@@ -684,11 +672,13 @@ try {
     await chooseTheme(theme, otherTab)
     await waitFor(() => evaluate(`document.documentElement.dataset.theme===${JSON.stringify(theme)}`), "pending editor follows the other tab's theme")
     assert.equal(await evaluate("document.getElementById('front-name').value==='Solicitud pendiente de A' && document.getElementById('front-name').disabled && document.body.textContent.includes('Solicitud sin confirmar')"), true, "Theme cannot discard or unlock an uncertain request")
-    assert.equal(replayKeys.length, 1, "Theme never retries a mutation")
+    assert.equal(encryptedWrites.length, 1, "Theme never retries a mutation")
     await screenshot(`pending-${theme}-mobile`, 390, 844)
   }
   await navigate(otherTab)
-  await waitFor(() => evaluate("document.querySelector('.session-controls') !== null", otherTab), "other tab resumes current A")
+  await waitFor(() => evaluate("document.querySelector('#access-code') !== null", otherTab), "new tab requires decryption code")
+  await login(codeA, otherTab)
+  await waitFor(() => evaluate("document.querySelector('.app-shell') !== null", otherTab), "other tab resumes current A")
   await click("Cerrar sesión", otherTab)
   await waitFor(() => evaluate("document.querySelector('#access-code') !== null", otherTab), "invalidate A session from another tab")
   await login(codeB, otherTab)
@@ -705,8 +695,7 @@ try {
   await click("Reintentar solicitud")
   await waitFor(() => evaluate("document.querySelector('[role=dialog]') === null && document.body.textContent.includes('Solicitud pendiente de A')"), "explicit retry confirmed")
   assert.equal((await api("/api/fronts?search=Solicitud%20pendiente%20de%20A")).body.total, 1, "Retry must not duplicate the committed front")
-  assert.equal(replayKeys.length, 2)
-  assert.equal(replayKeys[0], replayKeys[1], "Original idempotency key survives B and reauthentication")
+  assert.equal(encryptedWrites.length, 1, "Encrypted original replay survives B and reauthentication without a duplicate write")
   assert.equal(await account(), accountA)
   assert.equal(await evaluate("sessionStorage.length===0 && localStorage.length===1 && ['light','dark','system'].includes(localStorage.getItem('activity-hub.theme'))"), true, "Only a whitelisted visual preference is persisted; never codes, drafts or activity")
   for (const path of ["/auth/reset", "/auth/recover", "/auth/rotate"]) {
@@ -735,6 +724,8 @@ try {
   assert.equal(await account(otherTab), accountB)
   assert.equal(await evaluate("document.querySelector('#continue-account') !== null"), true, "Old A tab reports the changed account")
   await click("Continuar con esta cuenta")
+  await waitFor(() => evaluate("document.querySelector('#access-code') !== null"), "late logout requires B decryption key")
+  await login(codeB)
   await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')"), "continue explicitly with B after delayed A logout")
   await click("Cerrar sesión")
   await waitFor(() => evaluate("document.body.textContent.includes('Sesión cerrada en este dispositivo.')"), "logout confirmed")

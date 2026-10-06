@@ -1,4 +1,4 @@
-// Loopback HTTP comparison, not a cloud CPU/cost/cold-start benchmark.
+// Historical plaintext protocol comparison, not a current encrypted-API benchmark.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -15,10 +15,10 @@ await mkdir(path.join(root, '.state'), { recursive: true });
 const directory = await mkdtemp(path.join(root, '.state', 'measure-'));
 let python;
 try {
-  // Test-only instrumentation around the unmodified production entrypoint.
+  // Test-only instrumentation around the retired protocol's characterization entrypoint.
   // No route, credential or environment flag enables this in the deployable Worker.
   const main = path.join(directory, 'instrumented.js');
-  await writeFile(main, `import worker from ${JSON.stringify(path.join(root, 'src/worker.js'))};
+  await writeFile(main, `import worker from ${JSON.stringify(path.join(root, 'tests/legacy-worker.js'))};
 export default {async fetch(request, env) {
   const meta={statements:0,rows_read:0,rows_written:0};
   const DB={prepare:sql=>env.DB.prepare(sql),async batch(statements){
@@ -107,7 +107,7 @@ export default {async fetch(request, env) {
     measured_at: new Date().toISOString(), node: process.versions.node, platform: `${process.platform}/${process.arch}`,
     dataset: { fronts: data.fronts.length, ownerA: 105, ownerB: 1, legacy: 1, checks: data.checks.length },
     method: 'Real loopback HTTP, sequential Python then workerd, same seeded rows, 1 first + 20 warm samples per operation, 8 simultaneous dashboards after writes. First is after setup, not a process/isolate cold start. Workerd has test-only D1 metadata instrumentation.',
-    limits: 'Local emulation only. No cloud CPU, remote latency, billing, hosted cold starts, or recovery claims. D1 rows/statement counts are emulator metadata, not billed usage.',
+    limits: 'Historical plaintext API, not the encrypted production protocol. Local emulation only. No cloud CPU, remote latency, billing, hosted cold starts, or recovery claims. D1 rows/statement counts are emulator metadata, not billed usage.',
     results,
   };
   await mkdir(path.join(root, 'test-results'), { recursive: true });

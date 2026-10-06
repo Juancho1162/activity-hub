@@ -33,98 +33,66 @@ Las carpetas `.state/`, `.wrangler/`, `.cache/`, `node_modules/`, `dist/` y `tes
 
 ## Implementación y garantías
 
-`src/worker.js` atiende Fetch y delega en contratos, autenticación y operaciones. `src/sql.js` crea un contexto por operación dentro de un único `DB.batch()`: captura reloj SQL y revalida sesión/cuenta antes de leer o escribir dominio/replay; elimina el contexto en el mismo batch. Un fallo revierte toda la operación. No hay mutex en memoria ni lecturas mediante réplicas D1.
+El contrato de producto, límites y estado de publicación están en la [sección 5 del README raíz](../README.md#5-contratos-y-garantías). `src/worker.js` usa el protocolo cifrado; `tests/legacy-worker.js` mantiene únicamente la caracterización del protocolo anterior y la comparación con Python. No hay variable ni ruta HTTP que habilite ese handler en producción.
 
-Los replays devuelven la respuesta original, incluso después de editar/desmarcar, sin reejecutar el efecto. La fecha relativa se resuelve una vez en Madrid al serializar el batch; las pruebas cubren medianoche, ambos DST y reapertura. Los hooks de reloj/DB/métricas solo existen en los fixtures; la API desplegable no admite permisos o relojes de prueba.
+`src/security.js` aplica límites antes de D1, Turnstile y cierres operativos. `src/auth.js` limita cuentas/sesiones y verifica credenciales derivadas. `src/vault.js` guarda un sobre opaco por cuenta. `src/sql.js` revalida reloj, sesión, cuenta, día y versión dentro de `DB.batch()`; cualquier fallo revierte todo el batch. No hay mutex en memoria, caché privada ni lecturas mediante réplicas D1.
 
-Listado, historial y dashboard usan CTEs y parámetros acotados; el orden global de actividad se calcula antes de paginar. `instr(lower(...))` mantiene la búsqueda literal larga sin construir patrones LIKE que excedan el límite D1. Los rangos son inclusivos, las fechas marcadas pertenecen al rango y la última actividad global es independiente del filtro temporal.
+El frontend deriva claves en `privacy-crypto.ts`; `private-auth.ts` mantiene la clave en memoria y `private-vault.ts` descifra, aplica operaciones y guarda con comparación de versiones. La migración inicial exporta exclusivamente datos propios, los cifra y retira el original dentro de la transacción confirmada. La revisión del contenido antiguo y los triggers impiden perder escrituras en vuelo o volver a introducir texto legible después de migrar.
 
-## Evidencia actual
+Las pruebas de seguridad usan cuentas sintéticas y D1 temporal. Cubren límite concurrente de 100 cuentas, tamaño, aislamiento, CAPTCHA fallido sin tocar D1, sesiones revocadas/caducadas, conflictos, migración con rollback y manipulación del cifrado. Firefox recorre el cliente y Worker reales; un oráculo de cifrado independiente comprueba el contenido sintético y la ausencia de filas de dominio legibles. El recorrido completo comprueba siete anchos, dos temas, contraste, foco, scroll y solicitudes pendientes. Los resultados y pendientes vigentes están solo en el README raíz.
 
-- `npm run check`: **23 backend y 152 frontend pasan**, sintaxis JS, tipos/build React y bundle dry-run desde las nuevas rutas.
-- Referencia secundaria: **102 pruebas Python pasan** después del traslado, incluido el lanzador que sigue utilizando el frontend compartido.
-- `npm run measure`: comparación HTTP real contra Python secundario, snapshots iniciales/replays idénticos y 8 dashboards simultáneos correctos en cada implementación.
-- `npm run test:browser` y `npm run test:integration`: ambos pasan desde la raíz contra Worker/D1. El recorrido completo cubre siete anchos y 69 pares de contraste; ambos prueban cuentas/pestañas, respuesta perdida tras commit, reintento y logout retrasado.
-- CLI principal probado en una copia desechable: migración explícita, arranque, React/API, alta/creación y conservación de sesión/frente tras reinicio. El puerto ocupado causa error sin fallback ni interrupción del otro proceso; solo se usó D1 temporal.
-- Revisión del traslado en la sesión principal, sin hallazgos pendientes: rutas, manifiestos/locks, persistencia, fixtures y documentación. Los seis módulos del runtime JavaScript conservan sus hashes. El revisor configurado no estuvo disponible, por lo que esta promoción no tiene una revisión independiente nueva; el **PASS** independiente corresponde al experimento anterior.
+`npm run measure` conserva la comparación histórica del protocolo **sin cifrar** contra Python: no mide el rendimiento del nuevo almacenamiento. La medición del 2026-10-05 usó 107 frentes, 109 checks y 20 muestras calientes por operación; su JSON está en `test-results/measurement.json`. Ni esas cifras ni las filas leídas/escritas del emulador acreditan CPU, cuota, coste o latencia alojados. `measure` necesita `.venv/`; los recorridos del producto actual no ejecutan Python.
 
-Una espera fallida previa de UI coincidió con cambios/builds concurrentes y no se reprodujo en los pases posteriores. Cada fixture conserva ahora una copia propia de los assets para que las pestañas compartan el mismo build.
+## Flujo de cambio, pruebas y publicación
 
-La suite cubre acceso, aislamiento, normalización/payload canónico, atomicidad, carreras de revocación/caducidad, conflictos/replays concurrentes, persistencia física y límites de intentos. Incluye importación de replays ficticios de Python, búsqueda literal larga, páginas de 100 y orden global antes de paginar. Los casos controlados de reloj/carrera importan el mismo handler en Node con binding D1 real; las pruebas HTTP y Firefox ejecutan workerd.
+Destino explícito: Worker `activity-hub`, entorno `production`, cuenta `72734ad9e032887b9758d0c2216e3d48`, D1 `activity-hub-production` (`5ffb5d44-eb8f-4fac-8c2b-5714a1251460`), URL **https://activity-hub.software-juancho-prego-gundin.workers.dev**. D1 se creó con jurisdicción `eu`; esto no limita la ejecución mundial del Worker. Los identificadores y la sitekey son públicos; el secreto Turnstile vive en Workers Secrets.
 
-### Medición tras el traslado
+Cada cambio sigue estos pasos desde la raíz con **Node 26**:
 
-Fecha UTC: `2026-10-05T15:40:01.383Z`. Misma fixture: 107 frentes —105 de A, 1 de B, 1 legacy— y 109 checks. Una muestra inicial tras preparación/autenticación y 20 calientes por operación. Python seguido de workerd, con wrapper de métricas solo en la fixture; primera muestra no equivale a arranque frío.
+1. Trabajar en una rama `feature/...` partiendo de `main`. Reutilizar la especificación, añadir regresiones significativas y aplicar cambios. `npm run migrate` aplica solo el esquema local; `npm run dev` arranca la aplicación sin migrar por su cuenta.
+2. Ejecutar `npm run verify`: sintaxis, tests backend/frontend, tipos/build y los dos recorridos Firefox. Las pruebas usan datos temporales. Si falla algo, corregir y repetir las comprobaciones afectadas; la publicación exige finalmente el conjunto completo.
+3. Revisar el cambio y sus pruebas, incluyendo revisión independiente para seguridad, datos y reglas de negocio. Actualizar la especificación/estado raíz. No editar código mientras el revisor inspecciona la instantánea.
+4. Ejecutar `npm run release:prepare`. Reutiliza una verificación coincidente o ejecuta `verify`; valida el destino y los bindings, empaqueta con Wrangler dry-run y copia Worker, assets, configuración y migraciones en `.release/build-…/`. Guarda hashes del código y artefacto. No publica ni modifica Git.
+5. Registrar el cambio revisado en Git e incorporarlo a `main` explícitamente. Los comandos remotos exigen `main` y árbol limpio. No hacen commits, merges ni push por su cuenta. No existe remoto Git configurado: un `git push` y publicar en Cloudflare son acciones distintas.
+6. Si hay migraciones pendientes, revisarlas para que sean compatibles con la versión aún activa y ejecutar **`npm run release:migrate`**. Registra antes versiones del Worker y punto de Time Travel en `.release/before-migration.json`; aplica las migraciones congeladas a la D1 remota. No es un ensayo: modifica producción.
+7. Ejecutar **`npm run release:deploy`**. Revalida código/artefacto, destino, árbol limpio, nombre del secreto Turnstile y presencia del esquema. Publica el bundle congelado con `--no-bundle` y comprueba web, CSP, salud, 401/no-store en rutas privadas y rechazo de alta sin CAPTCHA. Registra commit/hash/fecha localmente. Si falla la comprobación posterior, el despliegue puede haber ocurrido: inspeccionar antes de repetir.
+8. Completar el recorrido remoto proporcional al cambio, registrar la versión y el resultado en el README raíz. Para Turnstile: un alta con token real y fresco y rechazo de ese mismo token al reutilizarlo. Los tokens ficticios y mocks no acreditan esta integración real.
 
-| Acción | Python p50/p95 ms | workerd p50/p95 ms | Sentencias D1 | Filas leídas/escritas D1 |
-| --- | ---: | ---: | ---: | ---: |
-| Listado 100 | 11.505 / 17.711 | 9.058 / 13.055 | 8 | 670 / 4 |
-| Historial | 9.164 / 19.518 | 7.902 / 9.719 | 8 | 1107 / 4 |
-| Dashboard 100 | 14.304 / 48.037 | 7.551 / 9.012 | 8 | 1372 / 4 |
-| Búsqueda larga | 6.178 / 9.743 | 7.131 / 9.205 | 8 | 263 / 4 |
-| Crear | 9.144 / 11.637 | 6.325 / 13.138 | 12 | 49 / 9 |
-| Replay creación | 7.851 / 10.57 | 7.219 / 9.604 | 12 | 51 / 4 |
-| Marcar check | 10.73 / 12.312 | 7.249 / 10.974 | 15 | 51 / 9 |
-
-La medición coincidió con otras comprobaciones locales; los tiempos no establecen una ventaja de rendimiento. El JSON completo queda en `test-results/measurement.json`. Las filas/sentencias son metadatos del emulador, no consumo facturado: incluso GET escribe cuatro filas de contexto transaccional. CPU, cuotas, latencia y precio alojados no se han medido.
-
-## Límites de equivalencia y alojamiento
-
-Se mantiene la API que utiliza React y el comportamiento verificado. Las rutas auxiliares FastAPI `/docs`, `/redoc` y `/openapi.json` devuelven JSON 404. Fetch combina cabeceras Content-Type repetidas, mientras Python puede ver la primera cabecera raw: no se afirma equivalencia universal para esa entrada ni para toda URI malformada.
-
-Las pruebas locales no acreditan cuotas/CPU reales, réplicas ni recuperación. La publicación HTTPS se verifica por separado y su resultado vigente figura en el README raíz. Safari/iPhone físico siguen sin probar.
-
-### Producción en Cloudflare
-
-Publicación autorizada por el usuario el **2026-10-06**, empezando con una base remota nueva y vacía. Web y API comparten **https://activity-hub.software-juancho-prego-gundin.workers.dev**. El destino es `env.production`, Worker `activity-hub`, D1 `activity-hub-production` (`5ffb5d44-eb8f-4fac-8c2b-5714a1251460`), creada con jurisdicción `eu`. Esta jurisdicción afecta a D1, no a la ejecución mundial del Worker.
-
-Se aplicó `0001_gate.sql` sobre la nueva D1; no se importaron datos locales. Los IDs de cuenta/base y la URL son configuración pública, no credenciales. Wrangler gestiona su OAuth fuera del repositorio. La app no necesita un token de Cloudflare como variable de ejecución: accede a D1 mediante el binding `DB`.
-
-Las publicaciones son manuales desde la versión estable de `main`, con el árbol limpio y las comprobaciones pasadas. La rama `feature/information-agent` sirve para desarrollar la ampliación; cambiar de rama no publica nada ni sincroniza bases. No se han configurado despliegues automáticos ni un remoto Git.
-
-Desde la raíz, con **Node 26**:
+Comandos habituales:
 
 ```sh
-npm run check
-npm run test:integration
+npm run verify
+npm run release:prepare
+# Después de revisión y de incorporar explícitamente el cambio a main:
+npm run release:migrate   # solo si procede aplicar migraciones revisadas
+npm run release:deploy
+npm run release:smoke     # se puede repetir; no crea cuentas
 ```
 
-Después, desde `backend/`, usando el Wrangler fijado del proyecto:
+`.release/` contiene evidencia y artefactos locales ignorados por Git; no es una copia de D1. Si cambia código/configuración/tests, o se modifica el artefacto, hay que volver a prepararlo. Editar solo Markdown no cambia el artefacto ejecutable; el árbol debe quedar limpio igualmente. No añadir secretos a argumentos, repositorio, configuración versionada ni assets. Los builds locales aíslan configuración y credenciales de Wrangler; los comandos remotos usan la autenticación del operador y el archivo vacío `scripts/no-secrets.txt`.
 
-```sh
-# Validar el paquete/configuración de producción sin publicar.
-WRANGLER_SEND_METRICS=false ./node_modules/.bin/wrangler deploy --dry-run --env production --env-file scripts/no-secrets.txt
+Wrangler puede sobrescribir configuración del panel: reconciliar cambios operativos con `wrangler.jsonc`. No pasar `--name activity-hub` junto a `--env production`; en esta versión de Wrangler se puede interpretar como nombre base y añadir un sufijo. El nombre del destino ya está fijado dentro del entorno. Observabilidad y URL de versiones permanecen deshabilitadas por la decisión de privacidad del proyecto. No se han configurado CI, despliegues automáticos ni recursos de staging.
 
-# Revisar las migraciones pendientes de la D1 remota.
-WRANGLER_SEND_METRICS=false ./node_modules/.bin/wrangler d1 migrations list DB --env production --remote --env-file scripts/no-secrets.txt
+### Límites e interruptores
 
-# Solo cuando haya migraciones revisadas y compatibles con el código aún activo.
-WRANGLER_SEND_METRICS=false ./node_modules/.bin/wrangler d1 migrations apply DB --env production --remote --env-file scripts/no-secrets.txt
+En producción se requieren las cuatro bindings de rate limiting. Sus valores iniciales son 600 solicitudes dinámicas, 120/IP, 10/IP y ruta de alta/login, y 60/cuenta por minuto. Su alcance es por ubicación de Cloudflare y eventualmente consistente; no ofrecen un presupuesto global duro. D1 permite como máximo 100 cuentas y un documento de 512 KiB binarios por cuenta; el JSON/base64 y los metadatos ocupan más. Cada lectura autorizada también escribe contexto transaccional, por lo que el espacio acotado no implica operaciones diarias acotadas.
 
-# Publicar Worker y build oficial de React.
-WRANGLER_SEND_METRICS=false ./node_modules/.bin/wrangler deploy --env production --env-file scripts/no-secrets.txt
-```
+Para un incidente, cambiar la variable correspondiente a `"false"`: `REGISTRATION_ENABLED` cierra altas; `WRITES_ENABLED` cierra PUT del registro; `API_ENABLED` detiene las rutas dinámicas. Conservar los datos y no alterar las claves. Una publicación de emergencia debe mantener los bindings y pasar verificación; el smoke normal espera servicio y registro abiertos y **fallará de forma esperada** si se aplica un cierre. Comprobar entonces el rechazo previsto y documentar el estado, sin deshacer automáticamente el cierre. Los errores 429 indican esperar antes de reintentar; no invalidan el código de acceso.
 
-Los scripts `dev`, `migrate` y los tests siguen aislados en `local`; no sirven para autenticarse o publicar. Para los comandos remotos se utiliza directamente Wrangler y el archivo vacío de variables `scripts/no-secrets.txt`. No añadir credenciales a argumentos, configuración versionada, logs o assets. El despliegue incluye solo el build `frontend/dist`, no el repositorio ni los experimentos. La observabilidad y las URL de versiones permanecen deshabilitadas.
+### Migración y recuperación
 
-Después de cada publicación comprobar `/health`, pantalla de acceso, protección de `/api/fronts`, Origin/cookie/CSRF y un recorrido de uso proporcional al cambio. La comprobación inicial usa cuentas ficticias que se retiran antes de la entrega; repetir ese procedimiento en una base ya utilizada requiere identificar estrictamente los datos de prueba. Registrar el ID de versión y el resultado en el estado del README raíz.
+`0001_gate.sql` se aplicó a la base remota inicialmente vacía, sin importar datos locales. `0002_private_storage.sql` añade el almacenamiento cifrado, verificadores y protección de migración. Aplicar el esquema no cifra por sí solo los datos existentes: el titular necesita entrar con su código desde el nuevo cliente. Un usuario anterior sin actividad también debe desbloquear su cuenta para actualizar el verificador.
 
-### Actualizaciones y recuperación
+**Después de convertir verificadores o contenido no se puede volver sin más al código `v0.1.0`:** no entiende las credenciales ni los documentos cifrados. Una corrección debe mantener el protocolo nuevo. Un rollback de Worker no revierte D1 y solo sirve si ambas versiones entienden el esquema y los datos actuales. Las pestañas antiguas deben recargar; las rutas de escritura en texto legible quedan retiradas.
 
-Antes de cambiar un esquema con datos, registrar la versión del Worker y un punto de recuperación de D1. Consultas operativas de lectura:
+Antes de cualquier migración con datos se registra la versión y un punto de recuperación. Time Travel actúa sobre D1 remota aunque su comando no lleve `--remote`. Restaurar D1 sobrescribe datos posteriores y requiere un procedimiento y autorización específicos: ensayar en un destino desechable, revisar integridad y revocar sesiones restauradas. No se considera recuperación probada por conservar un bookmark.
 
-```sh
-./node_modules/.bin/wrangler versions list --env production --env-file scripts/no-secrets.txt
-./node_modules/.bin/wrangler d1 time-travel info DB --env production --env-file scripts/no-secrets.txt
-```
-
-`time-travel` actúa sobre la base remota aunque no lleve `--remote`. Si corresponde una exportación SQL, guardarla fuera del repositorio y protegerla: puede contener verificadores y sesiones. Git conserva código y documentación; no copia la D1 remota ni sus registros.
-
-El rollback de código (`wrangler rollback VERSION_ID --env production`) no restaura datos y exige que el código y los bindings sigan siendo compatibles. Restaurar D1 sobrescribe datos y requiere un procedimiento específico; no es un paso rutinario de publicación. Las migraciones incompatibles necesitan un plan de corte/retorno antes de ejecutarse. No hay copia externa programada ni ensayo de recuperación acreditado. Probar restauraciones primero sobre un destino desechable, revisar claves foráneas y revocar sesiones restauradas.
+Las copias antiguas pueden contener datos sin cifrar. Las posteriores conservan cifrado, verificadores y metadatos, por lo que también deben protegerse. Git no copia los datos ni las claves de los usuarios. No hay recuperación del código, exportación externa programada ni ensayo de restauración acreditado; tampoco prueba de carga/coste real o Safari/iPhone físico.
 
 ## Fuentes técnicas
 
 - [API D1 y batches](https://developers.cloudflare.com/d1/worker-api/d1-database/), [límites D1](https://developers.cloudflare.com/d1/platform/limits/) y [migraciones](https://developers.cloudflare.com/d1/reference/migrations/).
+- [Rate limiting de Workers](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/), [Siteverify de Turnstile](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/) y [seguridad de D1](https://developers.cloudflare.com/d1/reference/data-security/).
 - [Static Assets y routing](https://developers.cloudflare.com/workers/static-assets/routing/worker-script/).
 - [Desarrollo local D1](https://developers.cloudflare.com/d1/best-practices/local-development/).
 - [Wrangler Workers](https://developers.cloudflare.com/workers/wrangler/commands/workers/) y [Wrangler D1](https://developers.cloudflare.com/workers/wrangler/commands/d1/).

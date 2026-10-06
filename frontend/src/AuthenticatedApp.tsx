@@ -6,8 +6,9 @@ import { ThemeToggle } from "@/components/Theme"
 import { Card, CardContent } from "@/components/ui/8bit/card"
 import { Checkbox } from "@/components/ui/8bit/checkbox"
 import { Input } from "@/components/ui/8bit/input"
-import { createApi } from "@/lib/api"
-import { AuthError, createAuthClient, type AuthSession, type SignupOut } from "@/lib/auth"
+import { createApi, type AccessContext } from "@/lib/api"
+import { AuthError, type AuthClient, type AuthSession, type SignupOut } from "@/lib/auth"
+import { createPrivateAuthClient } from "@/lib/private-auth"
 
 type Mode = "checking" | "login" | "signing-in" | "active" | "error" | "logging-out" | "logout-error"
   | "signing-up" | "signup-code" | "signup-login" | "signup-error" | "account-changed" | "account-blocked"
@@ -15,8 +16,8 @@ type SessionContext = { proof: AuthSession; generation: number }
 const asAuthError = (error: unknown) => error instanceof AuthError ? error : new AuthError("network", "No se ha podido conectar con el servidor. Reintenta la conexión.")
 const expiryNotice = "La sesión ha caducado o se ha revocado. Vuelve a entrar; las solicitudes pendientes siguen en memoria."
 
-export default function AuthenticatedApp({ fetcher = fetch, clock }: { fetcher?: typeof fetch; clock?: () => Date }) {
-  const auth = useMemo(() => createAuthClient(fetcher), [fetcher])
+export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory = createPrivateAuthClient }: { fetcher?: typeof fetch; clock?: () => Date; authFactory?: (fetcher: typeof fetch) => AuthClient }) {
+  const auth = useMemo(() => authFactory(fetcher), [fetcher, authFactory])
   const [mode, setMode] = useState<Mode>("checking")
   const [context, setContext] = useState<SessionContext | null>(null)
   // This is the identity of the mounted editor/intent, NOT necessarily the cookie.
@@ -67,13 +68,20 @@ export default function AuthenticatedApp({ fetcher = fetch, clock }: { fetcher?:
     }
   }, [rememberSession, transition])
   const activate = useCallback((proof: AuthSession, explicit = false) => {
+    if (auth.canRead && !auth.canRead(proof.account_id)) {
+      rememberSession(proof)
+      setError(null); setCode("")
+      setNotice("Introduce tu código para descifrar el registro en esta pestaña. La clave no se guarda en el dispositivo.")
+      transition(writeLockedRef.current ? "account-blocked" : "login")
+      return
+    }
     if (appAccountRef.current && appAccountRef.current !== proof.account_id
       && (writeLockedRef.current || !explicit)) { gateChanged(proof); return }
     rememberSession(proof, explicit)
     appAccountRef.current = proof.account_id; setMountedAppAccountId(proof.account_id)
     setError(null); setNotice(""); setCode("")
     transition("active")
-  }, [rememberSession, gateChanged, transition])
+  }, [auth, rememberSession, gateChanged, transition])
   const requireLogin = useCallback((message: string) => {
     sessionGeneration.current++
     contextRef.current = null; setContext(null)
@@ -147,7 +155,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock }: { fetcher?:
   const api = useMemo(() => {
     const captured = context
     const expectedAccount = mountedAppAccountId ?? captured?.proof.account_id ?? ""
-    return createApi(fetcher, {
+    const access: AccessContext = {
       accountId: expectedAccount,
       csrfToken: captured?.proof.account_id === expectedAccount ? captured.proof.csrf_token : "",
       onAccessDenied(status) {
@@ -157,8 +165,9 @@ export default function AuthenticatedApp({ fetcher = fetch, clock }: { fetcher?:
         if (status === 401) { cancelRead(); requireLogin(expiryNotice) }
         else void checkSession(true) // Refresh context/CSRF, never replay a write.
       },
-    })
-  }, [fetcher, context, mountedAppAccountId, cancelRead, requireLogin, checkSession])
+    }
+    return auth.createApi ? auth.createApi(access) : createApi(fetcher, access)
+  }, [auth, fetcher, context, mountedAppAccountId, cancelRead, requireLogin, checkSession])
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -224,6 +233,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock }: { fetcher?:
     transition("login")
   }
   function confirmLogout() {
+    auth.lock?.()
     sessionGeneration.current++
     contextRef.current = null; setContext(null)
     appAccountRef.current = null; setMountedAppAccountId(null)
@@ -232,7 +242,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock }: { fetcher?:
     transition("login")
   }
   async function logout() {
-    if (writeLockedRef.current || !["active", "logout-error"].includes(modeRef.current)) return
+    if (writeLockedRef.current || !["active", "login", "logout-error"].includes(modeRef.current)) return
     const retry = modeRef.current === "logout-error"
     if (!retry) logoutTarget.current = contextRef.current?.proof ?? null
     let target = logoutTarget.current
@@ -278,8 +288,8 @@ export default function AuthenticatedApp({ fetcher = fetch, clock }: { fetcher?:
   const codeView = created !== null && (mode === "signup-code" || mode === "signup-login")
   return <>
     <div className="app-controls">
-    {active && <nav className="session-controls" aria-label="Sesión privada">
-      <p className="muted">Cuenta {mountedAppAccountId?.slice(0, 8)}{writeLocked && <span className="sr-only"> · Confirma la solicitud pendiente antes de cerrar.</span>}</p>
+    {(active || (mode === "login" && context !== null)) && <nav className="session-controls" aria-label="Sesión privada">
+      <p className="muted">Cuenta {context?.proof.account_id.slice(0, 8)}{writeLocked && <span className="sr-only"> · Confirma la solicitud pendiente antes de cerrar.</span>}</p>
       <Button type="button" variant="outline" font="normal" className="text-button" disabled={writeLocked} onClick={() => { void logout() }}>Cerrar sesión</Button>
     </nav>}<ThemeToggle /></div>
     {!active && <main className="auth-shell">
@@ -291,6 +301,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock }: { fetcher?:
         {mode === "checking" && <p role="status" className="loading-message"><span className="loading-pixel" aria-hidden="true" />Comprobando la sesión de este dispositivo…</p>}
         {mode === "logging-out" && <p role="status">Cerrando la sesión… Espera la confirmación del servidor.</p>}
         {mode === "signing-up" && <p role="status">Creando una cuenta vacía… No recargues; espera el resultado.</p>}
+        <div id="signup-challenge" aria-label="Verificación de acceso" />
         {error && <div role="alert" id="auth-error">
           {mode === "logout-error" && <p>No se ha podido confirmar el cierre. Los datos permanecen ocultos. Reintenta el cierre explícitamente.</p>}
           <p>{error.message}</p>
@@ -304,7 +315,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock }: { fetcher?:
             {mode === "signing-in" && <p role="status">Comprobando el código…</p>}
           </form>
           {signupCooling && <p role="status">Espera antes de crear otra cuenta; el límite de altas sigue activo.</p>}
-          {!writeLocked && mode === "login" && <Button type="button" variant="outline" font="normal" className="text-button" disabled={signupCooling} onClick={() => { void signup() }}>Crear cuenta</Button>}
+          {!writeLocked && mode === "login" && context === null && <Button type="button" variant="outline" font="normal" className="text-button" disabled={signupCooling} onClick={() => { void signup() }}>Crear cuenta</Button>}
         </>}
         {codeView && <div className="auth-form signup-code-view">
           <p>Tu cuenta empieza vacía. Este es su único código permanente y solo se muestra ahora.</p>

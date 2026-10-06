@@ -3,18 +3,20 @@ import { Auth, settings, requireOrigin, privateHeaders, cookieToken, publicSessi
 import { Operations } from './operations.js';
 import { health } from './sql.js';
 import { databaseClock } from './time.js';
+import { Vault, vaultInput } from './vault.js';
+import { publicGate, accountGate, registrationConfig, verifySignup } from './security.js';
 
 // The first registered method matches FastAPI's Allow header on a 405.
 function allow(path) {
-  return ({ '/health': 'GET', '/auth/session': 'GET', '/auth/signup': 'POST', '/auth/login': 'POST',
-    '/auth/logout': 'POST', '/api/fronts': 'POST', '/api/history': 'GET', '/api/dashboard': 'GET' })[path]
+  return ({ '/health': 'GET', '/auth/config': 'GET', '/auth/session': 'GET', '/auth/signup': 'POST', '/auth/login': 'POST',
+    '/auth/logout': 'POST', '/api/vault': 'GET', '/api/fronts': 'POST', '/api/history': 'GET', '/api/dashboard': 'GET' })[path]
     || (/^\/api\/fronts\/[^/]+\/check$/.test(path) ? 'PUT' : /^\/api\/fronts\/[^/]+$/.test(path) ? 'GET' : null);
 }
 
 // Construction injection is only for isolated clock tests. No HTTP endpoint,
 // env var, token, Origin exception or permission override selects another clock.
 // The deployable export below ALWAYS uses SQL's clock at batch serialization.
-export function createWorker({ clock = databaseClock } = {}) {
+export function createWorker({ clock = databaseClock, legacy = false, turnstileFetch = fetch } = {}) {
   return {
     async fetch(request, env) {
       const url = new URL(request.url);
@@ -27,6 +29,7 @@ export function createWorker({ clock = databaseClock } = {}) {
       let response;
       try {
         const config = settings(env.WEB_ORIGIN);
+        if (!legacy) await publicGate(request, env, config);
         const auth = new Auth(env.DB, clock);
         const prior = cookieToken(request, config);
         // Cookie, expected account, Origin and CSRF precede UUID/body parsing,
@@ -35,7 +38,9 @@ export function createWorker({ clock = databaseClock } = {}) {
         if (privatePath || (path === '/auth/logout' && request.method === 'POST')) {
           proof = await auth.authenticate(prior);
           privateHeaders(request, config, proof);
+          if (!legacy) await accountGate(env, config, proof.account_id);
         }
+        if (!legacy && privatePath && path !== '/api/vault') throw new HttpError(410, 'Reload the application to use encrypted storage');
         const canonical = path.replace(/\/+$/, '');
         if (canonical !== path && allow(canonical)) {
           url.pathname = canonical;
@@ -43,24 +48,31 @@ export function createWorker({ clock = databaseClock } = {}) {
         } else if (path === '/health' && request.method === 'GET') {
           await health(env.DB);
           response = Response.json({ status: 'ok' });
+        } else if (path === '/auth/config' && request.method === 'GET') {
+          response = Response.json(registrationConfig(env, config));
         } else if (path === '/auth/session' && request.method === 'GET') {
-          response = Response.json(publicSession(await auth.authenticate(prior)));
+          const session = await auth.authenticate(prior);
+          if (!legacy) await accountGate(env, config, session.account_id);
+          response = Response.json(publicSession(session));
         } else if (path === '/auth/signup' && request.method === 'POST') {
           requireOrigin(request, config);
           let rateError;
-          try { await auth.reserve('signup'); } catch (error) {
+          try { if (legacy) await auth.reserve('signup'); } catch (error) {
             if (!(error instanceof HttpError) || error.status !== 429) throw error;
             rateError = error;
           }
           // Signed-in 409 remains explicit even if the public limiter is full.
-          await auth.signupAllowed(prior);
+          if (legacy) await auth.signupAllowed(prior);
           if (rateError) throw rateError;
-          signupInput(await input(request, true));
-          response = Response.json(await auth.signup(prior), { status: 201 });
+          const data = signupInput(await input(request, true, 4096));
+          if (!legacy && !data.credential) throw new HttpError(400, 'Browser credential required');
+          if (!legacy) await verifySignup(request, env, config, data.turnstile_token, turnstileFetch);
+          response = Response.json(await auth.signup(prior, data.credential), { status: 201 });
         } else if (path === '/auth/login' && request.method === 'POST') {
           requireOrigin(request, config);
-          await auth.reserve('login'); // Durable, independent commit BEFORE parsing.
+          if (legacy) await auth.reserve('login'); // Characterization of the retired protocol.
           const code = loginInput(await input(request, true));
+          if (!legacy && typeof code === 'string') throw new HttpError(400, 'Browser credential required');
           const { raw, response: session } = await auth.login(code, prior);
           const cookie = `${config.cookie}=${raw}; Max-Age=2592000; Expires=${new Date(session.expires_at).toUTCString()}; Path=/; HttpOnly; SameSite=Strict${config.secure ? '; Secure' : ''}`;
           response = Response.json(session, { headers: { 'Set-Cookie': cookie } });
@@ -68,6 +80,10 @@ export function createWorker({ clock = databaseClock } = {}) {
           await auth.logout(proof);
           // Delayed logout MUST NOT delete another tab's newer login cookie.
           response = new Response(null, { status: 204 });
+        } else if (path === '/api/vault' && request.method === 'GET') {
+          response = Response.json(await new Vault(env.DB, clock, proof).get());
+        } else if (path === '/api/vault' && request.method === 'PUT') {
+          response = Response.json(await new Vault(env.DB, clock, proof).put(vaultInput(await input(request, false, 704 * 1024))));
         } else if (path === '/api/fronts' && request.method === 'POST') {
           const key = uuidHex(request.headers.get('Idempotency-Key'));
           const data = frontInput(await input(request));
@@ -98,6 +114,9 @@ export function createWorker({ clock = databaseClock } = {}) {
           : Response.json({ detail: 'Internal server error' }, { status: 500 });
       }
       if (noStore) response.headers.set('Cache-Control', 'no-store');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      response.headers.set('Referrer-Policy', 'no-referrer');
+      response.headers.set('X-Frame-Options', 'DENY');
       return response;
     },
   };

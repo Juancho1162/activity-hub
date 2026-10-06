@@ -1,3 +1,4 @@
+import type { AccessContext, ActivityApi } from './api'
 export type AuthSession = { authenticated: true; account_id: string; csrf_token: string; expires_at: string }
 export type SignupOut = { account_id: string; code: string }
 export type AuthErrorKind = "invalid-code" | "rate-limit" | "account-changed" | "signup-conflict" | "forbidden" | "network" | "unavailable" | "invalid-response"
@@ -9,6 +10,9 @@ export interface AuthClient {
   signup(): Promise<SignupOut>
   login(code: string): Promise<AuthSession>
   logout(csrfToken: string, accountId: string): Promise<void>
+  canRead?(accountId: string): boolean
+  lock?(): void
+  createApi?(access: AccessContext): ActivityApi
 }
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null
 const accountId = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)
@@ -56,6 +60,8 @@ export function createAuthClient(fetcher: typeof fetch = fetch): AuthClient {
         }
         if (response.status === 409 && action === "logout" && record(data) && data.detail === "Account context changed") throw new AuthError("account-changed", "La cuenta activa ha cambiado. No se ha cerrado la otra cuenta.")
         if (response.status === 409 && action === "signup") throw new AuthError("signup-conflict", "Cierra la sesión antes de crear una cuenta. No se ha creado otra cuenta.")
+        if (response.status === 403 && record(data) && ['Registration closed', 'Registration capacity reached'].includes(String(data.detail))) throw new AuthError("forbidden", "La creación de cuentas está cerrada o ha alcanzado su capacidad. Las cuentas existentes pueden entrar.")
+        if (response.status === 403 && record(data) && data.detail === 'Verification required') throw new AuthError("forbidden", "La verificación ha caducado o no es válida. Vuelve a iniciar la creación de la cuenta.")
         if (response.status === 403) throw new AuthError("forbidden", "La solicitud de acceso fue rechazada. Comprueba el origen de la aplicación y reintenta.")
         throw new AuthError("unavailable", "El servidor o el esquema de datos no está disponible. Consulta las migraciones en el README y reintenta.")
       }
