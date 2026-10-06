@@ -1,0 +1,375 @@
+/* Three original art directions. The sample controller is deliberately unchanged. */
+:root {
+  color-scheme: light;
+  --bg: #eee7da; --panel: #fff9ee; --raised: #e6daca; --field: #fffbf3;
+  --ink: #263d40; --muted: #5c625a; --line: #c5baaa;
+  --accent: #973e2c; --accent-ink: #fff8eb; --second: #356563; --focus: #17636b;
+  --open: #325c46; --paused: #795018; --archived: #63556b; --error: #9d281c;
+  --serif: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 98px; }
+[hidden] { display: none !important; }
+body { margin: 0; color: var(--ink); background: var(--bg); font: 15px/1.55 var(--sans); }
+button, input, select { color: inherit; font: inherit; }
+button, input, select, summary { -webkit-tap-highlight-color: transparent; }
+button, select, summary { cursor: pointer; }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-width: 44px; min-height: 44px; padding: 9px 15px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); font-size: 13px; }
+button:hover:not(:disabled) { background: var(--raised); border-color: var(--second); }
+button:disabled { opacity: .45; cursor: default; }
+:where(button,input,select,summary,a):focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+input:not([type='checkbox']), select { display: block; width: 100%; min-width: 0; min-height: 44px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 4px; background: var(--field); font-size: 16px; }
+input::placeholder { color: var(--muted); opacity: 1; }
+input[aria-invalid='true'], select[aria-invalid='true'] { border-color: var(--error); }
+input[type='date'] { max-width: 100%; }
+h1,h2,h3,p,dl,dd,figure { margin: 0; }
+h1,h2,h3 { overflow-wrap: anywhere; }
+.icon { flex-shrink: 0; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.svg-definitions { position: absolute; width: 0; height: 0; overflow: hidden; }
+.icon-button { width: 44px; height: 44px; flex-shrink: 0; padding: 10px; background: transparent; }
+.button-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.button-primary:hover:not(:disabled) { background: var(--accent); color: var(--accent-ink); border-color: var(--ink); }
+.skip-link { position: fixed; top: 10px; left: 10px; z-index: 80; background: #fffaf1; color: #263d40; padding: 12px; transform: translateY(-180%); }
+.skip-link:focus { transform: none; }
+.no-script { padding: 24px; }
+/* Neutral, persistent comparison controls; these are outside the proposed product UI. */
+.lab-bar { position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: minmax(0,1fr) auto auto; grid-template-areas: 'heading choices reset' 'concept choices reset'; gap: 3px 20px; padding: 12px clamp(14px,3vw,48px); background: #faf8f2; color: #373c38; border-bottom: 1px solid #c7c9bd; box-shadow: 0 3px 14px #253c3510; }
+.lab-heading { grid-area: heading; display: flex; flex-wrap: wrap; gap: 5px 20px; }
+.lab-flag { color: #5c5140; font-size: 9px; font-weight: 650; letter-spacing: .055em; }
+.lab-version { color: #62655e; font-size: 9px; letter-spacing: .08em; }
+.look-selector { grid-area: choices; display: flex; gap: 4px; }
+.look-selector button { min-height: 44px; border-color: #cbd0c6; border-radius: 3px; background: #faf8f2; color: #424c45; font-size: 12px; }
+.look-selector button:hover:not(:disabled) { background: #e9ece2; border-color: #57675a; }
+.look-selector button[aria-pressed='true'] { color: #fffaf1; background: #354f48; border-color: #354f48; }
+.look-number { font: italic 12px var(--serif); }
+.look-concept { grid-area: concept; color: #5c625a; font-size: 11px; }
+.lab-reset { grid-area: reset; align-self: center; background: transparent; border-color: #cbd0c6; font-size: 11px; }
+.lab-reset:hover:not(:disabled) { color: #354f48; background: #e9ece2; }
+.lab-bar :focus-visible { outline-color: #596c4e; }
+/* Shared functional anatomy; art never sits behind control text or receives clicks. */
+.app-shell { width: min(100%,1640px); margin: 0 auto; padding: 32px clamp(18px,3vw,48px) 44px; }
+.app-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand-symbol { width: 37px; height: 37px; flex-shrink: 0; color: var(--second); }
+.brand-name { display: block; font: 25px/1.15 var(--serif); letter-spacing: -.035em; }
+.brand-caption { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+.view-nav { display: flex; gap: 6px; }
+.view-nav button { min-height: 48px; padding-inline: 20px; border: 1px solid transparent; color: var(--muted); background: transparent; }
+.view-nav button[aria-current='page'] { color: var(--accent); border-color: var(--line); background: var(--panel); }
+.header-sample { color: var(--muted); font: italic 14px/1.5 var(--serif); }
+.sample-subline { display: block; font: 8px/1.8 var(--sans); letter-spacing: .12em; }
+.sample-dot { display: none; }
+.workspace { min-width: 0; display: grid; gap: 24px; align-items: start; padding-top: 30px; outline: none; }
+.page-header { grid-area: heading; display: flex; justify-content: space-between; align-items: center; gap: 24px; min-width: 0; }
+.page-heading { min-width: 0; }
+.eyebrow, .micro-label { font: 10px/1.6 var(--sans); letter-spacing: .16em; }
+.eyebrow { color: var(--accent); margin-bottom: 12px; }
+h1 { font: 58px/1.03 var(--serif); letter-spacing: -.055em; }
+.heading-dot { color: var(--accent); }
+.page-description { margin-top: 13px; max-width: 58ch; color: var(--muted); font-size: 13px; }
+#new-front { flex-shrink: 0; }
+.art-panel { grid-area: gallery; min-width: 0; pointer-events: none; }
+.art-scene { display: none; }
+[data-look='surrealismo'] [data-art='surrealismo'], [data-look='impresionismo'] [data-art='impresionismo'], [data-look='renacimiento'] [data-art='renacimiento'] { display: block; }
+.art-scene img { display: block; width: 100%; height: 250px; object-fit: cover; }
+.art-caption { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-top: 9px; font: italic 12px/1.5 var(--serif); color: var(--muted); }
+.art-caption small { font: 8px/1.8 var(--sans); letter-spacing: .06em; }
+.context-panel { grid-area: context; min-width: 0; }
+.context-top, .context-reading, .context-limit { display: none; }
+.daily-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.date-field { flex: 1 1 145px; }
+.day-actions { display: flex; gap: 5px; }
+.day-actions button { padding-inline: 11px; }
+.sample-clock { margin-top: 8px; font-size: 9px; color: var(--muted); }
+.sample-clock span { margin-left: 5px; }
+.period-range { margin-top: 8px; font: 11px/1.6 var(--serif); color: var(--muted); }
+.filter-panel { grid-area: filters; min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) 168px; gap: 15px; }
+.field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.field > label { color: var(--muted); font-size: 11px; }
+.search-input { position: relative; }
+.search-input input { padding-left: 37px; }
+.search-input .icon { position: absolute; top: 13px; left: 11px; width: 18px; height: 18px; color: var(--muted); pointer-events: none; }
+.results { grid-area: results; min-width: 0; }
+.results-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin-bottom: 14px; color: var(--muted); font-size: 11px; }
+#result-count { color: var(--ink); }
+#order-caption { font-size: 10px; }
+.ledger-head { display: none; }
+.front-list { display: grid; gap: 12px; min-width: 0; }
+.front-row { min-width: 0; background: var(--panel); border: 1px solid var(--line); }
+.row-main { display: grid; grid-template-columns: 44px minmax(0,1fr) 92px; grid-template-areas: 'check identity actions'; align-items: center; gap: 14px; padding: 14px 18px; min-width: 0; }
+.check-control { grid-area: check; display: block; width: 44px; height: 44px; cursor: pointer; }
+.check-control input { appearance: none; display: block; position: relative; width: 44px; height: 44px; margin: 0; border: 1px solid var(--muted); border-radius: 4px; background: var(--field); cursor: pointer; }
+.check-control input:checked { background: var(--accent); border-color: var(--accent); }
+.check-control input:checked::after { content: ''; position: absolute; top: 10px; left: 16px; width: 10px; height: 18px; border-right: 2px solid var(--accent-ink); border-bottom: 2px solid var(--accent-ink); transform: rotate(45deg); }
+.front-identity { grid-area: identity; min-width: 0; }
+.front-name { font: 20px/1.3 var(--serif); letter-spacing: -.02em; }
+.front-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.row-number { color: var(--muted); font: italic 11px/1.5 var(--serif); }
+.state-badge { color: var(--open); font-size: 10px; }
+.state-badge[data-state='standby'] { color: var(--paused); }
+.state-badge[data-state='archived'] { color: var(--archived); }
+.daily-status { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.front-actions { grid-area: actions; display: grid; grid-template-columns: 44px 44px; gap: 4px; align-items: center; }
+.reference-slot { display: block; width: 44px; height: 44px; }
+.front-actions button { border-color: transparent; color: var(--muted); }
+.front-actions .reference-button { color: var(--accent); }
+.coverage { grid-area: coverage; min-width: 0; text-align: right; }
+.coverage-number { display: block; color: var(--accent); font: 37px/1.2 var(--serif); white-space: nowrap; font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
+.period-count { margin-top: 6px; color: var(--muted); font-size: 11px; }
+.coverage-meter { display: block; width: 100%; height: 4px; margin-top: 12px; background: var(--line); border: 0; border-radius: 0; }
+.coverage-meter::-moz-meter-bar { background: var(--accent); }
+.coverage-meter::-webkit-meter-bar { border: 0; background: var(--line); border-radius: 0; }
+.coverage-meter::-webkit-meter-optimum-value { background: var(--accent); }
+.global-last { grid-area: last; min-width: 0; }
+.global-last dt { color: var(--muted); font-size: 10px; }
+.global-last dd { margin-top: 5px; font: 14px/1.5 var(--serif); }
+.calendar-details { border-top: 1px solid var(--line); margin-inline: 18px; }
+.calendar-details summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding-block: 10px; list-style: none; color: var(--accent); font-size: 11px; }
+.calendar-details summary::-webkit-details-marker { display: none; }
+.calendar-details[open] summary .icon { transform: rotate(90deg); }
+.calendar-content { padding: 8px 0 20px; }
+.calendar-range { font-size: 10px; color: var(--muted); }
+.calendar-legend { display: flex; flex-wrap: wrap; gap: 7px 14px; margin: 12px 0; color: var(--muted); font-size: 10px; }
+.calendar-legend > span::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border: 1px solid var(--muted); }
+.calendar-legend .legend-registered::before { background: var(--accent); border-color: var(--accent); }
+.calendar-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 4px; max-width: 520px; list-style: none; margin: 0; padding: 0; }
+.calendar-tile { display: grid; place-items: center; height: 29px; color: var(--muted); background: var(--field); border: 1px solid var(--line); font-size: 11px; }
+.calendar-tile.is-marked { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.empty-result { border: 1px dashed var(--line); padding: 28px; color: var(--muted); }
+.reading-note { grid-area: note; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; border-top: 1px solid var(--line); padding-top: 18px; margin-top: 8px; color: var(--muted); font-size: 10px; line-height: 1.8; }
+.reading-note strong { font-weight: 500; color: var(--ink); }
+.validation-error { color: var(--error); border-left: 2px solid var(--error); padding: 10px; margin-top: 12px; font-size: 12px; }
+.demo-notice { position: fixed; bottom: 18px; right: 18px; z-index: 25; display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: center; gap: 10px; width: min(440px,calc(100% - 36px)); padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--accent); background: var(--panel); box-shadow: 0 12px 40px #1d342b24; font-size: 12px; }
+.demo-notice .icon-button { border: 0; }
+dialog { color: var(--ink); background: var(--panel); width: min(540px,calc(100% - 28px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 28px; border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 8px; box-shadow: 0 30px 100px #202d3560; }
+dialog::backdrop { background: #252e36aa; }
+.dialog-header { display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: start; gap: 12px; margin-bottom: 16px; }
+.dialog-header h2 { font: 29px/1.2 var(--serif); margin-top: 6px; }
+.dialog-header .micro-label { color: var(--accent); }
+.dialog-header .icon-button { border: 0; }
+.dialog-scope { color: var(--muted); font-size: 12px; line-height: 1.7; }
+#front-form > .field { margin-top: 20px; }
+.field-help { color: var(--muted); font-size: 11px; }
+.dialog-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+.reference-sheet { margin: 24px 0; padding: 18px; border: 1px solid var(--line); background: var(--field); }
+.reference-sheet .micro-label { color: var(--muted); }
+.reference-sheet h3 { margin: 8px 0 16px; font: 22px var(--serif); }
+.reference-sheet code { display: block; overflow-wrap: anywhere; color: var(--accent); font-size: 12px; }
+/* I / SURREALISMO: the interface stays still; the improbable space is in the art. */
+[data-look='surrealismo'] .app-shell { display: grid; grid-template-columns: 174px minmax(0,1fr); gap: 38px; }
+[data-look='surrealismo'] .app-header { flex-direction: column; align-items: stretch; align-self: start; position: sticky; top: 115px; padding: 25px 0; border: 0; min-height: 430px; gap: 42px; }
+[data-look='surrealismo'] .brand { flex-direction: column; align-items: start; gap: 16px; }
+[data-look='surrealismo'] .brand-symbol { width: 46px; height: 46px; }
+[data-look='surrealismo'] .brand-name { font-size: 28px; }
+[data-look='surrealismo'] .brand-caption { max-width: 17ch; }
+[data-look='surrealismo'] .view-nav { flex-direction: column; }
+[data-look='surrealismo'] .view-nav button { justify-content: start; border-radius: 0 24px 24px 0; padding-inline: 13px; }
+[data-look='surrealismo'] .view-nav button[aria-current='page'] { border-left: 3px solid var(--accent); }
+[data-look='surrealismo'] .header-sample { margin-top: auto; }
+[data-look='surrealismo'] .workspace { padding: 0; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); grid-template-areas: 'heading gallery' 'context gallery' 'filters filters' 'results results' 'note note'; gap: 24px 30px; }
+[data-look='surrealismo'] .page-header { display: block; padding-top: 22px; }
+[data-look='surrealismo'] h1 { font-size: clamp(48px,4.8vw,72px); font-style: italic; max-width: 9ch; }
+[data-look='surrealismo'] .heading-dot { display: none; }
+[data-look='surrealismo'] #new-front { margin-top: 19px; border-radius: 0 20px 20px 20px; }
+[data-look='surrealismo'] .art-scene img { height: 352px; border-radius: 48% 48% 8px 8px; box-shadow: 13px 12px 0 #d5c5b4; }
+[data-look='surrealismo'] .art-caption { margin-top: 23px; }
+[data-look='surrealismo'] .context-panel { padding-top: 5px; }
+[data-look='surrealismo'] .filter-panel { border-block: 1px solid var(--line); padding: 17px 0; }
+[data-look='surrealismo'] .front-row { border-radius: 3px 25px 3px 25px; }
+[data-look='surrealismo'] .front-row:nth-child(even) { margin-left: 24px; }
+[data-look='surrealismo'] .check-control input { border-radius: 50% 50% 3px 3px; }
+[data-look='surrealismo'][data-view='dashboard'] .front-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; align-items: start; }
+[data-look='surrealismo'][data-view='dashboard'] .front-row:nth-child(even) { margin-left: 0; }
+[data-look='surrealismo'][data-view='dashboard'] .row-main { grid-template-columns: minmax(0,1fr) 122px; grid-template-areas: 'identity coverage' 'last actions'; align-items: start; gap: 25px 16px; padding: 23px 20px 16px; }
+[data-look='surrealismo'][data-view='dashboard'] .front-actions { justify-self: end; align-self: center; }
+[data-look='surrealismo'] .coverage-number { font-style: italic; font-size: 41px; }
+[data-look='surrealismo'] .coverage-meter { height: 3px; }
+/* II / IMPRESIONISMO: a garden-like horizontal composition, soft paper and brushwork. */
+body[data-look='impresionismo'] { --bg: #eef1e9; --panel: #fffcf4; --raised: #e2e9df; --field: #fcfcf5; --ink: #304c4b; --muted: #58685e; --line: #bcc9bb; --accent: #38605c; --accent-ink: #fffbed; --second: #676385; --focus: #785078; --open: #3d6146; --paused: #73552e; --archived: #625d78; }
+[data-look='impresionismo'] .app-shell { max-width: 1550px; }
+[data-look='impresionismo'] .brand-name { font-style: italic; }
+[data-look='impresionismo'] .view-nav { border: 1px solid var(--line); border-radius: 32px; padding: 3px; background: var(--panel); }
+[data-look='impresionismo'] .view-nav button { border-radius: 25px; min-height: 44px; }
+[data-look='impresionismo'] .view-nav button[aria-current='page'] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+[data-look='impresionismo'] .workspace { grid-template-columns: minmax(0,1fr) minmax(0,1fr); grid-template-areas: 'heading heading' 'gallery gallery' 'context filters' 'results results' 'note note'; gap: 23px 30px; }
+[data-look='impresionismo'] h1 { font-size: 62px; font-style: italic; letter-spacing: -.055em; }
+[data-look='impresionismo'] .heading-dot { color: var(--second); }
+[data-look='impresionismo'] .button-primary { border-radius: 26px 22px 27px 20px; }
+[data-look='impresionismo'] .art-scene { position: relative; }
+[data-look='impresionismo'] .art-scene img { height: 190px; border-radius: 44% 3% 35% 3% / 9% 35% 12% 40%; object-position: center 58%; box-shadow: 0 14px 35px #486b6622; }
+[data-look='impresionismo'] .art-caption { margin-top: 13px; padding-inline: 10px; }
+[data-look='impresionismo'] .context-panel, [data-look='impresionismo'] .filter-panel { padding: 14px 0 6px; }
+[data-look='impresionismo'] input:not([type='checkbox']), [data-look='impresionismo'] select { border-radius: 9px; }
+[data-look='impresionismo'] .front-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; align-items: start; }
+[data-look='impresionismo'] .front-row { border: 1px solid var(--line); border-radius: 14px 5px 14px 5px; box-shadow: 3px 5px 16px #38605c09; position: relative; }
+[data-look='impresionismo'] .front-row::before { content: ''; position: absolute; top: -1px; left: 22px; width: 56px; height: 3px; border-radius: 50%; background: #b6b5ce; }
+[data-look='impresionismo'] .front-row:nth-child(3n)::before { background: #cfbc99; }
+[data-look='impresionismo'] .front-row:nth-child(3n + 2)::before { background: #9bb7a4; }
+[data-look='impresionismo'] .row-main { padding: 17px 15px; gap: 12px; }
+[data-look='impresionismo'] .check-control input { border-radius: 47% 50% 42% 46%; }
+[data-look='impresionismo'][data-view='dashboard'] .front-list { grid-template-columns: repeat(auto-fit,minmax(min(100%,330px),1fr)); }
+[data-look='impresionismo'][data-view='dashboard'] .row-main { grid-template-columns: minmax(0,1fr) 110px; grid-template-areas: 'identity coverage' 'last actions'; align-items: start; gap: 22px 16px; padding: 22px 18px 16px; }
+[data-look='impresionismo'][data-view='dashboard'] .front-actions { justify-self: end; align-self: center; }
+[data-look='impresionismo'] .coverage-meter { height: 5px; border-radius: 8px; }
+[data-look='impresionismo'] .coverage-meter::-moz-meter-bar { border-radius: 8px; }
+[data-look='impresionismo'] .calendar-tile { border-radius: 3px 6px 4px 6px; }
+/* III / RENACIMIENTO: a ruled folio, proportion study in the margin, ledger hierarchy. */
+body[data-look='renacimiento'] { --bg: #e6dbc4; --panel: #faf3e0; --raised: #e8dcc0; --field: #fff9e9; --ink: #3e3329; --muted: #655742; --line: #c5b38b; --accent: #75452e; --accent-ink: #fff6de; --second: #695732; --focus: #7a3b2b; --open: #4e6036; --paused: #7b5227; --archived: #6e5361; }
+[data-look='renacimiento'] .app-shell { max-width: 1510px; padding-top: 24px; }
+[data-look='renacimiento'] .app-header { border-block: 3px double var(--second); padding: 20px 18px; background: #f3e8cd; }
+[data-look='renacimiento'] .brand-name { font-variant: small-caps; font-size: 29px; letter-spacing: .025em; }
+[data-look='renacimiento'] .brand-caption { font: italic 11px var(--serif); }
+[data-look='renacimiento'] .brand-symbol { width: 44px; height: 44px; }
+[data-look='renacimiento'] .view-nav button { font: 16px var(--serif); border-radius: 0; }
+[data-look='renacimiento'] .view-nav button[aria-current='page'] { border-block: 1px solid var(--second); border-inline: 0; color: var(--accent); }
+[data-look='renacimiento'] .header-sample { font-size: 13px; text-align: right; }
+[data-look='renacimiento'] .workspace { grid-template-columns: 230px minmax(0,1fr); grid-template-areas: 'gallery heading' 'gallery context' 'gallery filters' 'gallery results' 'note note'; gap: 22px 36px; padding-top: 35px; }
+[data-look='renacimiento'] .art-panel { align-self: start; position: sticky; top: 112px; }
+[data-look='renacimiento'] .art-scene img { height: auto; object-fit: contain; box-shadow: 5px 6px 0 #bca77c44; }
+[data-look='renacimiento'] .art-caption { display: block; text-align: center; padding-top: 12px; font-size: 14px; }
+[data-look='renacimiento'] .art-caption small { display: block; margin-top: 7px; font-size: 8px; }
+[data-look='renacimiento'] .page-header { padding: 8px 0 24px; border-bottom: 1px solid var(--second); }
+[data-look='renacimiento'] h1 { font-size: 56px; letter-spacing: -.035em; }
+[data-look='renacimiento'] .heading-dot { display: none; }
+[data-look='renacimiento'] .eyebrow { font: 12px var(--serif); letter-spacing: .17em; }
+[data-look='renacimiento'] .button-primary { border-radius: 0; outline: 1px solid var(--accent); outline-offset: 3px; font-family: var(--serif); font-size: 15px; }
+[data-look='renacimiento'] .button-primary:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
+[data-look='renacimiento'] .context-panel { max-width: 610px; }
+[data-look='renacimiento'] .filter-panel { padding-bottom: 20px; border-bottom: 3px double var(--line); }
+[data-look='renacimiento'] input:not([type='checkbox']), [data-look='renacimiento'] select, [data-look='renacimiento'] button { border-radius: 0; }
+[data-look='renacimiento'] .front-list { gap: 0; border: 1px solid var(--line); }
+[data-look='renacimiento'] .front-row { border: 0; border-bottom: 1px solid var(--line); }
+[data-look='renacimiento'] .front-row:last-child { border-bottom: 0; }
+[data-look='renacimiento'] .row-main { padding: 16px 18px; }
+[data-look='renacimiento'] .front-name { font-size: 20px; }
+[data-look='renacimiento'] .check-control input { border-radius: 0; }
+[data-look='renacimiento'] .row-number { border-right: 1px solid var(--line); padding-right: 9px; font-style: normal; }
+[data-look='renacimiento'][data-view='dashboard'] .ledger-head { display: grid; grid-template-columns: minmax(0,1fr) 145px 125px 92px; gap: 16px; padding: 10px 18px; color: #f7edce; background: #594c37; font: 10px var(--serif); letter-spacing: .055em; }
+[data-look='renacimiento'][data-view='dashboard'] .row-main { grid-template-columns: minmax(0,1fr) 145px 125px 92px; grid-template-areas: 'identity coverage last actions'; gap: 16px; }
+[data-look='renacimiento'][data-view='dashboard'] .coverage { text-align: left; }
+[data-look='renacimiento'] .coverage-number { font-size: 33px; }
+[data-look='renacimiento'] .coverage-meter { height: 2px; }
+[data-look='renacimiento'] .global-last dd { font-size: 13px; }
+[data-look='renacimiento'] .reading-note p:first-child::first-letter { font: 30px/1 var(--serif); float: left; margin: 4px 5px 0 0; color: var(--accent); }
+[data-look='renacimiento'] dialog { border: 4px double var(--second); border-radius: 0; }
+/* Small-screen versions are compositions in their own right, not cropped desktops. */
+@media (max-width: 1250px) {
+  .lab-version { display: none; }
+  .lab-reset { width: 44px; padding: 10px; }
+  .lab-reset span { display: none; }
+  .lab-bar { column-gap: 12px; }
+  [data-look='surrealismo'] .app-shell { grid-template-columns: 145px minmax(0,1fr); gap: 24px; padding-inline: 26px; }
+  [data-look='surrealismo'] .brand-name { font-size: 24px; }
+  [data-look='surrealismo'] .workspace { column-gap: 24px; }
+  [data-look='surrealismo'] .art-scene img { height: 330px; }
+  [data-look='renacimiento'] .workspace { grid-template-columns: 180px minmax(0,1fr); gap: 20px 24px; }
+  [data-look='renacimiento'][data-view='dashboard'] .row-main, [data-look='renacimiento'][data-view='dashboard'] .ledger-head { grid-template-columns: minmax(0,1fr) 115px 112px 92px; gap: 12px; }
+}
+@media (max-width: 1050px) {
+  [data-look='surrealismo'] .app-shell { display: block; padding-inline: 24px; }
+  [data-look='surrealismo'] .app-header { flex-direction: row; align-items: center; position: static; min-height: 0; gap: 20px; padding: 0 0 24px; border-bottom: 1px solid var(--line); }
+  [data-look='surrealismo'] .brand { flex-direction: row; align-items: center; gap: 12px; }
+  [data-look='surrealismo'] .brand-symbol { width: 35px; height: 35px; }
+  [data-look='surrealismo'] .brand-caption { max-width: none; }
+  [data-look='surrealismo'] .view-nav { flex-direction: row; }
+  [data-look='surrealismo'] .view-nav button { border-radius: 24px; padding-inline: 14px; }
+  [data-look='surrealismo'] .view-nav button[aria-current='page'] { border-left-width: 1px; }
+  [data-look='surrealismo'] .header-sample { margin-top: 0; }
+  [data-look='surrealismo'] .workspace { padding-top: 26px; }
+  [data-look='surrealismo'] .art-scene img { height: 325px; }
+  [data-look='impresionismo'][data-view='daily'] .front-list { grid-template-columns: minmax(0,1fr); }
+  [data-look='impresionismo'] .workspace { grid-template-columns: minmax(0,1fr); grid-template-areas: 'heading' 'gallery' 'context' 'filters' 'results' 'note'; gap: 20px; }
+  [data-look='impresionismo'] .context-panel, [data-look='impresionismo'] .filter-panel { padding: 0; }
+  [data-look='renacimiento'] .workspace { grid-template-columns: minmax(0,1fr); grid-template-areas: 'heading' 'gallery' 'context' 'filters' 'results' 'note'; }
+  [data-look='renacimiento'] .art-panel { position: static; }
+  [data-look='renacimiento'] .art-scene { display: none; }
+  [data-look='renacimiento'] [data-art='renacimiento'] { display: grid; grid-template-columns: 120px minmax(0,1fr); gap: 24px; padding: 14px 22px; background: #f3e8cd; border-block: 1px solid var(--line); align-items: center; }
+  [data-look='renacimiento'] .art-scene img { width: 120px; height: 130px; object-fit: cover; object-position: center; box-shadow: none; }
+  [data-look='renacimiento'] .art-caption { text-align: left; padding: 0; font-size: 24px; }
+  [data-look='renacimiento'] .context-panel { max-width: none; }
+}
+@media (max-width: 760px) {
+  html { scroll-padding-top: 128px; }
+  .lab-bar { grid-template-columns: minmax(0,1fr) 44px; grid-template-areas: 'heading reset' 'choices reset'; padding: 8px 14px; gap: 6px 8px; }
+  .lab-heading { align-self: center; }
+  .lab-flag { font-size: 9px; letter-spacing: 0; }
+  .look-concept { display: none; }
+  .look-selector { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; }
+  .look-selector button { min-width: 0; padding-inline: 5px; gap: 5px; font-size: 11px; }
+  .look-number { display: none; }
+  .app-shell, [data-look='surrealismo'] .app-shell, [data-look='impresionismo'] .app-shell, [data-look='renacimiento'] .app-shell { padding: 18px 16px 36px; }
+  .app-header, [data-look='surrealismo'] .app-header, [data-look='renacimiento'] .app-header { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px 10px; padding: 0 0 14px; }
+  [data-look='renacimiento'] .app-header { padding: 16px 8px; }
+  .brand, [data-look='surrealismo'] .brand { gap: 9px; }
+  .brand-symbol, [data-look='surrealismo'] .brand-symbol, [data-look='renacimiento'] .brand-symbol { width: 29px; height: 29px; }
+  .brand-name, [data-look='surrealismo'] .brand-name, [data-look='renacimiento'] .brand-name { font-size: 24px; }
+  .brand-caption, [data-look='renacimiento'] .brand-caption { font: 8px var(--sans); margin-top: 4px; }
+  .header-sample, [data-look='renacimiento'] .header-sample { grid-column: 2; grid-row: 1; justify-self: end; font-size: 11px; text-align: right; }
+  .sample-subline { font-size: 7px; letter-spacing: .06em; }
+  .view-nav, [data-look='surrealismo'] .view-nav { grid-column: 1/-1; width: 100%; flex-direction: row; }
+  .view-nav button { flex: 1; padding-inline: 10px; }
+  .workspace, [data-look='surrealismo'] .workspace, [data-look='impresionismo'] .workspace, [data-look='renacimiento'] .workspace { grid-template-columns: minmax(0,1fr); grid-template-areas: 'heading' 'gallery' 'context' 'filters' 'results' 'note'; padding-top: 20px; gap: 16px; }
+  .page-header, [data-look='surrealismo'] .page-header, [data-look='renacimiento'] .page-header { display: flex; align-items: start; padding: 0; gap: 12px; border: 0; }
+  h1, [data-look='surrealismo'] h1, [data-look='impresionismo'] h1, [data-look='renacimiento'] h1 { font-size: 39px; max-width: none; line-height: 1.05; }
+  .eyebrow, [data-look='renacimiento'] .eyebrow { font: 9px var(--sans); letter-spacing: .1em; margin-bottom: 8px; }
+  .page-description { font-size: 12px; margin-top: 8px; }
+  #new-front, [data-look='surrealismo'] #new-front { width: 44px; padding: 10px; margin-top: 20px; }
+  #new-front span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  [data-look='surrealismo'] .art-scene img { height: 128px; border-radius: 70px 70px 8px 8px; object-position: center 60%; box-shadow: 6px 6px 0 #d5c5b4; }
+  [data-look='surrealismo'] .art-caption { margin-top: 12px; }
+  [data-look='impresionismo'] .art-scene img { height: 120px; object-position: center; }
+  [data-look='renacimiento'] [data-art='renacimiento'] { grid-template-columns: 75px minmax(0,1fr); gap: 18px; padding: 10px 14px; }
+  [data-look='renacimiento'] .art-scene img { width: 75px; height: 95px; }
+  [data-look='renacimiento'] .art-caption { font-size: 18px; }
+  .art-caption { font-size: 11px; margin-top: 8px; }
+  .art-caption small { font-size: 7px; }
+  .context-panel, [data-look='surrealismo'] .context-panel { padding: 0; }
+  .daily-controls { gap: 8px; }
+  .date-field { flex: 1 1 142px; }
+  .day-actions { gap: 4px; }
+  .day-actions button { padding-inline: 9px; }
+  .sample-clock { font-size: 8px; }
+  .sample-clock span { margin-left: 2px; }
+  .filter-panel, [data-look='surrealismo'] .filter-panel, [data-look='impresionismo'] .filter-panel, [data-look='renacimiento'] .filter-panel { grid-template-columns: minmax(0,1fr) 113px; gap: 10px; padding: 0 0 15px; border-top: 0; border-bottom: 1px solid var(--line); }
+  .field > label { font-size: 10px; }
+  .search-input input { font-size: 14px; padding-left: 32px; }
+  .search-input .icon { left: 9px; width: 16px; }
+  [data-look='surrealismo'] .front-row:nth-child(even) { margin-left: 0; }
+  .row-main, [data-look='impresionismo'] .row-main, [data-look='renacimiento'] .row-main { grid-template-columns: 44px minmax(0,1fr) 88px; padding: 12px 10px; gap: 10px; }
+  .front-name, [data-look='renacimiento'] .front-name { font-size: 18px; }
+  .front-meta { gap: 8px; margin-top: 5px; }
+  .state-badge { font-size: 9px; }
+  .front-actions { grid-template-columns: 44px 44px; gap: 0; }
+  [data-look][data-view='dashboard'] .front-list { grid-template-columns: minmax(0,1fr); gap: 14px; }
+  [data-look='renacimiento'][data-view='dashboard'] .front-list { gap: 0; }
+  [data-look][data-view='dashboard'] .row-main { grid-template-columns: minmax(0,1fr) 114px; grid-template-areas: 'identity coverage' 'last actions'; gap: 22px 12px; padding: 20px 16px 14px; align-items: start; }
+  [data-look][data-view='dashboard'] .coverage { text-align: right; }
+  [data-look][data-view='dashboard'] .coverage-number { font-size: 36px; }
+  [data-look][data-view='dashboard'] .front-actions { justify-self: end; align-self: center; }
+  [data-look='renacimiento'][data-view='dashboard'] .ledger-head { display: none; }
+  .reading-note { grid-template-columns: minmax(0,1fr); gap: 10px; font-size: 9px; }
+  dialog { padding: 20px; }
+  .dialog-header h2 { font-size: 25px; }
+}
+@media (max-width: 360px) {
+  .app-shell, [data-look='surrealismo'] .app-shell, [data-look='impresionismo'] .app-shell, [data-look='renacimiento'] .app-shell { padding-inline: 12px; }
+  .lab-bar { padding-inline: 10px; }
+  .look-selector button { font-size: 10px; padding-inline: 3px; }
+  .brand-name, [data-look='surrealismo'] .brand-name, [data-look='renacimiento'] .brand-name { font-size: 21px; }
+  .brand-caption { font-size: 7px; }
+  .brand-symbol, [data-look='surrealismo'] .brand-symbol, [data-look='renacimiento'] .brand-symbol { width: 25px; height: 25px; }
+  .header-sample { font-size: 10px; }
+  h1, [data-look='surrealismo'] h1, [data-look='impresionismo'] h1, [data-look='renacimiento'] h1 { font-size: 33px; }
+  .art-caption small { display: none; }
+  [data-look='renacimiento'] .art-caption small { display: block; }
+  .front-name, [data-look='renacimiento'] .front-name { font-size: 16px; }
+  .row-number { display: none; }
+  .row-main, [data-look='impresionismo'] .row-main, [data-look='renacimiento'] .row-main { padding-inline: 8px; gap: 8px; }
+  [data-look][data-view='dashboard'] .row-main { grid-template-columns: minmax(0,1fr) 104px; padding-inline: 14px; gap: 20px 10px; }
+  [data-look][data-view='dashboard'] .coverage-number { font-size: 32px; }
+  .dialog-footer { justify-content: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

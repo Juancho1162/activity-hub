@@ -1,0 +1,1 @@
+"""Activity registration backend."""

@@ -1,0 +1,19 @@
+{
+  "name": "activity-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26.0.0 <27"
+  },
+  "scripts": {
+    "dev": "node backend/scripts/run.js dev",
+    "migrate": "node backend/scripts/run.js migrate",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "check": "npm --prefix backend run check && npm --prefix frontend test",
+    "test:browser": "node backend/scripts/run.js browser-ui",
+    "test:integration": "node backend/scripts/run.js browser",
+    "measure": "node backend/scripts/run.js measure"
+  }
+}

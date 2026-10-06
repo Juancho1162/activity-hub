@@ -1,0 +1,17 @@
+/* 8bitcn retro typography, with the original font served locally (see OFL.txt). */
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("/fonts/press-start-2p.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+.retro {
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  line-height: 1.6;
+  letter-spacing: 0.5px;
+}
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}

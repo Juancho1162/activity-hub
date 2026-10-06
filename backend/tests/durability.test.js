@@ -1,0 +1,56 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { fixture, persistentFixture, request, origin, account, localFetcher, sqlClock } from './fixture.js';
+
+test('concurrent signup/login attempts are bounded independently and survive malformed requests/window boundaries', async t => {
+  const { DB } = await fixture(t);
+  const time = await sqlClock(DB, '2026-10-05T12:00:00Z');
+  const fetcher = localFetcher(DB, time);
+  const signups = await Promise.all(Array.from({ length: 9 }, () => request(fetcher, 'POST', '/auth/signup', {}, { Origin: origin })));
+  assert.equal(signups.filter(r => r.status === 201).length, 5);
+  assert.equal(signups.filter(r => r.status === 429).length, 4);
+  const code = signups.find(r => r.status === 201).value.code;
+  const logins = await Promise.all(Array.from({ length: 14 }, () => request(fetcher, 'POST', '/auth/login', { code: 'invalid' }, { Origin: origin })));
+  assert.equal(logins.filter(r => r.status === 401).length, 10);
+  assert.equal(logins.filter(r => r.status === 429).length, 4);
+  await time.set('2026-10-05T12:00:59.999Z');
+  const blocked = await request(fetcher, 'POST', '/auth/login', { code }, { Origin: origin });
+  assert.equal(blocked.status, 429);
+  assert.equal(blocked.headers.get('retry-after'), '1');
+  await time.set('2026-10-05T12:01:00Z');
+  const malformed = await fetcher('/auth/login', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{' });
+  assert.equal(malformed.status, 400);
+  const login = await request(fetcher, 'POST', '/auth/login', { code }, { Origin: origin });
+  assert.equal(login.status, 200);
+  assert.equal((await DB.prepare("SELECT attempts FROM action_throttle WHERE action='login'").first()).attempts, 2);
+  const forbidden = await request(fetcher, 'POST', '/auth/login', { code }, { Origin: 'https://other.example' });
+  assert.equal(forbidden.status, 403);
+  assert.equal((await DB.prepare("SELECT attempts FROM action_throttle WHERE action='login'").first()).attempts, 2);
+  const cookie = login.headers.get('set-cookie').split(';')[0];
+  assert.equal((await request(fetcher, 'POST', '/auth/signup', {}, { Origin: origin, Cookie: cookie })).status, 409);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM accounts').first()).n, 5);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM worker_batch_context').first()).n, 0);
+});
+
+test('physical D1 reopen preserves sessions, throttle and original replays without reapplying mutations', async t => {
+  const f = await persistentFixture(t);
+  const a = await account(f.fetcher);
+  const key = randomUUID();
+  const checkKey = randomUUID();
+  const first = await request(f.fetcher, 'POST', '/api/fronts', { name: 'Original' }, { ...a.headers, 'Idempotency-Key': key });
+  assert.equal(first.status, 201);
+  const path = `/api/fronts/${first.value.id}`;
+  const mark = await request(f.fetcher, 'PUT', `${path}/check`, { day: 'today', marked: true }, { ...a.headers, 'Idempotency-Key': checkKey });
+  assert.equal(mark.status, 200);
+  assert.equal((await request(f.fetcher, 'PATCH', path, { name: 'Later edit' }, a.headers)).status, 200);
+  assert.equal((await request(f.fetcher, 'PUT', `${path}/check`, { day: mark.value.day, marked: false }, { ...a.headers, 'Idempotency-Key': randomUUID() })).status, 200);
+  const reopened = await f.reopen();
+  assert.equal((await request(reopened.fetcher, 'GET', '/auth/session', undefined, a.headers)).status, 200);
+  assert.deepEqual((await request(reopened.fetcher, 'POST', '/api/fronts', { name: 'Original' }, { ...a.headers, 'Idempotency-Key': key })).value, first.value);
+  assert.deepEqual((await request(reopened.fetcher, 'PUT', `${path}/check`, { day: 'today', marked: true }, { ...a.headers, 'Idempotency-Key': checkKey })).value, mark.value);
+  assert.equal((await request(reopened.fetcher, 'GET', path, undefined, a.headers)).value.name, 'Later edit');
+  assert.equal((await reopened.DB.prepare('SELECT count(*) AS n FROM activity_checks').first()).n, 0);
+  assert.equal((await reopened.DB.prepare("SELECT attempts FROM action_throttle WHERE action='login'").first()).attempts, 1);
+  assert.equal((await reopened.DB.prepare('SELECT count(*) AS n FROM worker_batch_context').first()).n, 0);
+});

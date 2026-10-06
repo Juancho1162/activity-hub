@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+.state/
+.cache/
+dist/
+public/
+test-results/
+.dev.vars
+.dev.vars.*
+.env
+.env.*

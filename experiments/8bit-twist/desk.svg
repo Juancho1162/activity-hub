@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 56" width="160" height="112" shape-rendering="crispEdges">
+  <!-- Original static desk / paper / plant sprite for this experiment.
+       Nothing in this drawing reflects checks, states or the user's activity. -->
+  <g fill="#464A33">
+    <path d="M12 12h38v2h2v23h-2v2H12v-2h-2V14h2z"/>
+    <path d="M28 39h6v4h8v2H20v-2h8z"/>
+  </g>
+  <path fill="#D4C2AB" d="M14 16h34v19H14z"/>
+  <path fill="#F2ECE2" d="M18 19h18v12H18z"/>
+  <path fill="#A93F17" d="M18 19h18v3H18z"/>
+  <path fill="#8B9470" d="M40 19h4v4h-4zm0 7h4v5h-4z"/>
+  <g fill="#464A33">
+    <path d="M62 20h2v17h-2zM58 22h4v4h-4v-2h-2v-4h2zm6-6h2v-4h4v6h-2v2h-4zm-2 0h-4v-2h-2V8h4v2h2z"/>
+  </g>
+  <g fill="#8B9470"><path d="M60 12h2v4h-2zM66 14h2v4h-2zM58 22h4v2h-4z"/></g>
+  <path fill="#A93F17" d="M56 34h14v4h-2v6H58v-6h-2z"/>
+  <path fill="#D4C2AB" d="M58 36h10v2H58zm2 3h2v3h-2z"/>
+  <path fill="#D4C2AB" d="M8 45h64v4H8z"/>
+  <path fill="#A93F17" d="M6 44h68v2H6zM10 49h4v7h-4zm56 0h4v7h-4z"/>
+  <path fill="#464A33" d="M14 50h52v2H14z"/>
+  <path fill="#F2ECE2" d="M28 43h17v2H28z"/>
+  <path fill="#A93F17" d="M28 42h17v1H28z"/>
+</svg>

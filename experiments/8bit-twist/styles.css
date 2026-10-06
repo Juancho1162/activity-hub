@@ -1,0 +1,97 @@
+@import "../../frontend/src/index.css";
+@source "../../frontend/src";
+@source "./*.tsx";
+
+/* The shared application styles/components remain untouched. The neutral lab
+   controls and text-only reference preview apply to both sides of comparison. */
+.lab-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; padding: 12px var(--gutter) 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border); background: var(--card); }
+.lab-context { color: var(--muted-foreground); font-size: 10px; line-height: 1.6; }
+.lab-context strong { color: var(--foreground); font-size: 10px; letter-spacing: .04em; }
+.lab-selectors { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; }
+.look-picker { display: inline-flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted-foreground); }
+.look-picker select { width: 142px; min-height: 44px; border: 1px solid var(--ring); font-size: 14px; }
+.lab-note { width: 100%; font-size: 11px; color: var(--muted-foreground); }
+.lab-selectors .lab-reset { font-size: 12px; }
+.dialog-visual-controls { grid-column: 1/-1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px 20px; }
+.reference-body { display: grid; justify-items: start; gap: 20px; padding: 0; }
+.reference-text { max-width: 100%; padding: 14px; border: 1px solid var(--border); background: var(--input); font-family: monospace; font-size: 14px; overflow-wrap: anywhere; word-break: break-word; }
+.reference-name { overflow-wrap: anywhere; }
+[data-slot="button"].reference-link { width: 44px; min-width: 44px; padding: 10px; }
+.desk-decoration { display: none; }
+
+/* One twist, not a new theme. All foreground/background tokens, typography,
+   row geometry and 44px hit areas come from the real 8bitcn application. */
+:root[data-look="charm"] body { background-image: radial-gradient(var(--border) .65px, transparent .65px); background-size: 12px 12px; }
+:root[data-look="charm"] .main-content { background: var(--background); }
+:root[data-look="charm"] .sidebar { border: 2px solid var(--ring); box-shadow: 4px 4px 0 var(--border); background-image: linear-gradient(var(--sidebar), var(--sidebar)); }
+:root[data-look="charm"] .sidebar::before { content: ""; position: absolute; top: -2px; left: 20px; width: 34px; height: 4px; background: var(--link); }
+:root[data-look="charm"] .sidebar::after { content: ""; position: absolute; top: 9px; right: 10px; width: 2px; height: 6px; background: var(--ring); box-shadow: -4px 0 var(--ring), -8px 0 var(--ring); }
+:root[data-look="charm"] .brand-mark { gap: 4px; padding: 5px; border: 1px solid var(--ring); box-shadow: 2px 2px 0 var(--border); background: var(--card); }
+:root[data-look="charm"] .brand-name { font-size: 9px; }
+:root[data-look="charm"] .brand { gap: 8px; }
+:root[data-look="charm"] .nav-button { border: 1px solid transparent; }
+:root[data-look="charm"] .nav-button[aria-current="page"] { border-color: var(--primary); box-shadow: 3px 3px 0 var(--ring), inset 0 2px 0 color-mix(in srgb, var(--primary-foreground) 20%, transparent); }
+:root[data-look="charm"] .desk-decoration { display: block; position: absolute; bottom: 198px; left: 12px; right: 12px; padding: 6px 0 10px; border-bottom: 2px solid var(--ring); background: var(--accent); box-shadow: 3px 3px 0 var(--border); }
+:root[data-look="charm"] .desk-decoration img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+:root[data-look="charm"] .sidebar-note { border-top-style: dashed; }
+:root[data-look="charm"] .page-header { position: relative; isolation: isolate; border-bottom: 2px solid var(--ring); }
+:root[data-look="charm"] .page-header::before { content: ""; position: absolute; z-index: -1; inset: -4px -7px 8px; background: var(--background); }
+:root[data-look="charm"] .page-header::after { content: ""; position: absolute; left: 0; bottom: -2px; height: 4px; width: 52px; background: var(--link); box-shadow: 8px -4px 0 -1px var(--link); }
+:root[data-look="charm"] .eyebrow { color: var(--link); }
+:root[data-look="charm"] .eyebrow::before { box-shadow: 3px -3px 0 color-mix(in srgb, var(--link) 35%, transparent); }
+:root[data-look="charm"] [data-slot="button"][data-variant="default"] { box-shadow: inset 0 3px 0 color-mix(in srgb, var(--primary-foreground) 18%, transparent), 3px 3px 0 var(--ring); }
+:root[data-look="charm"] .toolbar-card [data-slot="card"] { border-bottom-style: dashed; }
+:root[data-look="charm"] .field label { color: var(--foreground); }
+:root[data-look="charm"] [data-slot="bit-card"].front-card { box-shadow: 3px 3px 0 var(--border); border-color: var(--ring); }
+:root[data-look="charm"] .front-card::before { content: ""; position: absolute; left: -2px; top: 10px; width: 3px; height: 12px; background: var(--link); pointer-events: none; }
+:root[data-look="charm"] .front-card::after { content: ""; position: absolute; right: 6px; bottom: 4px; width: 7px; height: 7px; border-right: 2px solid var(--border); border-bottom: 2px solid var(--border); pointer-events: none; }
+:root[data-look="charm"] .activity-check { box-shadow: inset 0 2px 0 color-mix(in srgb, var(--foreground) 8%, transparent); }
+:root[data-look="charm"] .activity-check[data-state="checked"] { box-shadow: inset 0 3px 0 color-mix(in srgb, var(--primary-foreground) 20%, transparent); }
+:root[data-look="charm"] .state-badge { border-style: dashed; }
+:root[data-look="charm"] .dashboard-meta { border-top-style: dashed; }
+:root[data-look="charm"] .coverage-value { color: var(--primary); text-shadow: 2px 2px 0 var(--border); }
+:root[data-look="charm"] .calendar-details { border-top-style: dashed; }
+:root[data-look="charm"] .calendar-tile { box-shadow: 1px 1px 0 var(--border); }
+:root[data-look="charm"] .calendar-tile.is-marked { box-shadow: inset 0 2px 0 color-mix(in srgb, var(--primary-foreground) 18%, transparent), 1px 1px 0 var(--ring); }
+:root[data-look="charm"] .editor-card { border-color: var(--ring); box-shadow: 5px 5px 0 var(--border); }
+:root[data-look="charm"] .editor-header { position: relative; }
+:root[data-look="charm"] .editor-header::before { content: ""; position: absolute; width: 28px; height: 4px; top: -26px; left: 0; background: var(--link); }
+:root[data-look="charm"] .page-footer { border-top-style: dashed; }
+
+@media (max-height: 720px) { :root[data-look="charm"] .desk-decoration { display: none; } }
+@media (max-width: 960px) {
+  :root[data-look="charm"] .sidebar { position: relative; }
+  :root[data-look="charm"] .desk-decoration { display: none; }
+  :root[data-look="charm"] .sidebar::before { width: 24px; left: 12px; }
+  :root[data-look="charm"] .sidebar::after { display: none; }
+}
+@media (max-width: 760px) {
+  .lab-controls { gap: 8px; padding-block: 8px; }
+  .lab-context { display: flex; flex-wrap: wrap; gap: 0 12px; }
+  .lab-selectors { width: 100%; justify-content: space-between; gap: 8px; }
+  .lab-selectors .look-picker, .lab-selectors .theme-picker { gap: 0; }
+  .lab-selectors .look-picker > span, .lab-selectors .theme-picker > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .lab-selectors .look-picker select { width: 128px; font-size: 14px; }
+  .lab-selectors .theme-picker select { width: 90px; font-size: 14px; }
+  .lab-selectors .lab-reset { font-size: 11px; padding-inline: 8px; }
+  .lab-note { font-size: 10px; }
+  .dialog-visual-controls { justify-content: space-between; gap: 10px; }
+  .dialog-visual-controls .look-picker, .dialog-visual-controls .theme-picker { gap: 5px; }
+  :root[data-look="charm"] .editor-header::before { top: -20px; }
+}
+@media (max-width: 600px) {
+  :root[data-look="charm"] .brand::after { content: ""; width: 48px; height: 28px; margin-left: auto; background: url("./desk.svg") center / contain no-repeat; image-rendering: pixelated; }
+  :root[data-look="charm"] .brand-mark { padding: 3px; }
+  :root[data-look="charm"] .brand-name { font-size: 10px; }
+  :root[data-look="charm"] .sidebar { padding-block: 10px; }
+}
+@media (max-width: 390px) {
+  .lab-selectors { display: grid; grid-template-columns: minmax(0, 1fr) 86px 44px; gap: 10px; }
+  .lab-selectors .look-picker select, .lab-selectors .theme-picker select { width: 100%; }
+  .lab-selectors .lab-reset { width: 44px; min-width: 44px; font-size: 0; }
+  .lab-selectors .lab-reset::after { content: "↺"; font: 22px/1 system-ui, sans-serif; }
+  .dialog-visual-controls { flex-direction: column; align-items: flex-end; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-look="charm"] *, :root[data-look="charm"] *::before, :root[data-look="charm"] *::after { animation: none !important; transition: none !important; }
+}
