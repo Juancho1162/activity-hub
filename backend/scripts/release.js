@@ -143,7 +143,7 @@ async function main(mode) {
   const secrets = JSON.parse(frozenCommand(manifest, ['secret', 'list'], true));
   if (!secrets.some(secret => secret.name === 'TURNSTILE_SECRET')) throw new Error('Falta TURNSTILE_SECRET en el Worker.');
   // A read-only schema probe catches forgotten migrations without reading data.
-  frozenCommand(manifest, ['d1', 'execute', 'DB', '--remote', '--command', 'SELECT a.auth_verifier,a.legacy_revision,v.version FROM accounts a,encrypted_vaults v LIMIT 0', '--json'], true);
+  frozenCommand(manifest, ['d1', 'execute', 'DB', '--remote', '--command', 'SELECT a.auth_verifier,a.signup_challenge,a.legacy_revision,v.version FROM accounts a,encrypted_vaults v LIMIT 0', '--json'], true);
   await assertPrepared();
   frozenCommand(manifest, ['deploy', '--no-bundle']);
   await save(path.join(release, 'last-deployment.json'), { commit: git(['rev-parse', 'HEAD']).trim(), source: manifest.source, artifact_hash: manifest.artifact_hash, deployed_at: new Date().toISOString() });

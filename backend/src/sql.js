@@ -3,7 +3,7 @@ import { madridSQL } from './time.js';
 
 // Refer to EVERY model column on EVERY database request. Preparing this query
 // fails closed for a missing table/column even when today's route doesn't use it.
-const SCHEMA_PROBE = `SELECT a.id,a.code_verifier,a.auth_verifier,a.legacy_revision,a.created_at,a.legacy_updated_at,
+const SCHEMA_PROBE = `SELECT a.id,a.code_verifier,a.auth_verifier,a.signup_challenge,a.legacy_revision,a.created_at,a.legacy_updated_at,
  f.id,f.account_id,f.name,f.reference,f.state,f.created_at,f.updated_at,
  ch.front_id,ch.day,r.account_id,r.key,r.operation,r.target,r.payload,r.response,r.created_at,
  s.token_verifier,s.account_id,s.csrf_token,s.created_at,s.expires_at,

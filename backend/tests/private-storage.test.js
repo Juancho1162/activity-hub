@@ -19,6 +19,46 @@ async function privateAccount(fetcher) {
 }
 const envelope = (version, day, legacy_revision = 0) => ({ version, day, legacy_revision, iv: randomBytes(12).toString('base64'), ciphertext: randomBytes(48).toString('base64') });
 
+function protectedSignup(DB) {
+  const webOrigin = 'https://activity.example';
+  const allow = { limit: async () => ({ success: true }) };
+  // Model an upstream verifier accepting the same token again. The application
+  // must still ensure that one solved challenge cannot register two accounts.
+  const worker = createWorker({ turnstileFetch: async () => Response.json({ success: true, hostname: 'activity.example', action: 'signup' }) });
+  const env = { DB, WEB_ORIGIN: webOrigin, TURNSTILE_SITEKEY: 'synthetic-sitekey', TURNSTILE_SECRET: 'synthetic-secret',
+    GLOBAL_RATE_LIMITER: allow, IP_RATE_LIMITER: allow, AUTH_RATE_LIMITER: allow, ACCOUNT_RATE_LIMITER: allow };
+  const fetcher = (route, options) => worker.fetch(new Request(new URL(route, webOrigin), options), env);
+  return (secret, token) => request(fetcher, 'POST', '/auth/signup', { credential: secret, turnstile_token: token }, { Origin: webOrigin });
+}
+
+test('a consumed signup challenge rejects exact and different-credential replays even if Siteverify accepts again', async t => {
+  const { DB } = await fixture(t, { legacy: false });
+  const signup = protectedSignup(DB);
+  const secret = credential();
+  const token = 'synthetic-consumed-challenge';
+  assert.equal((await signup(secret, token)).status, 201);
+  for (const candidate of [secret, credential()]) {
+    const replay = await signup(candidate, token);
+    assert.equal(replay.status, 403);
+    assert.deepEqual(replay.value, { detail: 'Verification required' });
+  }
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM accounts').first()).n, 1);
+  const stored = await DB.prepare('SELECT signup_challenge FROM accounts').first();
+  assert.match(stored.signup_challenge, /^[0-9a-f]{64}$/);
+  assert.notEqual(stored.signup_challenge, token);
+  assert.equal((await signup(credential(), 'synthetic-fresh-challenge')).status, 201);
+});
+
+test('concurrent signups sharing an accepted challenge create exactly one account', async t => {
+  const { DB } = await fixture(t, { legacy: false });
+  const signup = protectedSignup(DB);
+  const responses = await Promise.all(Array.from({ length: 4 }, () => signup(credential(), 'synthetic-racing-challenge')));
+  assert.equal(responses.filter(r => r.status === 201).length, 1);
+  assert.equal(responses.filter(r => r.status === 403 && r.value.detail === 'Verification required').length, 3);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM accounts').first()).n, 1);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM worker_batch_context').first()).n, 0);
+});
+
 test('session polling applies the authenticated account limiter and requires its production binding', async t => {
   const { DB, fetcher } = await fixture(t, { legacy: false });
   const a = await privateAccount(fetcher);

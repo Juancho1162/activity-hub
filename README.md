@@ -7,7 +7,7 @@ Activity Hub agrupa herramientas con un propósito común, no una única aplicac
 
 **Prioridad actual: empezar por registro y seguimiento**, con interfaz web e integración con pi mediante MCP. El módulo de notificaciones se definirá más adelante; no bloquea el trabajo sobre registro.
 
-**Versión inicial publicada:** registro diario, dashboard y cuentas independientes con código fijo, sin recuperación. **Incremento en curso:** cifrado en el navegador, CAPTCHA, límites de uso y publicación verificable en `feature/security-hardening`; todavía no desplegado. Véanse [estado y verificación](#6-estado-real-y-verificación) y [trabajo pendiente](#7-trabajo-previsto-y-siguiente-paso).
+**Versión publicada:** registro diario, dashboard y cuentas independientes con código fijo, sin recuperación. Cifrado en el navegador, CAPTCHA, límites de uso y publicación verificable incorporados a `main` y desplegados el 2026-10-06. La prueba remota ha motivado un refuerzo del uso único del CAPTCHA, en verificación antes de publicar. Véanse [estado y verificación](#6-estado-real-y-verificación) y [trabajo pendiente](#7-trabajo-previsto-y-siguiente-paso).
 
 ## 1. Notificaciones y asistencia
 
@@ -126,7 +126,7 @@ Los laboratorios [cyberpunk](experiments/cyberpunk-ui/README.md), [artístico](e
 
 ## 5. Contratos y garantías
 
-Este es el contrato del incremento de seguridad en desarrollo. La publicación inicial `v0.1.0` usa todavía el protocolo anterior; el estado de despliegue figura en la sección 7.
+Este es el contrato de la versión de seguridad publicada el 2026-10-06. La etiqueta histórica `v0.1.0` conserva el protocolo anterior; el estado vigente de verificación figura en la sección 7.
 
 La UI conserva registro diario en columnas, dashboard con orden global antes de paginar, nombres completos, calendarios plegables, foco/scroll y confirmación del guardado. El tema claro/oscuro se conserva entre pestañas; cambiarlo no descarta formularios ni solicitudes pendientes.
 
@@ -235,7 +235,7 @@ npm run test:integration
 npm run measure
 ```
 
-- `test`: 23 casos del backend —incluido diferencial con Python— y 152 del frontend.
+- `test`: suites del backend —incluido diferencial con Python— y del frontend. Los resultados vigentes del incremento están en la sección 7.
 - `check`: sintaxis JS, tipos/build React, la misma suite y bundle Wrangler **dry-run**, sin publicar.
 - `test:browser`: recorrido completo de UI en Firefox → React → Worker/D1 temporal; layout, temas, accesibilidad, cuentas, foco/scroll y reintentos. También disponible como `npm --prefix frontend run test:browser`.
 - `test:integration`: recorrido acotado adicional de cuentas, API, dos pestañas, respuesta perdida tras commit y logout retrasado sobre D1.
@@ -281,26 +281,26 @@ Riesgos considerados en esta primera publicación: apuntar por error a datos loc
 | --- | --- |
 | Promoción JavaScript + Workers/D1 | Completada en local: estructura, comandos, suites, medición, ambos recorridos Firefox y arranque/reinicio verificados. Revisión en la sesión principal; perfil independiente no disponible. |
 | Referencia Python | Secundaria en `experiments/python-sqlite/`; 102 pruebas pasan, sin modificación de reglas ni de la SQLite existente. |
-| Frontend oficial | React con presentación 8-bit y barra lateral ampliada en escritorio. 152 pruebas, tipos/build y recorrido Firefox contra Worker/D1 pasan; se conservan las columnas y la navegación móvil. |
+| Frontend oficial | React con presentación 8-bit, cifrado local y barra lateral ampliada en escritorio. 162 pruebas, tipos/build y ambos recorridos Firefox contra Worker/D1 pasan. |
 | Datos entre implementaciones | Separados. La promoción de código no migra ni sincroniza cuentas/historial. Una transferencia requeriría procedimiento y petición específica. |
 | MCP de Activity Hub | Pendiente de concretar autenticación e implementar/probar el conector; el MCP de Cloudflare para Codex ya está instalado y autenticado. |
-| Alojamiento y copias | Worker y D1 publicados y comprobados por HTTPS/Firefox, base entregada sin datos de usuario. Límites/CPU/coste bajo carga, copia externa y recuperación pendientes. |
-| Git | Repositorio local: `main` conserva la publicación `v0.1.0`; incremento actual en `feature/security-hardening` y `feature/information-agent` preparada para la ampliación. Sin remoto Git ni despliegue automático. Datos, credenciales y artefactos de ejecución excluidos. |
+| Alojamiento y copias | Worker y D1 publicados con límites y almacenamiento cifrado. Límites/CPU/coste bajo carga, copia externa y recuperación pendientes. La migración de contenido anterior requiere que su titular entre con el nuevo cliente. |
+| Git | `main` incorpora seguridad en `dce24c8`; `feature/security-hardening` conserva ese trabajo. Etiqueta histórica `v0.1.0`. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin remoto Git ni despliegue automático; datos, credenciales y artefactos excluidos. |
 | Dispositivos | Safari/iPhone físico pendientes. |
 | Notificaciones y asistencia | MVP pendiente de definir; no iniciado. |
 
-**Publicación completada, 2026-10-06.** La versión publicada sigue siendo `v0.1.0`. **Trabajo actual:** seguridad y privacidad en `feature/security-hardening`, antes de continuar Información. El código en desarrollo no está desplegado.
+**Seguridad publicada, 2026-10-06.** Commit `dce24c8`, Worker `activity-hub`, versión `3b5dd80b-ebe1-47ff-a180-8a5d29ddf924`. Migración `0002_private_storage.sql` aplicada después de registrar versiones y punto de recuperación. Pasan las comprobaciones remotas de web/CSP, esquema, rechazo sin sesión/no-store y alta sin CAPTCHA. **Trabajo actual:** verificar y publicar el refuerzo de uso único de Turnstile en `fix/turnstile-single-use`. Información/LLM sigue aplazado.
 
 ### Seguridad y publicación — incremento solicitado, 2026-10-06
 
 Decisiones confirmadas: registro abierto con CAPTCHA y máximo inicial de **100 cuentas**; contenido cifrado en el navegador, sin contenido legible al consultar D1 o sus copias. La garantía elegida no incluye a un administrador que modifique deliberadamente el cliente web para capturar claves. Identificadores, tamaños, versiones, tiempos de sincronización y metadatos de autenticación siguen siendo visibles. El cifrado de Cloudflare en reposo no sustituye este cifrado de aplicación.
 
-Implementación local verificada y revisión independiente completada. Todavía sin desplegar:
+Implementación verificada, revisada y publicada; queda la validación real de Turnstile:
 
 - [x] Frenar peticiones antes de D1, limitar cuerpos y altas de forma atómica, acotar almacenamiento y sesiones por cuenta y añadir interruptores operativos.
 - [x] Cifrar nombres, enlaces y actividad en el navegador; separar la credencial de autenticación de la clave de cifrado. Mantener versiones y reintentos seguros entre pestañas. No almacenar el código ni la clave en persistencia del navegador; una nueva carga necesita desbloqueo con el código.
 - [x] Conservar las cuentas existentes. Migrar contenido antiguo desde el navegador sin borrar el original antes de confirmar la escritura cifrada. Las copias históricas anteriores no se cifran retroactivamente.
-- [ ] Integrar Turnstile y comprobar token válido, caducado/reutilizado y acción/hostname incorrectos. Widget creado mediante el OAuth existente de Wrangler, con permiso `challenge-widgets.write`; no hace falta un API token adicional. Secret `TURNSTILE_SECRET` instalado en el Worker. Metadatos del widget y sonda con token ficticio comprobados; falta el recorrido remoto con token real y su rechazo al reutilizarlo.
+- [ ] Integrar Turnstile y comprobar token válido, caducado/reutilizado y acción/hostname incorrectos. Widget y secreto configurados con el OAuth existente, sin API token adicional. Alta real en Brave comprobada. El replay con otra credencial devuelve 403; la repetición exacta ha devuelto 409 por credencial duplicada después de superar la validación externa. Confirmado con cuerpos iguales y peticiones de red distintas, sin caché ni service worker. La migración aditiva `0003_signup_challenges.sql` y la rama de corrección guardan solo una huella SHA-256 del desafío con unicidad atómica; falta revisar/publicar y repetir la prueba remota.
 - [x] Verificar acceso entre cuentas, conflictos concurrentes, respuestas perdidas, manipulación del cifrado y límites; revisión independiente y recorrido real en navegador.
 - [x] Estandarizar cambio en rama, pruebas/regresiones, preparación del artefacto, migraciones compatibles, despliegue y comprobación posterior. Git y Cloudflare son pasos distintos; no existe todavía remoto Git.
 
@@ -308,7 +308,11 @@ Implementación local verificada y revisión independiente completada. Todavía 
 
 La primera revisión independiente encontró cuatro defectos: límite por cuenta omitido en la consulta de sesión, CAPTCHA demasiado ancho para móvil, orden incorrecto de timestamps con distinta precisión y ausencia de logout antes de desbloquear. Se reprodujeron mediante pruebas fallidas y se corrigieron; las regresiones y el conjunto completo pasan. Segunda revisión independiente: **PASS**, sin hallazgos accionables pendientes en los arreglos ni cambios cercanos; revisión estática, pruebas ejecutadas por la sesión principal. La caché local de Wrangler también se excluye de Git y de la huella del código.
 
-**Siguiente paso:** registrar el cambio revisado en Git, incorporarlo a `main` y publicar el artefacto preparado con los pasos protegidos de la [guía de operación](backend/README.md); comprobar alta Turnstile real y rechazo del token reutilizado. La migración y el código de seguridad no están aplicados a producción; añadir el secreto ha publicado una versión de configuración del código anterior.
+**Verificación remota adicional:** Brave a ancho normal ha completado alta real, creación/check cifrados, recarga, desbloqueo y logout sin clave. En las cuentas ficticias inspeccionadas, D1 contiene el bloque cifrado y cero frentes/replays en las tablas antiguas. La ventana inicial desplazada correspondía a una emulación de 320 px dentro de Brave. Firefox automatizado no completó el CAPTCHA real. Las dos regresiones del refuerzo fallaron antes del arreglo (409 en replay exacto y cuatro altas concurrentes con un desafío aceptado por el verificador simulado) y pasan después. Las cinco cuentas ficticias de estos diagnósticos se retiraron por ID y fecha; recuentos posteriores cero.
+
+**Refuerzo preparado:** pasan **36 pruebas backend y 162 frontend**, ambos recorridos Firefox, sintaxis/tipos/build y dry-run de producción. Nueva revisión independiente: **PASS**, sin hallazgos accionables; estática, con ejecución por la sesión principal. El artefacto está congelado y la migración es compatible con `dce24c8`; volver a ese Worker retiraría el refuerzo de uso único.
+
+**Siguiente paso:** migración/despliegue del artefacto revisado y comprobación remota del uso único. Retirar exclusivamente las cuentas ficticias generadas. El flujo de la [guía de operación](backend/README.md) ya se ha ejecutado para publicar: código revisado en `main`, artefacto congelado, migración remota y despliegue con comprobación posterior.
 
 Premortem: una ráfaga consume D1 antes del rechazo (limitador previo y prueba de cero consultas); altas concurrentes superan 100 (control dentro del batch); dos pestañas pierden cambios (versionado y conflictos); una migración/copia o replay conserva texto legible (inspección con datos sintéticos y traslado atómico); una publicación omite límites/CAPTCHA o no coincide con el código probado (validación de configuración y artefacto antes de publicar).
 

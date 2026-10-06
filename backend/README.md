@@ -83,6 +83,8 @@ Para un incidente, cambiar la variable correspondiente a `"false"`: `REGISTRATIO
 
 `0001_gate.sql` se aplicó a la base remota inicialmente vacía, sin importar datos locales. `0002_private_storage.sql` añade el almacenamiento cifrado, verificadores y protección de migración. Aplicar el esquema no cifra por sí solo los datos existentes: el titular necesita entrar con su código desde el nuevo cliente. Un usuario anterior sin actividad también debe desbloquear su cuenta para actualizar el verificador.
 
+`0003_signup_challenges.sql` añade una huella SHA-256 única del CAPTCHA utilizado por cada cuenta nueva. El token original no se guarda. La creación de cuenta y el consumo de la huella se resuelven en el mismo batch, incluso si el proveedor acepta otra vez el token. La columna admite NULL para conservar las cuentas anteriores y el desarrollo local; la migración es compatible con el Worker anterior. Estado de publicación en el README raíz.
+
 **Después de convertir verificadores o contenido no se puede volver sin más al código `v0.1.0`:** no entiende las credenciales ni los documentos cifrados. Una corrección debe mantener el protocolo nuevo. Un rollback de Worker no revierte D1 y solo sirve si ambas versiones entienden el esquema y los datos actuales. Las pestañas antiguas deben recargar; las rutas de escritura en texto legible quedan retiradas.
 
 Antes de cualquier migración con datos se registra la versión y un punto de recuperación. Time Travel actúa sobre D1 remota aunque su comando no lleve `--remote`. Restaurar D1 sobrescribe datos posteriores y requiere un procedimiento y autorización específicos: ensayar en un destino desechable, revisar integridad y revocar sesiones restauradas. No se considera recuperación probada por conservar un bookmark.

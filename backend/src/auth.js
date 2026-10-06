@@ -112,8 +112,9 @@ export class Auth {
     const ctx = context(this.DB, this.clock, null, { signupVerifier: await sessionVerifier(prior) });
     await ctx.finish({ 409: 'Sign out before creating an account' });
   }
-  async signup(prior, credential) {
+  async signup(prior, credential, challenge) {
     const priorVerifier = await sessionVerifier(prior);
+    const challengeVerifier = challenge ? await hash('signup-challenge', challenge) : null;
     for (let attempt = 0; attempt < 8; attempt++) {
       const code = credential ? null : generatedCode();
       const verifier = credential ? await hash('browser-auth', credential) : await hash('access-code', normalizeCode(code));
@@ -121,9 +122,13 @@ export class Auth {
       const ctx = context(this.DB, this.clock, null, { signupVerifier: priorVerifier });
       const { c, nonce } = ctx;
       ctx.add(`UPDATE ${c} SET status=403 WHERE nonce=? AND status=200 AND (SELECT count(*) FROM accounts)>=100`, [nonce]);
-      ctx.add(`INSERT INTO accounts(id,code_verifier,auth_verifier,created_at) SELECT ?,?,?,now FROM ${c} WHERE nonce=? AND status=200 ON CONFLICT(code_verifier) DO NOTHING`, [id, verifier, credential ? verifier : null, nonce]);
+      ctx.add(`INSERT INTO accounts(id,code_verifier,auth_verifier,signup_challenge,created_at) SELECT ?,?,?,?,now FROM ${c} WHERE nonce=? AND status=200
+        ON CONFLICT(code_verifier) DO NOTHING ON CONFLICT(signup_challenge) DO NOTHING`, [id, verifier, credential ? verifier : null, challengeVerifier, nonce]);
       ctx.add(`UPDATE ${c} SET response=(SELECT json_object('id',id) FROM accounts WHERE id=?) WHERE nonce=? AND status=200`, [id, nonce]);
+      ctx.add(`UPDATE ${c} SET response=json_object('challenge_used',1) WHERE nonce=? AND status=200 AND response IS NULL
+        AND EXISTS (SELECT 1 FROM accounts WHERE signup_challenge=?)`, [nonce, challengeVerifier]);
       const result = await ctx.finish({ 403: 'Registration capacity reached', 409: 'Sign out before creating an account' });
+      if (result?.challenge_used) throw new HttpError(403, 'Verification required');
       if (result) return { account_id: uuidText(id), ...(code ? { code } : {}) };
       if (credential) throw new HttpError(409, 'Credential already registered');
       // Only a verifier collision retries. Arbitrary storage failures NEVER do.

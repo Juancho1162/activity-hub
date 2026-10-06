@@ -135,7 +135,7 @@ export async function persistentFixture(t) {
   }
   t.after(async () => { await proxy?.dispose(); await rm(directory, { recursive: true, force: true }); });
   const initial = await open();
-  for (const migration of ['0001_gate.sql', '0002_private_storage.sql']) {
+  for (const migration of ['0001_gate.sql', '0002_private_storage.sql', '0003_signup_challenges.sql']) {
     const sql = await readFile(path.join(root, `migrations/${migration}`), 'utf8');
     await initial.DB.batch(splitSqlQuery(sql).map(statement => initial.DB.prepare(statement)));
   }
