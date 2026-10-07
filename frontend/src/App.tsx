@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react"
 import { Dialog } from "radix-ui"
 import { CalendarDays, ChevronLeft, ChevronRight, ExternalLink, FolderOpen, LayoutDashboard, LockKeyhole, Pencil, Plus, Trash2, TriangleAlert, Undo2, X } from "lucide-react"
 import { Button } from "@/components/ui/8bit/button"
@@ -43,10 +43,26 @@ function FrontActions({ front, children }: { front: Front; children: ReactNode }
   </div>
 }
 
+function toggleCalendarRow(event: MouseEvent<HTMLElement>) {
+  const details = event.currentTarget.closest("details")
+  const item = details?.closest(".dashboard-list > li")
+  if (!details || !item?.parentElement) return
+  event.preventDefault()
+  const top = item.getBoundingClientRect().top
+  const open = !details.open
+  // Capture the current visual row before any disclosure changes grid heights.
+  const row = [...item.parentElement.children].filter(peer => Math.abs(peer.getBoundingClientRect().top - top) < 1)
+  for (const peer of row) {
+    const calendar = peer.querySelector<HTMLDetailsElement>(".calendar-details")
+    if (calendar) calendar.open = open
+  }
+}
+
 function DashboardFront({ item, calendarDays, editAction }: {
   item: DashboardItem; calendarDays: CalendarDay[]; editAction: ReactNode
 }) {
   const totalDays = calendarDays.length
+  const firstDay = calendarDays[0], lastDay = calendarDays.at(-1)
   const percentage = percentFormat.format(totalDays ? item.count / totalDays * 100 : 0)
   return <>
     <div className="dashboard-summary">
@@ -61,13 +77,14 @@ function DashboardFront({ item, calendarDays, editAction }: {
       <FrontActions front={item.front}>{editAction}</FrontActions>
     </div>
     <details className="calendar-details">
-      <summary><ChevronRight className="disclosure-arrow" aria-hidden="true" size={16} /><span>Ver días del período</span></summary>
+      <summary onClick={toggleCalendarRow}><ChevronRight className="disclosure-arrow" aria-hidden="true" size={16} /><span>Ver días del período</span></summary>
       <div className="calendar-content">
+        {firstDay && lastDay && <p className="calendar-range"><time dateTime={firstDay.date}>{firstDay.label}</time>{totalDays > 1 && <> — <time dateTime={lastDay.date}>{lastDay.label}</time></>}</p>}
         <div className="calendar-legend"><span><i className="legend-marked" aria-hidden="true" />Actividad registrada</span><span><i className="legend-empty" aria-hidden="true" />Sin actividad registrada</span></div>
         <ul className="calendar-grid" aria-label={`Días del período de ${item.front.name}`}>{calendarDays.map(({ date, label, short }) => {
           const marked = item.marked_dates.includes(date)
           const description = `${label}: ${marked ? "Actividad registrada" : "Sin actividad registrada"}`
-          return <li key={date}><span role="img" aria-label={description} title={description} className={`calendar-tile ${marked ? "is-marked" : ""}`}><span aria-hidden="true">{short}</span></span></li>
+          return <li key={date}><span role="img" aria-label={description} title={description} className={`calendar-tile ${marked ? "is-marked" : ""}`}><time dateTime={date} aria-hidden="true">{short}</time></span></li>
         })}</ul>
       </div>
     </details>

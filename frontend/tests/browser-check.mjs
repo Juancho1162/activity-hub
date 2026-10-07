@@ -220,10 +220,41 @@ try {
     for (const [index, row] of geometry.entries()) {
       const heights=row.cards.map(card=>card.height), summaries=row.cards.map(card=>card.summary)
       assert.ok(Math.max(...heights)-Math.min(...heights)<.5, `${label}: row ${index+1} card heights differ: ${heights.join(', ')}px`)
-      assert.ok(Math.max(...summaries)-Math.min(...summaries)<.5, `${label}: row ${index+1} collapsed calendar actions must align`)
+      assert.ok(Math.max(...summaries)-Math.min(...summaries)<.5, `${label}: row ${index+1} calendar actions must align`)
       assert.ok(row.cards.every(card=>card.unclipped), `${label}: complete names must remain visible`)
     }
     rowGeometryChecks.push({ label, rows: geometry })
+  }
+
+  async function assertCalendarRowDisclosure(theme, width, height) {
+    const columns = await evaluate("getComputedStyle(document.querySelector('.dashboard-list')).gridTemplateColumns.split(' ').length")
+    const states = () => evaluate("JSON.stringify([...document.querySelectorAll('.calendar-details')].map(el=>el.open))").then(JSON.parse)
+    const activate = index => evaluate(`(() => {const summary=document.querySelectorAll('.calendar-details summary')[${index}];summary.focus();summary.click();return true})()`)
+    const initial = await states()
+    assert.ok(initial.length > columns, 'Fixture spans at least two real grid rows')
+    assert.ok(initial.every(open => !open), 'Responsive row fixture starts folded')
+    await activate(0)
+    assert.deepEqual(await states(), initial.map((_, index) => index < columns), `${theme}/${width}: exactly the first visual row opens`)
+    assert.equal(await evaluate(`([...document.querySelectorAll('.calendar-details')].filter(el=>el.open).every(el=>{
+      const start=document.getElementById('period-start').value,end=document.getElementById('period-end').value;
+      const range=el.querySelector('.calendar-range'), dates=[...range.querySelectorAll('time')], tiles=[...el.querySelectorAll('.calendar-tile')];
+      return range.checkVisibility() && dates[0].dateTime===start && dates.at(-1).dateTime===end
+        && dates.every(time=>time.textContent.includes(time.dateTime.slice(0,4)))
+        && tiles[0].querySelector('time').dateTime===start && tiles.at(-1).querySelector('time').dateTime===end
+        && tiles.every(tile=>{const time=tile.querySelector('time'),box=tile.getBoundingClientRect(),date=time.getBoundingClientRect();
+          return time.checkVisibility() && time.textContent.trim().length>0 && date.width>0 && date.height>0
+            && date.left>=box.left-.5 && date.right<=box.right+.5 && date.top>=box.top-.5 && date.bottom<=box.bottom+.5;});
+    }))`), true, `${theme}/${width}: the full period and every date are visible inside their tiles`)
+    await assertDashboardRowGeometry(`expanded/${theme}/${width}`)
+    await evaluate("document.querySelector('.dashboard-list .front-card').scrollIntoView({block:'start'})")
+    await screenshot(`calendar-row-${theme}-${width}`, width, height)
+    await activate(columns)
+    assert.deepEqual(await states(), initial.map((_, index) => index < columns * 2), 'Opening another row preserves the first row')
+    await activate(columns - 1)
+    assert.deepEqual(await states(), initial.map((_, index) => index >= columns && index < columns * 2), 'Closing a peer closes its entire row and preserves the other row')
+    await activate(columns)
+    assert.ok((await states()).every(open => !open), 'Every row can be collapsed again')
+    assert.equal(await evaluate(`document.activeElement===document.querySelectorAll('.calendar-details summary')[${columns}]`), true, 'Row synchronization preserves focus')
   }
 
   async function assertDailyGeometry(label) {
@@ -490,20 +521,24 @@ try {
   await screenshot("dashboard-mobile", 390, 844)
   await evaluate("document.querySelector('.front-card').scrollIntoView({block:'start'})")
   await screenshot("dashboard-mobile-rows", 390, 844)
-  // Native summary supports keyboard activation, visible focus and independent cards.
+  // Native summary supports keyboard activation and the current one-card mobile row.
   await evaluate("document.querySelector('.calendar-details summary').focus()")
   const key = (value) => command("input.performActions", { context, actions: [{ type: "key", id: "dashboard-keys", actions: [{ type: "keyDown", value }, { type: "keyUp", value }] }] })
   await key("\uE007")
   assert.equal(await evaluate("document.querySelector('.calendar-details').open"), true, "Enter expands the focused calendar")
-  assert.equal(await evaluate("document.querySelectorAll('.calendar-details')[1].open"), false, "Only the chosen front expands")
+  assert.equal(await evaluate("document.querySelectorAll('.calendar-details')[1].open"), false, "Other mobile rows stay collapsed")
   assert.equal(await evaluate("document.querySelector('.calendar-grid').checkVisibility() && document.querySelectorAll('.calendar-details')[0].querySelectorAll('.calendar-tile').length === 28"), true)
   assert.notEqual(await evaluate("getComputedStyle(document.activeElement).outlineStyle"), "none", "Keyboard focus remains visible")
   await command("browsingContext.setViewport", { context, viewport: { width: 1366, height: 1000 }, devicePixelRatio: 1 })
+  await key(" ")
+  assert.equal(await evaluate("[...document.querySelectorAll('.calendar-details')].every(el=>!el.open)"), true, 'Space closes the current desktop row')
+  await key("\uE007")
+  assert.equal(await evaluate("[...document.querySelectorAll('.calendar-details')].every(el=>el.open)"), true, 'Enter opens both fronts on the same desktop row')
   await assertTextContrast([
     [".brand-name", ".sidebar"], [".sidebar-note", ".sidebar"], [".nav-button[aria-current]"], [".new-front"],
     [".coverage-value", ".front-card [data-slot=card]"], [".coverage-value > span", ".front-card [data-slot=card]"],
     [".period-count", ".front-card [data-slot=card]"], [".reference-link", ".front-card [data-slot=card]"],
-    [".calendar-details summary", ".front-card [data-slot=card]"], [".calendar-tile.is-marked"], [".calendar-tile:not(.is-marked)"],
+    [".calendar-details summary", ".front-card [data-slot=card]"], [".calendar-range", ".front-card [data-slot=card]"], [".calendar-tile.is-marked"], [".calendar-tile:not(.is-marked)"],
   ])
   await evaluate("window.scrollTo(0,0)")
   await screenshot("dashboard-expanded-desktop", 1366, 1000)
@@ -748,25 +783,32 @@ try {
       }
       if (width === 1024 || width === 768) assert.ok(columns>=2, "Intermediate widths retain two useful columns")
       if (width<=390) assert.equal(columns, 1)
+      await assertCalendarRowDisclosure(theme, width, height)
     }
     await command("browsingContext.setViewport", { context, viewport: { width: 1366, height: 1000 }, devicePixelRatio: 1 })
     await evaluate("document.querySelector('.calendar-details summary').focus()")
     await key("\uE007")
     assert.equal(await evaluate("document.querySelector('.calendar-details').open"), true)
+    assert.equal(await evaluate("[...document.querySelectorAll('.calendar-details')].filter(el=>el.open).length===getComputedStyle(document.querySelector('.dashboard-list')).gridTemplateColumns.split(' ').length"), true, 'Enter opens the complete desktop row')
     assert.notEqual(await evaluate("getComputedStyle(document.activeElement).outlineStyle"), "none")
     await assertTextContrast([
       [".brand-name", ".sidebar"], [".sidebar-note", ".sidebar"], [".nav-button[aria-current]"], [".new-front"],
       [".front-title h2", ".front-card [data-slot=card]"], [".coverage-value", ".front-card [data-slot=card]"], [".coverage-value > span", ".front-card [data-slot=card]"],
       [".period-count", ".front-card [data-slot=card]"], [".reference-link", ".front-card [data-slot=card]"],
-      [".calendar-details summary", ".front-card [data-slot=card]"], [".calendar-tile.is-marked"], [".calendar-tile:not(.is-marked)"],
+      [".calendar-details summary", ".front-card [data-slot=card]"], [".calendar-range", ".front-card [data-slot=card]"], [".calendar-tile.is-marked"], [".calendar-tile:not(.is-marked)"],
       [".state-open"], [".state-standby"], [".state-archived"], ["#period-start"], ["#state-filter"], [".app-controls .theme-toggle"],
       [".session-controls p", ".app-controls"],
     ])
+    await key(" ")
+    assert.equal(await evaluate("[...document.querySelectorAll('.calendar-details')].every(el=>!el.open)"), true, 'Space closes the complete desktop row')
+    await key("\uE007")
     await evaluate("document.querySelector('.front-card').scrollIntoView({block:'start'})")
     await screenshot(`calendar-${theme}-390`, 390, 844)
     await evaluate("document.querySelector('.calendar-details summary').focus()")
     await key(" ")
     assert.equal(await evaluate("document.querySelector('.calendar-details').open"), false)
+    await evaluate("(() => {for(const details of document.querySelectorAll('.calendar-details'))if(details.open)details.querySelector('summary').click();return true})()")
+    assert.equal(await evaluate("[...document.querySelectorAll('.calendar-details')].every(el=>!el.open)"), true)
   }
   assert.equal(await evaluate("performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname.startsWith('/api/')).length"), 0, "Theme/layout/calendar changes make no activity reads or writes")
   await chooseTheme("light")
@@ -985,7 +1027,7 @@ try {
   console.log("Layout: both themes at 1920/1684/1366/1024/768/390/320px, four wide/two intermediate/one mobile columns; contained controls and 44px touch height")
   console.log("Dashboard cards: equal heights/calendar actions per row across themes and widths, complete multiline/unbroken long names; no fixed height or truncation")
   console.log("Daily cards: responsive columns, bounded desktop widths even for one result, single-column mobile, equal row heights, complete names, 44px controls, stable reading order and keyboard focus after real writes")
-  console.log("Calendars: inclusive percentages, independent disclosures, Enter/Space and visible focus, no activity requests for themes/layout/disclosure")
+  console.log("Calendars: inclusive percentages, native Enter/Space and visible focus, opening/closing the current responsive row while preserving other rows; visible full period/year and all tile dates, no activity requests for themes/layout/disclosure")
   console.log(`Palettes: ${contrastChecks} checked text/icon/surface pairs at least 4.5:1; no horizontal overflow or card-frame overflow in captured views`)
   console.log("Themes: one-click light/dark, system default, reload persistence, login/signup/editor/pending intent retained; preference-only storage")
   console.log("Native autofill: no React events; preserved through real focus/pageshow/visibility session checks and themes, same input/focus, explicit login/decryption and credential cleared on submit")

@@ -267,6 +267,7 @@ select:disabled { opacity: .5; cursor: not-allowed; }
 .calendar-details[open] > summary .disclosure-arrow { transform: rotate(90deg); }
 .calendar-details summary:hover { text-decoration: underline; text-underline-offset: 4px; }
 .calendar-content { padding-top: 16px; }
+.calendar-range { margin-bottom: 12px; color: var(--muted-foreground); font-size: 12px; }
 .calendar-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 14px; color: var(--muted-foreground); font-size: 11px; }
 .calendar-legend > span { display: flex; align-items: center; gap: 7px; }
 .calendar-legend i { width: 10px; height: 10px; display: inline-block; border: 1px solid var(--ring); }

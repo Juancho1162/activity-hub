@@ -57,9 +57,9 @@ Se conservan las reglas acordadas para este módulo:
 
 - Resumen por frente con el porcentaje de días registrados respecto a **todos los días del período seleccionado, ambos extremos incluidos**. Ejemplo: 4 días marcados de 10 seleccionados → 40 %. No es una puntuación ni un objetivo.
 - Último día registrado global y número de días registrados frente al total del período.
-- Detalle de todos los días en un desplegable por frente, cerrado inicialmente. Huecos visibles al abrirlo, sin interpretarlos como abandono.
+- Detalle de todos los días en un desplegable por frente, cerrado inicialmente. Al abrirlo se ven el intervalo con año y la fecha de cada casilla, con o sin actividad registrada; los huecos no se interpretan como abandono.
 - Dashboard ordenado de mayor a menor porcentaje del período, **antes de paginar** y dentro de los filtros/cuenta actuales. Empates estables por creación/UUID. El registro diario conserva su orden anterior.
-- Tarjetas de la misma fila con altura uniforme y acciones del calendario alineadas. El nombre más largo determina el espacio necesario, sin recortes ni una altura fija; cada calendario sigue abriéndose de forma independiente.
+- Tarjetas de la misma fila con altura uniforme y acciones del calendario alineadas. El nombre más largo determina el espacio necesario, sin recortes ni una altura fija. Abrir o cerrar un calendario abre o cierra todos los de su fila visible, según el ancho actual; las demás filas conservan su despliegue. En móvil con una sola columna afecta únicamente al frente elegido. Cambiar de período vuelve a plegarlos; el despliegue no consulta ni escribe actividad.
 
 **Acceso equivalente desde pi/MCP:** consultar frentes e historial, añadir o editar un frente, cambiar su estado, marcar o desmarcar un día, mover a Papelera, restaurar o borrar para siempre. Las dos interfaces operan sobre los mismos datos y reglas, siempre con peticiones explícitas para los cambios; el conector sigue pendiente.
 
@@ -387,6 +387,14 @@ Diecisiete regresiones fallaron antes de implementar la función; dos más repro
 Publicación desde `main` limpio y comprobaciones remotas de web/CSP, salud, acceso privado y rechazo del alta sin CAPTCHA correctas, sin crear cuentas de producción. HTML, JavaScript y CSS servidos coinciden exactamente con el artefacto verificado. Sin tareas pendientes de este incremento.
 
 Riesgos comprobables: borrar sin confirmar o un frente restaurado (foco inicial en Cancelar y validación del documento actual); dejar contenido en reintentos (inspección del documento descifrado sintético); recrearlo tras una respuesta perdida (recibos mínimos y reintento explícito); perder cambios de otra pestaña (CAS y pruebas en ambos órdenes); impedir limpiar al alcanzar la cuota (compactación de reintentos y borrado al límite sin ampliar los 512 KiB). No se ejecutan borrados de datos personales para probar la función.
+
+### Calendarios del Dashboard por fila y fechas visibles — 2026-10-07
+
+**Verificado, pendiente de integrar y publicar**, rama `fix/dashboard-calendar-rows`. Abrir o cerrar un calendario sincroniza los frentes de su fila actual, conservando las demás filas. Las fechas de cada casilla y el intervalo completo con año se ven al desplegar. Se conservan controles nativos, teclado/foco y plegado al cambiar de período; no se añaden animaciones, peticiones de actividad ni persistencia del despliegue.
+
+Las tres regresiones iniciales reprodujeron el despliegue independiente y la ausencia del intervalo completo; pasan tras el cambio. Se cubren homónimos en filas de una/dos/cuatro columnas, abrir otra fila sin cerrar la primera, cerrar desde un compañero, fechas semánticas y períodos de un día, 366 días y cambio de año. `npm run release:prepare` pasa con **36 pruebas backend y 229 frontend**, tipos/build, ambos recorridos Firefox contra Worker/D1 temporal y dry-run de producción. El recorrido UI comprueba filas reales abiertas/cerradas en ambos temas a 1920/1684/1366/1024/768/390/320 px, alineación, fechas sin recortes, Enter/Espacio, foco y ausencia de lecturas/escrituras al desplegar; 92 pares de contraste pasan. Revisadas capturas de escritorio y móvil. Artefacto congelado en `.release/build-88095889-114a-43aa-a180-27ee1608e15f`. Revisión local del diff, pruebas y capturas en la sesión principal, sin hallazgos pendientes; no se atribuye una revisión independiente. Siguiente paso: integrar y publicar el artefacto verificado.
+
+Riesgos comprobables: sincronizar toda la página o una fila equivocada (medir la fila actual antes de cambiar alturas y probar otros anchos/filas); romper Enter/Espacio o el foco (activar los controles nativos en Firefox); esconder fechas o desbordar tarjetas (fechas semánticas y capturas/medidas); enviar actividad al desplegar (comprobar ausencia de lecturas/escrituras). Sin cambios de datos, cifrado, cuentas ni dependencias.
 
 ## 8. Ampliación de información y aprendizaje — diseño conservado, 2026-10-06
 

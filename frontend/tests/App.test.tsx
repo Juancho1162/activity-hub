@@ -584,6 +584,7 @@ describe("Vistas de registro y dashboard", () => {
     ["2026-01-01", "2026-01-10", 0, "0", 10],
     ["2026-10-03", "2026-10-03", 1, "100", 1],
     ["2026-03-28", "2026-03-30", 2, "66,7", 3],
+    ["2025-12-31", "2026-01-02", 1, "33,3", 3],
     ["2024-01-01", "2024-12-31", 1, "0,3", 366],
     ["2024-01-01", "2024-12-31", 365, "99,7", 366],
   ])("calcula por frente %s–%s con %i días marcados, incluidos ambos extremos", async (start, end, count, percentage, totalDays) => {
@@ -602,13 +603,24 @@ describe("Vistas de registro y dashboard", () => {
     expect(await screen.findByLabelText(`${percentage} % de los días seleccionados`)).toBeTruthy()
     expect(screen.getByText(`${count} de ${totalDays} ${totalDays === 1 ? "día registrado" : "días registrados"}`)).toBeTruthy()
     expect(screen.queryByText(/NaN|Infinity/)).toBeNull()
+    await userEvent.click(screen.getByText("Ver días del período"))
+    expect([...document.querySelectorAll<HTMLTimeElement>(".calendar-range time")].map(time => time.dateTime)).toEqual(start === end ? [start] : [start, end])
+    expect(document.querySelectorAll(".calendar-grid time")).toHaveLength(totalDays)
     expect(client.writeCheck).not.toHaveBeenCalled()
   })
-  it("despliega solo el frente elegido sin consultar ni escribir y mantiene los homónimos independientes", async () => {
+  it.each([1, 2, 4])("despliega y pliega la misma fila de %i columnas sin consultar ni escribir, con fechas visibles", async columns => {
     const client = api()
     vi.mocked(client.dashboard).mockImplementation(async (q) => {
       const data = page(q.start, q.end, true)
-      return { ...data, total: 2, items: [data.items[0], { ...data.items[0], front: { ...front, id: "00000000-0000-4000-8000-000000000002" }, marked_dates: [], count: 0 }] }
+      return { ...data, total: 5, items: Array.from({ length: 5 }, (_, index) => ({
+        ...data.items[0], front: { ...front, id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}` },
+        marked_dates: index === 0 ? data.items[0].marked_dates : [], count: index === 0 ? 1 : 0,
+      })) }
+    })
+    // jsdom has no layout. The browser suite checks actual responsive rows.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const index = [...document.querySelectorAll(".dashboard-list > li")].indexOf(this)
+      return new DOMRect(index < 0 ? 0 : index % columns * 320, index < 0 ? 0 : Math.floor(index / columns) * 400, 300, 380)
     })
     render(<App api={client} clock={clock} />)
     await userEvent.click(screen.getByRole("button", { name: "Dashboard" }))
@@ -621,14 +633,21 @@ describe("Vistas de registro y dashboard", () => {
     expect(within(rows[1]).getByLabelText("0 % de los días seleccionados")).toBeTruthy()
     const reads = vi.mocked(client.dashboard).mock.calls.length
     await userEvent.click(summaries[0])
-    expect(details[0].open).toBe(true)
-    expect(details[1].open).toBe(false)
+    expect(details.map(detail => detail.open)).toEqual(details.map((_, index) => index < columns))
+    expect(rows[0].querySelector(".calendar-range")?.textContent).toContain("6 de septiembre de 2026")
+    expect(rows[0].querySelector(".calendar-range")?.textContent).toContain("3 de octubre de 2026")
     const calendar = within(rows[0]).getByRole("list", { name: "Días del período de Guitarra" })
     expect(within(calendar).getAllByRole("img")).toHaveLength(28)
-    expect(within(calendar).getByRole("img", { name: "6 de septiembre de 2026: Actividad registrada" })).toBeTruthy()
-    expect(within(calendar).getByRole("img", { name: "3 de octubre de 2026: Sin actividad registrada" })).toBeTruthy()
-    await userEvent.click(summaries[0])
-    expect(details[0].open).toBe(false)
+    const marked = within(calendar).getByRole("img", { name: "6 de septiembre de 2026: Actividad registrada" })
+    const empty = within(calendar).getByRole("img", { name: "3 de octubre de 2026: Sin actividad registrada" })
+    expect(marked.querySelector("time")?.dateTime).toBe("2026-09-06")
+    expect(marked.textContent).toBe("6 sept")
+    expect(empty.querySelector("time")?.dateTime).toBe("2026-10-03")
+    expect(empty.textContent).toBe("3 oct")
+    await userEvent.click(summaries[columns - 1])
+    expect(details.every(detail => !detail.open)).toBe(true)
+    await userEvent.click(summaries[columns])
+    expect(details.map(detail => detail.open)).toEqual(details.map((_, index) => index >= columns && index < columns * 2))
     expect(client.dashboard).toHaveBeenCalledTimes(reads)
     expect(client.createFront).not.toHaveBeenCalled()
     expect(client.patchFront).not.toHaveBeenCalled()
