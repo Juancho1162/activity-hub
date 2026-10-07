@@ -315,7 +315,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
             {mode === "signing-in" && <p role="status">Comprobando el código…</p>}
           </form>
           {signupCooling && <p role="status">Espera antes de crear otra cuenta; el límite de altas sigue activo.</p>}
-          {!writeLocked && mode === "login" && context === null && <Button type="button" variant="outline" font="normal" className="text-button" disabled={signupCooling} onClick={() => { void signup() }}>Crear cuenta</Button>}
+          {!writeLocked && mode === "login" && context === null && <Button type="button" variant="outline" font="normal" className="text-button auth-signup" disabled={signupCooling} onClick={() => { void signup() }}>Crear cuenta</Button>}
         </>}
         {codeView && <div className="auth-form signup-code-view">
           <p>Tu cuenta empieza vacía. Este es su único código permanente y solo se muestra ahora.</p>

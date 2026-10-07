@@ -41,7 +41,7 @@ body { background-image: radial-gradient(var(--border) .65px, transparent .65px)
    its existing dimensions below 961px. */
 @media (min-width: 961px) {
   .app-shell { grid-template-columns: clamp(220px, 16vw, 232px) minmax(0, 1fr); }
-  .sidebar { gap: 32px; padding: 28px 16px 24px; }
+  .sidebar { top: 68px; gap: 32px; padding: 28px 16px 24px; }
   .brand { column-gap: 10px; }
   .brand-mark { grid-template-columns: repeat(2, 10px); }
   .brand-mark span { width: 10px; height: 10px; }

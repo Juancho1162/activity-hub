@@ -130,6 +130,8 @@ Este es el contrato de la versión de seguridad publicada el 2026-10-06. La etiq
 
 La UI conserva registro diario en columnas, dashboard con orden global antes de paginar, nombres completos, calendarios plegables, foco/scroll y confirmación del guardado. El tema claro/oscuro se conserva entre pestañas; cambiarlo no descarta formularios ni solicitudes pendientes.
 
+La pantalla de acceso prioriza **Entrar**, con un botón de ancho completo y mayor altura; **Crear cuenta** queda como acción secundaria compacta. En escritorio, la barra lateral sigue la altura disponible de la ventana, permanece visible al hacer scroll y conserva «Espacio privado» al pie, sin el antiguo máximo de 900 px.
+
 ### Privacidad y acceso
 
 - El navegador genera el código fijo de 32 símbolos aleatorios —160 bits— y lo muestra para guardarlo. Se aceptan mayúsculas/minúsculas ASCII, espacios y guiones. No se envía el código al servidor: se deriva una credencial de autenticación; D1 conserva otra huella de esa credencial.
@@ -315,6 +317,12 @@ El refuerzo de uso único se añadió tras observar que un replay exacto superab
 **Siguiente paso:** ninguno pendiente del incremento solicitado. Para cada cambio futuro, seguir la [guía de operación](backend/README.md): rama, pruebas y revisión, artefacto congelado, integración en `main`, migración si procede, despliegue y comprobación posterior. Los pendientes de dispositivos/carga/recuperación siguen identificados arriba; la ampliación LLM se conserva en la sección 8 y no se ha iniciado.
 
 Premortem: una ráfaga consume D1 antes del rechazo (limitador previo y prueba de cero consultas); altas concurrentes superan 100 (control dentro del batch); dos pestañas pierden cambios (versionado y conflictos); una migración/copia o replay conserva texto legible (inspección con datos sintéticos y traslado atómico); una publicación omite límites/CAPTCHA o no coincide con el código probado (validación de configuración y artefacto antes de publicar).
+
+### Ajustes de acceso y barra lateral — 2026-10-07
+
+En `feature/access-and-sidebar-layout`: «Entrar» ocupa todo el ancho con 52 px de alto; «Crear cuenta» conserva un tamaño compacto y área táctil de 44 px. La barra de escritorio elimina el máximo de 900 px y mantiene su posición y margen inferior durante el scroll. Comprobados ambos temas: en ventanas de 720, 1080 y 1440 px de alto deja 24 px inferiores; a 480 px deja 12 px y el pie sigue visible. El acceso se ha inspeccionado a 320, 390 y 1366 px sin desbordamientos.
+
+`npm run release:prepare`: **36 pruebas backend y 162 frontend**, tipos/build, ambos recorridos Firefox y dry-run de producción pasan. Inspección visual y del diff por la sesión principal; ajuste de presentación sin cambios de autenticación ni de esquema. Artefacto preparado; siguiente paso: integrar en `main`, publicar y comprobar los assets remotos.
 
 ## 8. Ampliación de información y aprendizaje — diseño conservado, 2026-10-06
 
