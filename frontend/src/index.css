@@ -229,10 +229,7 @@ select:disabled { opacity: .5; cursor: not-allowed; }
 .daily-list, .trash-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 12px; }
 .daily-list .front-card [data-slot="card"] { padding: 8px 12px; }
 .daily-row { flex: 1; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
-.activity-check[data-slot="checkbox"] { position: relative; cursor: pointer; }
-.activity-check[aria-busy="true"] [data-slot="checkbox-indicator"] { visibility: hidden; }
-.activity-check[aria-busy="true"]::after { content: ""; position: absolute; top: calc(50% - 7px); left: calc(50% - 7px); width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; animation: check-wait 640ms steps(4, end) infinite; pointer-events: none; }
-@keyframes check-wait { to { transform: rotate(360deg); } }
+.activity-check[data-slot="checkbox"] { cursor: pointer; animation: none; transition: none; }
 .trash-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; }
 .editor-trash { display: grid; justify-items: start; gap: 6px; padding-top: 16px; border-top: 1px dashed var(--border); }
 .editor-trash .delete-front { color: var(--destructive); }

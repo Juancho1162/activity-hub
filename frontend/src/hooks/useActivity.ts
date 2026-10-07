@@ -8,13 +8,13 @@ export type Intent =
   | { kind: "trash" | "restore"; id: string; requestId: string }
 type ReadState = { context: number; token: string; page: DashboardPage | null; error: ApiError | null }
 
-/** No optimistic writes, automatic retries, browser persistence, or auth bypass. */
+/** Confirmed data stays separate from the immediate checkbox preview. No automatic retries or browser persistence. */
 export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWriteLockChange?: (locked: boolean) => void) {
   const [version, setVersion] = useState(0)
   const [read, setRead] = useState<ReadState | null>(null)
   const [pending, setPending] = useState<Intent | null>(null)
   const [saving, setSaving] = useState(false)
-  const [writeClient, setWriteClient] = useState<number | null>(null)
+  const [writeClient, setWriteClient] = useState<{ generation: number; context: number; check: Extract<Intent, { kind: "check" }> | null } | null>(null)
   const [mutationError, setMutationError] = useState<ApiError | null>(null)
   const [notice, setNotice] = useState("")
   const pendingRef = useRef<Intent | null>(null)
@@ -34,6 +34,8 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
   const token = `${context}:${version}`
   const currentToken = useRef(token)
   currentToken.current = token
+  const clearCheckPreview = () => setWriteClient(previous => previous?.generation === clientGeneration
+    && previous.context === context && previous.check ? { ...previous, check: null } : previous)
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; api.forgetSnapshot?.() } }, [api])
   useEffect(() => {
@@ -43,7 +45,10 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
     readController.current = controller
     let active = true
     api.dashboard(currentQuery, controller.signal).then((page) => {
-      if (active && !controller.signal.aborted) setRead({ context, token, page, error: null })
+      if (active && !controller.signal.aborted) {
+        setRead({ context, token, page, error: null })
+        if (!runningRef.current) clearCheckPreview()
+      }
     }).catch((error: unknown) => {
       if (active && !controller.signal.aborted) setRead({ context, token, page: null,
         error: error instanceof ApiError ? error : new ApiError("network", "No se ha podido cargar el registro.") })
@@ -80,7 +85,7 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
     runningRef.current = true
     pendingRef.current = intent
     lockCallback.current?.(true) // Before transport: an immediate auth callback must see the lock.
-    setPending(intent); setSaving(true); setWriteClient(clientGeneration); setMutationError(null); setNotice("")
+    setPending(intent); setSaving(true); setWriteClient({ generation: clientGeneration, context, check: intent.kind === "check" ? intent : null }); setMutationError(null); setNotice("")
     try {
       if (intent.kind === "create") await api.createFront(intent.data, intent.requestId)
       else if (intent.kind === "edit") await api.patchFront(intent.id, intent.data)
@@ -102,6 +107,7 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
         if (confirmedPage) {
           readController.current?.abort()
           setRead({ context, token: currentToken.current, page: confirmedPage, error: null })
+          clearCheckPreview()
         } else {
           api.forgetSnapshot?.()
           refresh() // Changed query/client or a transport without a confirmed snapshot.
@@ -142,6 +148,10 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
   async function retry(): Promise<boolean> {
     return pendingRef.current && !runningRef.current ? run(pendingRef.current, true) : false
   }
-  const savingCheck = saving && writeClient === clientGeneration && pending?.kind === "check" ? pending : null
-  return { page, loading: !!query && !current && !page, refreshing, error, mutationError, notice, pending, saving, savingCheck, canWrite, refresh, perform, retry }
+  const savingCheck = saving && writeClient?.generation === clientGeneration && pending?.kind === "check" ? pending : null
+  // Preview only this client's exact query while saving or refreshing its ACK.
+  // Errors revert to confirmed data; uncertain intents still require explicit retry.
+  const optimisticCheck = !mutationError && (saving || refreshing) && writeClient?.generation === clientGeneration
+    && writeClient.context === context ? writeClient.check : null
+  return { page, loading: !!query && !current && !page, refreshing, error, mutationError, notice, pending, saving, savingCheck, optimisticCheck, canWrite, refresh, perform, retry }
 }

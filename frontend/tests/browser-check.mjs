@@ -94,7 +94,7 @@ try {
     requests.set(id, { resolve, reject, timer }); socket.send(JSON.stringify({ id, method, params }))
   })
   await command("session.new", { capabilities: { alwaysMatch: {} } })
-  await command("session.subscribe", { events: ["network.responseStarted"] })
+  await command("session.subscribe", { events: ["network.beforeRequestSent", "network.responseStarted"] })
   const { context } = await command("browsingContext.create", { type: "tab" })
   async function evaluate(expression, targetContext = context) {
     const result = await command("script.evaluate", { expression, target: { context: targetContext }, awaitPromise: true })
@@ -387,19 +387,25 @@ try {
   await screenshot("daily-mobile", 390, 844)
   await evaluate("document.querySelector('.front-card').scrollIntoView({block:'start'})")
   await screenshot("daily-mobile-rows", 390, 844)
-  // Hold a REAL commit response: immediate busy feedback, then draw the exact
-  // committed document without a redundant read, optimistic check or DOM reset.
+  // Hold before the request reaches workerd, then hold its real commit response:
+  // the check must already be drawn on the first frame, without any animation.
   const dailyReadUrl = `${origin}/api/vault`
+  let heldCheckSend = null
   let heldCheckRequest = null
   const checkRequests = []
+  const checkFrames = []
   onEvent = ({ method, params }) => {
-    if (method === "network.responseStarted" && params.context === context && params.request.url === dailyReadUrl && params.isBlocked) {
+    if (method === "network.beforeRequestSent" && params.context === context && params.request.url === dailyReadUrl && params.isBlocked) {
       checkRequests.push(params.request.method)
+      if (params.request.method === "PUT") heldCheckSend = params.request.request
+      else void command("network.continueRequest", {request:params.request.request})
+    }
+    if (method === "network.responseStarted" && params.context === context && params.request.url === dailyReadUrl && params.isBlocked) {
       if (params.request.method === "PUT") heldCheckRequest = params.request.request
       else void command("network.continueResponse", {request:params.request.request})
     }
   }
-  const heldCheck = await command("network.addIntercept", { contexts: [context], phases: ["responseStarted"], urlPatterns: [{ type: "string", pattern: dailyReadUrl }] })
+  const heldCheck = await command("network.addIntercept", { contexts: [context], phases: ["beforeRequestSent", "responseStarted"], urlPatterns: [{ type: "string", pattern: dailyReadUrl }] })
   const beforeCheck = JSON.parse(await evaluate(`(() => {
     window.__checkTarget=document.querySelector('[role=checkbox].activity-check');
     window.__checkTarget.focus({preventScroll:true});
@@ -410,23 +416,37 @@ try {
   }))`))
   const stableControls = await otherControlAppearance()
   assert.equal(await evaluate("getComputedStyle(window.__checkTarget).cursor"), "pointer")
-  await evaluate("window.__checkTarget.click()")
-  await waitFor(async () => heldCheckRequest !== null, "hold real check response")
-  assert.equal(await evaluate("window.__checkTarget.getAttribute('aria-busy')"), "true", "The clicked check reports saving before the response")
-  assert.equal(await evaluate("getComputedStyle(window.__checkTarget,'::after').animationName"), "check-wait", "Only the clicked check draws its busy indicator")
-  assert.equal(await evaluate("document.getElementById(window.__checkTarget.getAttribute('aria-describedby')).textContent"), "Guardando actividad…")
-  assert.equal(await evaluate("getComputedStyle(window.__checkTarget).cursor"), "pointer", "Check cursor remains stable while sending")
-  assert.deepEqual(await otherControlAppearance(), stableControls, "Sending one check must not flash unrelated controls")
-  assert.equal(await evaluate("document.querySelector('.main-feedback').textContent.trim()"), "", "Sending a check must not show a progress popup")
-  assert.equal(await evaluate("window.__checkTarget.getAttribute('aria-checked')"), "false", "No optimistic check before the response")
-  const duringCheck = JSON.parse(await evaluate("JSON.stringify({connected:window.__checkTarget.isConnected,scroll:scrollY,top:window.__checkTarget.getBoundingClientRect().top})"))
-  assert.equal(duringCheck.connected, true, `Sending a check removed its DOM node; scroll ${beforeCheck.scroll} -> ${duringCheck.scroll}`)
-  assert.ok(Math.abs(duringCheck.top-beforeCheck.top)<8, `Sending a check must keep the clicked front in place: top ${beforeCheck.top} -> ${duringCheck.top}, scroll ${beforeCheck.scroll} -> ${duringCheck.scroll}`)
-  const busyImage = await command("browsingContext.captureScreenshot", { context, origin: "viewport" })
-  await writeFile(join(output, "check-saving-mobile.png"), Buffer.from(busyImage.data, "base64"))
-  await command("network.continueResponse", { request: heldCheckRequest })
-  await waitFor(() => evaluate("window.__checkTarget.getAttribute('aria-checked') === 'true' && window.__checkTarget.getAttribute('aria-busy') === 'false' && window.__checkTarget.getAttribute('aria-disabled') === 'false'"), "HTTP check confirmation without another read")
-  assert.deepEqual(checkRequests, ["PUT"], "A loaded checkbox needs one confirmed PUT and no extra GET")
+  for (const marked of [true, false, true]) {
+    heldCheckSend = null; heldCheckRequest = null
+    const firstFrame = JSON.parse(await evaluate(`(async()=>{
+      const start=performance.now();window.__checkTarget.click();
+      await new Promise(requestAnimationFrame);
+      return JSON.stringify({ms:Math.round(performance.now()-start),checked:window.__checkTarget.getAttribute('aria-checked')});
+    })()`))
+    assert.equal(firstFrame.checked, String(marked), "Mark and unmark must appear on the first frame before any network result")
+    checkFrames.push({ marked, first_frame_ms: firstFrame.ms })
+    await waitFor(async () => heldCheckSend !== null, "hold check before sending to workerd")
+    assert.equal(await evaluate("window.__checkTarget.getAttribute('aria-busy')"), "true", "The immediate preview still reports that saving is pending")
+    assert.equal(await evaluate("getComputedStyle(window.__checkTarget).animationName"), "none")
+    assert.equal(await evaluate("getComputedStyle(window.__checkTarget).transitionDuration"), "0s")
+    assert.equal(await evaluate("getComputedStyle(window.__checkTarget,'::after').content"), "none", "There is no animated busy glyph")
+    assert.equal(await evaluate("document.getElementById(window.__checkTarget.getAttribute('aria-describedby')).textContent"), `${marked ? "Actividad marcada" : "Actividad desmarcada"}; guardando…`)
+    assert.deepEqual(await otherControlAppearance(), stableControls, "Saving must not flash unrelated controls")
+    assert.equal(await evaluate("document.querySelector('.main-feedback').textContent.trim()"), "", "Saving does not show a progress popup")
+    const duringCheck = JSON.parse(await evaluate("JSON.stringify({connected:window.__checkTarget.isConnected,scroll:scrollY,top:window.__checkTarget.getBoundingClientRect().top})"))
+    assert.equal(duringCheck.connected, true)
+    assert.ok(Math.abs(duringCheck.top-beforeCheck.top)<8, "The immediate preview preserves row position")
+    if (checkFrames.length === 1) {
+      const previewImage = await command("browsingContext.captureScreenshot", { context, origin: "viewport" })
+      await writeFile(join(output, "check-immediate-mobile.png"), Buffer.from(previewImage.data, "base64"))
+    }
+    await command("network.continueRequest", { request: heldCheckSend })
+    await waitFor(async () => heldCheckRequest !== null, "hold real check commit response")
+    assert.equal(await evaluate("window.__checkTarget.getAttribute('aria-checked')"), String(marked), "The preview stays stable while waiting for the commit response")
+    await command("network.continueResponse", { request: heldCheckRequest })
+    await waitFor(() => evaluate(`window.__checkTarget.getAttribute('aria-checked') === '${marked}' && window.__checkTarget.getAttribute('aria-busy') === 'false' && window.__checkTarget.getAttribute('aria-disabled') === 'false'`), "HTTP check confirmation without another read")
+    assert.deepEqual(checkRequests, checkFrames.map(() => "PUT"), "Each loaded checkbox change needs one PUT and no extra GET")
+  }
   await command("network.removeIntercept", { intercept: heldCheck.intercept })
   onEvent = () => {}
   assert.deepEqual(await otherControlAppearance(), stableControls, "Confirmed check leaves unrelated controls unchanged")
@@ -842,7 +862,7 @@ try {
   console.log("Calendars: inclusive percentages, independent disclosures, Enter/Space and visible focus, no activity requests for themes/layout/disclosure")
   console.log(`Palettes: ${contrastChecks} checked text/icon/surface pairs at least 4.5:1; no horizontal overflow or card-frame overflow in captured views`)
   console.log("Themes: one-click light/dark, system default, reload persistence, login/signup/editor/pending intent retained; preference-only storage")
-  console.log("Confirmed check: immediate busy indicator while a REAL PUT response is held; one PUT/no GET, confirmed document, stable DOM/position/focus and unrelated controls, no optimistic success")
+  console.log(`Instant check: mark/unmark drawn on first frame before sending, no animation/transition/spinner; real commit confirmation, one PUT/no GET, stable DOM/position/focus; frames ${JSON.stringify(checkFrames)}`)
   console.log("Trash: real encrypted delete/restore in open, standby and archived states, preserved identity/history/reference, hidden from normal views, reload persistence and restoration focus; both themes at1366/768/390/320px")
   console.log("View navigation: held real destination reads preserve source content, scroll and focus in both directions, both themes and desktop/mobile; stale controls stay inert")
   console.log("Compact rows/references: unchanged card dimensions with/without/restored long URL in both views/themes at1366/390/320px; short-name daily rows<=80px, checks>=44px; real reference edits never mark activity")
