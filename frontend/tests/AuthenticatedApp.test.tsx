@@ -39,6 +39,92 @@ async function enter() {
 const writes = (fetcher: ReturnType<typeof transport>) => fetcher.mock.calls.filter(([url, init]) => String(url).startsWith("/api/") && init?.method !== "GET")
 
 describe("Entrada privada sin perder solicitudes pendientes", () => {
+  it.each(["focus", "pageshow", "visibilitychange"])("la comprobación %s de la misma sesión bloqueada conserva el código y su campo", async (event) => {
+    const fetcher = transport(url => url === "/auth/session" ? response(session()) : undefined)
+    const factory = (fetch: typeof globalThis.fetch) => ({ ...createAuthClient(fetch), canRead: () => false })
+    render(<AuthenticatedApp authFactory={factory} fetcher={fetcher} clock={clock} />)
+    const input = await screen.findByLabelText("Código de acceso") as HTMLInputElement
+    await userEvent.type(input, "test-private-code")
+    fireEvent(event === "visibilitychange" ? document : window, new Event(event))
+    await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url === "/auth/session")).toHaveLength(2))
+    await act(async () => {})
+    expect(screen.getByLabelText("Código de acceso")).toBe(input)
+    expect(document.activeElement).toBe(input)
+    expect(input.value).toBe("test-private-code")
+    expect(fetcher.mock.calls.some(([url]) => url === "/auth/login" || String(url).startsWith("/api/"))).toBe(false)
+  })
+  it("acepta autocompletado nativo sin eventos React, incluso tras renderizar de nuevo, y borra el campo al enviar", async () => {
+    const login = deferred<Response>()
+    const fetcher = transport(url => url === "/auth/login" ? login.promise : undefined)
+    const view = render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
+    const input = await screen.findByLabelText("Código de acceso") as HTMLInputElement
+    // Password managers can change the DOM value without a React change event.
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "autofilled-test-code")
+    view.rerender(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
+    expect(screen.getByLabelText("Código de acceso")).toBe(input)
+    expect(input.value).toBe("autofilled-test-code")
+    await userEvent.keyboard("{Enter}")
+    expect(fetcher.mock.calls.filter(([url]) => url === "/auth/login").map(([, init]) => JSON.parse(String(init?.body)))).toEqual([{ code: "autofilled-test-code" }])
+    expect(input.value).toBe("")
+    expect(input.disabled).toBe(true)
+    await act(async () => { login.resolve(response(session())) })
+    await screen.findByText("Guitarra")
+  })
+  it("conserva el autocompletado cuando rota el CSRF de la misma sesión bloqueada", async () => {
+    let csrf = csrfA
+    let signedIn = true
+    const fetcher = transport(url => {
+      if (url === "/auth/session") return signedIn ? response(session(csrf)) : denied()
+      if (url === "/auth/logout") { signedIn = false; return new Response(null, { status: 204 }) }
+    })
+    const factory = (fetch: typeof globalThis.fetch) => ({ ...createAuthClient(fetch), canRead: () => false })
+    render(<AuthenticatedApp authFactory={factory} fetcher={fetcher} clock={clock} />)
+    const input = await screen.findByLabelText("Código de acceso") as HTMLInputElement
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "autofilled-test-code")
+    csrf = csrfB
+    fireEvent.focus(window)
+    await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url === "/auth/session")).toHaveLength(2))
+    await act(async () => {})
+    expect(input.value).toBe("autofilled-test-code")
+    expect(screen.getByLabelText("Código de acceso")).toBe(input)
+    await userEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }))
+    const logout = fetcher.mock.calls.find(([url]) => url === "/auth/logout")!
+    expect(new Headers(logout[1]?.headers).get("X-CSRF-Token")).toBe(csrfB)
+    await screen.findByText("Sesión cerrada en este dispositivo.")
+    expect((screen.getByLabelText("Código de acceso") as HTMLInputElement).value).toBe("")
+  })
+  it("borra el código al cambiar la cookie a otra cuenta bloqueada y no consulta sus datos", async () => {
+    let account = accountA
+    const fetcher = transport(url => url === "/auth/session" ? response(session(csrfA, account)) : undefined)
+    const factory = (fetch: typeof globalThis.fetch) => ({ ...createAuthClient(fetch), canRead: () => false })
+    render(<AuthenticatedApp authFactory={factory} fetcher={fetcher} clock={clock} />)
+    const input = await screen.findByLabelText("Código de acceso") as HTMLInputElement
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "autofilled-test-code")
+    account = accountB
+    fireEvent.focus(window)
+    await screen.findByText(`Cuenta ${accountB.slice(0, 8)}`)
+    expect((screen.getByLabelText("Código de acceso") as HTMLInputElement).value).toBe("")
+    expect(fetcher.mock.calls.some(([url]) => url === "/auth/login" || String(url).startsWith("/api/"))).toBe(false)
+  })
+  it("la misma sesión bloqueada no borra el error ni el código ni el límite de intentos", async () => {
+    const fetcher = transport(url => {
+      if (url === "/auth/session") return response(session())
+      if (url === "/auth/login") return response({}, 429, { "Retry-After": "60" })
+    })
+    const factory = (fetch: typeof globalThis.fetch) => ({ ...createAuthClient(fetch), canRead: () => false })
+    render(<AuthenticatedApp authFactory={factory} fetcher={fetcher} clock={clock} />)
+    await enter()
+    await screen.findByRole("alert")
+    const input = screen.getByLabelText("Código de acceso") as HTMLInputElement
+    await userEvent.type(input, "next-test-code")
+    fireEvent.focus(window)
+    await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url === "/auth/session")).toHaveLength(2))
+    await act(async () => {})
+    expect(input.value).toBe("next-test-code")
+    expect(screen.getByRole("alert").textContent).toMatch(/Demasiados intentos/)
+    expect((screen.getByRole("button", { name: "Entrar" }) as HTMLButtonElement).disabled).toBe(true)
+    expect(fetcher.mock.calls.filter(([url]) => url === "/auth/login")).toHaveLength(1)
+  })
   it("permite cerrar una sesión recordada sin desbloquear para crear otra cuenta", async () => {
     let signedIn = true
     const fetcher = transport(url => {
@@ -314,6 +400,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
     await act(async () => { status.resolve(denied()) })
     const code = await screen.findByLabelText("Código de acceso") as HTMLInputElement
     expect(code.type).toBe("password")
+    expect(code.name).toBe("password")
     expect(code.autocomplete).toBe("current-password")
     expect(code.maxLength).toBe(128)
     expect(screen.queryByText("Guitarra")).toBeNull()

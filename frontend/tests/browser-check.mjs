@@ -333,8 +333,35 @@ try {
   await encrypted.seed([['Guitarra','open'],['Curso de arquitectura','open'],['Lectura','standby'],['Proyecto terminado','archived']].map(([name,state])=>({name,state,reference:'https://example.test/material',days:[1,3,6].map(offset=>offsetDay(fixtureDay,offset))})))
   await navigate()
   await waitFor(() => evaluate("document.querySelector('#access-code') !== null"), "reload requires decryption code")
-  await login(codeA)
+  // Emulate a password manager assigning the native value without React events.
+  await evaluate(`(() => {
+    const input=document.getElementById('access-code');window.__autofillInput=input;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${JSON.stringify(codeA)});
+    return true;
+  })()`)
+  let autofillSessionReads = 0
+  onEvent = message => {
+    if (message.method === 'network.responseStarted' && message.params.context === context
+      && new URL(message.params.request.url).pathname === '/auth/session') autofillSessionReads++
+  }
+  for (const event of ['focus', 'pageshow', 'visibilitychange']) {
+    const before = autofillSessionReads
+    await evaluate(`${event === 'visibilitychange' ? 'document' : 'window'}.dispatchEvent(new Event(${JSON.stringify(event)}))`)
+    await waitFor(() => autofillSessionReads > before, `real session validation after autofill ${event}`)
+    await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))")
+    assert.equal(await evaluate(`document.getElementById('access-code')===window.__autofillInput
+      && window.__autofillInput.value===${JSON.stringify(codeA)}
+      && document.activeElement===window.__autofillInput && document.querySelector('.app-shell')===null`), true, `Autofill survives ${event}, with the same field/focus and no automatic login`)
+  }
+  onEvent = () => {}
+  for (const theme of ['dark', 'light']) {
+    await chooseTheme(theme)
+    assert.equal(await evaluate(`document.getElementById('access-code')===window.__autofillInput && window.__autofillInput.value===${JSON.stringify(codeA)}`), true, 'Visual changes preserve native autofill')
+  }
+  assert.equal(await evaluate("window.__autofillInput.name==='password' && window.__autofillInput.autocomplete==='current-password'"), true, 'Standard password-manager field hints')
+  await click('Entrar') // Submit the native autofilled value, without inputValue().
   await waitFor(() => evaluate("document.querySelectorAll('[role=checkbox].activity-check').length === 2"), "decrypted account A rows")
+  assert.equal(await evaluate("window.__autofillInput.value===''"), true, 'Submitted credential is cleared even from the detached input')
   const withReference = await referenceGeometry()
   await evaluate("document.querySelector('[aria-label=\"Editar Guitarra\"]').click()")
   await waitFor(() => evaluate("document.getElementById('front-reference')!==null"), "edit fixture reference")
@@ -862,6 +889,7 @@ try {
   console.log("Calendars: inclusive percentages, independent disclosures, Enter/Space and visible focus, no activity requests for themes/layout/disclosure")
   console.log(`Palettes: ${contrastChecks} checked text/icon/surface pairs at least 4.5:1; no horizontal overflow or card-frame overflow in captured views`)
   console.log("Themes: one-click light/dark, system default, reload persistence, login/signup/editor/pending intent retained; preference-only storage")
+  console.log("Native autofill: no React events; preserved through real focus/pageshow/visibility session checks and themes, same input/focus, explicit login/decryption and credential cleared on submit")
   console.log(`Instant check: mark/unmark drawn on first frame before sending, no animation/transition/spinner; real commit confirmation, one PUT/no GET, stable DOM/position/focus; frames ${JSON.stringify(checkFrames)}`)
   console.log("Trash: real encrypted delete/restore in open, standby and archived states, preserved identity/history/reference, hidden from normal views, reload persistence and restoration focus; both themes at1366/768/390/320px")
   console.log("View navigation: held real destination reads preserve source content, scroll and focus in both directions, both themes and desktop/mobile; stale controls stay inert")

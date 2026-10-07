@@ -25,7 +25,6 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
   const appAccountRef = useRef<string | null>(null)
   const [error, setError] = useState<AuthError | null>(null)
   const [notice, setNotice] = useState("")
-  const [code, setCode] = useState("")
   const [created, setCreated] = useState<SignupOut | null>(null)
   const [saved, setSaved] = useState(false)
   const [copyNotice, setCopyNotice] = useState("")
@@ -41,6 +40,12 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
   const authEpoch = useRef(0)
   const readController = useRef<AbortController | null>(null)
   const logoutTarget = useRef<AuthSession | null>(null)
+  // Let the browser own this value, including autofill without React events.
+  const codeForm = useRef<HTMLFormElement | null>(null)
+  const clearCode = useCallback(() => {
+    const input = codeForm.current?.elements.namedItem("password")
+    if (input instanceof HTMLInputElement) input.value = ""
+  }, [])
 
   const transition = useCallback((next: Mode) => { modeRef.current = next; setMode(next) }, [])
   const cancelRead = useCallback(() => {
@@ -69,8 +74,10 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
   }, [rememberSession, transition])
   const activate = useCallback((proof: AuthSession, explicit = false) => {
     if (auth.canRead && !auth.canRead(proof.account_id)) {
+      const alreadyPrompting = modeRef.current === "login" && contextRef.current?.proof.account_id === proof.account_id
       rememberSession(proof)
-      setError(null); setCode("")
+      if (alreadyPrompting) return
+      setError(null); clearCode()
       setNotice("Introduce tu código para descifrar el registro en esta pestaña. La clave no se guarda en el dispositivo.")
       transition(writeLockedRef.current ? "account-blocked" : "login")
       return
@@ -79,15 +86,15 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
       && (writeLockedRef.current || !explicit)) { gateChanged(proof); return }
     rememberSession(proof, explicit)
     appAccountRef.current = proof.account_id; setMountedAppAccountId(proof.account_id)
-    setError(null); setNotice(""); setCode("")
+    setError(null); setNotice(""); clearCode()
     transition("active")
-  }, [auth, rememberSession, gateChanged, transition])
+  }, [auth, rememberSession, gateChanged, transition, clearCode])
   const requireLogin = useCallback((message: string) => {
     sessionGeneration.current++
     contextRef.current = null; setContext(null)
-    setError(null); setNotice(message); setCode("")
+    setError(null); setNotice(message); clearCode()
     transition("login")
-  }, [transition])
+  }, [transition, clearCode])
   const checkSession = useCallback(async (hide = false) => {
     // Never bypass ACK, a different-account gate, or an explicit uncertain logout.
     if (["signing-in", "logging-out", "logout-error", "signing-up", "signup-code", "signup-login", "signup-error", "account-blocked", "account-changed"].includes(modeRef.current)) return
@@ -171,10 +178,10 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!["login", "account-blocked"].includes(modeRef.current) || !code.trim() || loginCooling) return
+    const submitted = new FormData(event.currentTarget).get("password")
+    if (!["login", "account-blocked"].includes(modeRef.current) || typeof submitted !== "string" || !submitted.trim() || loginCooling) return
     const previousMode = modeRef.current
-    const submitted = code
-    setCode("")
+    clearCode()
     cancelRead()
     const epoch = authEpoch.current
     setError(null); transition("signing-in")
@@ -190,7 +197,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
     if (writeLockedRef.current || !["login", "signup-error"].includes(modeRef.current) || signupCooling) return
     cancelRead()
     const epoch = authEpoch.current
-    setError(null); setNotice(""); setCode(""); setSaved(false); setCopyNotice("")
+    setError(null); setNotice(""); clearCode(); setSaved(false); setCopyNotice("")
     transition("signing-up")
     try {
       const result = await auth.signup()
@@ -229,7 +236,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
   }
   function leaveSignup() {
     if (created && !window.confirm("Al salir se borrará el código de esta pantalla. No hay recuperación. ¿Lo has guardado y quieres salir?")) return
-    setCreated(null); setSaved(false); setCopyNotice(""); setError(null); setCode("")
+    setCreated(null); setSaved(false); setCopyNotice(""); setError(null); clearCode()
     transition("login")
   }
   function confirmLogout() {
@@ -238,7 +245,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
     contextRef.current = null; setContext(null)
     appAccountRef.current = null; setMountedAppAccountId(null)
     logoutTarget.current = null
-    setError(null); setCode(""); setNotice("Sesión cerrada en este dispositivo.")
+    setError(null); clearCode(); setNotice("Sesión cerrada en este dispositivo.")
     transition("login")
   }
   async function logout() {
@@ -309,8 +316,8 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
         {loginForm && <>
           <p className="muted">Entra con tu código privado. La sesión se recuerda solo en este dispositivo mediante una cookie protegida.</p>
           {writeLocked && mode !== "account-blocked" && <p>Vuelve a la cuenta original {mountedAppAccountId?.slice(0, 8)} para confirmar la solicitud pendiente.</p>}
-          <form className="auth-form" onSubmit={(event) => { void login(event) }}>
-            <div className="field"><label htmlFor="access-code">Código de acceso</label><Input id="access-code" type="password" font="normal" className="field-input" autoComplete="current-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={128} required value={code} disabled={mode === "signing-in"} aria-invalid={error?.kind === "invalid-code"} aria-describedby={error ? "auth-error" : "code-help"} onChange={(event) => setCode(event.target.value)} /><p id="code-help" className="field-help">Un único código permanente por cuenta. Sin usuario ni correo.</p></div>
+          <form ref={codeForm} method="post" className="auth-form" onSubmit={(event) => { void login(event) }}>
+            <div className="field"><label htmlFor="access-code">Código de acceso</label><Input id="access-code" name="password" type="password" font="normal" className="field-input" autoComplete="current-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={128} required defaultValue="" disabled={mode === "signing-in"} aria-invalid={error?.kind === "invalid-code"} aria-describedby={error ? "auth-error" : "code-help"} /><p id="code-help" className="field-help">Un único código permanente por cuenta. Sin usuario ni correo.</p></div>
             <Button type="submit" disabled={mode === "signing-in" || loginCooling}>Entrar</Button>
             {mode === "signing-in" && <p role="status">Comprobando el código…</p>}
           </form>
@@ -335,7 +342,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
         </div>}
         {mode === "account-changed" && <div className="auth-form">
           <Button id="continue-account" type="button" disabled={writeLocked} onClick={() => { const proof = contextRef.current?.proof; if (proof && !writeLockedRef.current) activate(proof, true) }}>Continuar con esta cuenta</Button>
-          <Button type="button" variant="outline" font="normal" className="text-button" onClick={() => { setCode(""); setError(null); transition("login") }}>Entrar con otro código</Button>
+          <Button type="button" variant="outline" font="normal" className="text-button" onClick={() => { clearCode(); setError(null); transition("login") }}>Entrar con otro código</Button>
         </div>}
         {mode === "error" && <Button type="button" variant="outline" font="normal" className="text-button" onClick={() => { void checkSession(true) }}>Reintentar conexión</Button>}
         {mode === "logout-error" && <Button type="button" variant="outline" font="normal" className="text-button" onClick={() => { void logout() }}>Reintentar cierre</Button>}
