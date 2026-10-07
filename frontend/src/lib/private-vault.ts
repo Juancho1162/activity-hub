@@ -1,8 +1,8 @@
-import { ApiError, safeReference, type AccessContext, type ActivityApi, type Front, type FrontDraft, type CheckResult, type DashboardQuery, type DashboardPage } from './api'
+import { ApiError, safeReference, type AccessContext, type ActivityApi, type Front, type FrontDraft, type CheckResult, type DeleteResult, type DashboardQuery, type DashboardPage } from './api'
 import { isDay } from './dates'
 import { decryptVault, encryptVault, type Ciphertext } from './privacy-crypto'
 
-type Replay = { key: string; operation: string; target: string | null; payload: Record<string, unknown>; response: Front | CheckResult }
+type Replay = { key: string; operation: 'create_front' | 'write_check' | 'patch_front' | 'trash_front' | 'restore_front' | 'delete_front'; target: string | null; payload: Record<string, unknown>; response: Front | CheckResult | DeleteResult; retired_keys?: string[] }
 export type PrivateDocument = { format: 1; fronts: Front[]; checks: { front_id: string; day: string }[]; replays: Replay[] }
 type Snapshot = { version: number; day: string; now: string; iv: string | null; ciphertext: string | null; legacy_revision: number | null; legacy: Omit<PrivateDocument, 'format'> | null }
 type Loaded = { snapshot: Snapshot; content: PrivateDocument }
@@ -25,9 +25,19 @@ function document(value: unknown): PrivateDocument {
   const ids = new Set(fronts.map(f => f.id))
   if (ids.size !== fronts.length || value.checks.some(ch => !record(ch) || !ids.has(ch.front_id) || !isDay(ch.day))
     || new Set(value.checks.map(ch => `${ch.front_id}:${ch.day}`)).size !== value.checks.length) throw invalid()
-  if (value.replays.some(r => !record(r) || typeof r.key !== 'string' || !/^[a-f0-9]{32}$/.test(r.key)
-    || !['create_front', 'write_check', 'patch_front', 'trash_front', 'restore_front'].includes(String(r.operation)) || !(r.target === null || typeof r.target === 'string') || !record(r.payload) || !record(r.response))
-    || new Set(value.replays.map(r => r.key)).size !== value.replays.length) throw invalid()
+  const requestKeys: string[] = []
+  for (const r of value.replays) {
+    if (!record(r) || typeof r.key !== 'string' || !/^[a-f0-9]{32}$/.test(r.key)
+      || !['create_front', 'write_check', 'patch_front', 'trash_front', 'restore_front', 'delete_front'].includes(String(r.operation))
+      || !(r.target === null || typeof r.target === 'string') || !record(r.payload) || !record(r.response)) throw invalid()
+    if (r.operation === 'delete_front') {
+      if (!uuid(r.response.front_id) || r.response.deleted !== true || Object.keys(r.response).length !== 2
+        || ids.has(r.response.front_id) || r.target !== normalizedKey(r.response.front_id) || Object.keys(r.payload).length !== 0
+        || r.retired_keys !== undefined && (!Array.isArray(r.retired_keys) || r.retired_keys.some(k => typeof k !== 'string' || !/^[a-f0-9]{32}$/.test(k)))) throw invalid()
+    } else if (r.retired_keys !== undefined) throw invalid()
+    requestKeys.push(r.key, ...(r.retired_keys as string[] | undefined ?? []))
+  }
+  if (new Set(requestKeys).size !== requestKeys.length) throw invalid()
   return value as PrivateDocument
 }
 function draft(value: FrontDraft): FrontDraft {
@@ -137,26 +147,29 @@ export function createPrivateApi(fetcher: typeof fetch, access: AccessContext, k
     }
     throw new ApiError('conflict', 'Otra pestaña está actualizando el registro. Reintenta la lectura.')
   }
-  async function mutate(operation: Replay['operation'], target: string | null, payload: Record<string, unknown>, requestId: string): Promise<Front | CheckResult> {
+  async function mutate(operation: Replay['operation'], target: string | null, payload: Record<string, unknown>, requestId: string): Promise<Front | CheckResult | DeleteResult> {
     const replayKey = normalizedKey(requestId)
     if (!/^[a-f0-9]{32}$/.test(replayKey)) throw new ApiError('validation', 'El identificador de solicitud no es válido.')
     const generation = memoryGeneration
     const cached = operation === 'write_check' && isDay(payload.day) && latest && latest.snapshot.version > 0
-      && payload.day <= latest.snapshot.day && !latest.content.replays.some(replay => replay.key === replayKey) ? latest : null
+      && payload.day <= latest.snapshot.day && !latest.content.replays.some(replay => replay.key === replayKey || replay.retired_keys?.includes(replayKey)) ? latest : null
     latest = null; confirmed = null
     for (let attempt = 0; attempt < 5; attempt++) {
       const current = attempt === 0 && cached ? structuredClone(cached) : await load()
       const { content, snapshot } = current
-      const front = target ? content.fronts.find(f => normalizedKey(f.id) === normalizedKey(target)) : null
-      if (target && !front) throw new ApiError('not-found', 'Ese frente no está disponible. Actualiza el registro.')
       const replay = content.replays.find(r => r.key === replayKey)
       if (replay) {
         if (replay.operation !== operation || replay.target !== (target ? normalizedKey(target) : null) || canonical(replay.payload) !== canonical(payload)) throw new ApiError('conflict', 'La solicitud entra en conflicto con una anterior.')
         confirm(current, requestId, generation)
         return structuredClone(replay.response)
       }
-      if (front?.trashed_at && operation !== 'trash_front' && operation !== 'restore_front') throw new ApiError('not-found', 'Ese frente está en la papelera. Restáuralo antes de cambiarlo.')
-      let result: Front | CheckResult
+      if (content.replays.some(r => r.retired_keys?.includes(replayKey))) throw new ApiError('deleted-request', 'El frente de esta solicitud ya se ha eliminado para siempre.')
+      const front = target ? content.fronts.find(f => normalizedKey(f.id) === normalizedKey(target)) : null
+      if (target && !front) throw new ApiError('not-found', 'Ese frente no está disponible. Actualiza el registro.')
+      if (operation === 'delete_front' && !front?.trashed_at) throw new ApiError('conflict', 'Solo puedes eliminar para siempre un frente que siga en la Papelera. Actualiza el registro.')
+      if (front?.trashed_at && operation !== 'trash_front' && operation !== 'restore_front' && operation !== 'delete_front') throw new ApiError('not-found', 'Ese frente está en la papelera. Restáuralo antes de cambiarlo.')
+      let result: Front | CheckResult | DeleteResult
+      let retiredKeys: string[] | undefined
       if (operation === 'create_front') {
         if (content.fronts.length >= 200) throw quota()
         result = { ...payload as FrontDraft, id: crypto.randomUUID(), created_at: snapshot.now, updated_at: snapshot.now }
@@ -167,6 +180,19 @@ export function createPrivateApi(fetcher: typeof fetch, access: AccessContext, k
       } else if (operation === 'trash_front' || operation === 'restore_front') {
         result = { ...front!, trashed_at: operation === 'trash_front' ? front!.trashed_at ?? snapshot.now : null }
         content.fronts[content.fronts.indexOf(front!)] = result
+      } else if (operation === 'delete_front') {
+        const frontKey = normalizedKey(front!.id)
+        const related = (r: Replay) => {
+          const responseTarget = 'id' in r.response ? r.response.id : r.response.front_id
+          return normalizedKey(r.target ?? '') === frontKey || typeof responseTarget === 'string' && normalizedKey(responseTarget) === frontKey
+        }
+        // Retain consumed request IDs only: an old create must never recreate
+        // deleted content, even after a committed response was lost.
+        retiredKeys = content.replays.filter(related).map(r => r.key)
+        content.replays = content.replays.filter(r => !related(r))
+        content.fronts = content.fronts.filter(f => f.id !== front!.id)
+        content.checks = content.checks.filter(ch => ch.front_id !== front!.id)
+        result = { front_id: front!.id, deleted: true }
       } else {
         const day = payload.day === 'today' ? snapshot.day : payload.day === 'yesterday' ? dayBefore(snapshot.day) : String(payload.day)
         if (!isDay(day) || day > snapshot.day || typeof payload.marked !== 'boolean') throw new ApiError('validation', 'No se puede registrar actividad para un día futuro.')
@@ -174,8 +200,8 @@ export function createPrivateApi(fetcher: typeof fetch, access: AccessContext, k
         if (payload.marked) content.checks.push({ front_id: front!.id, day })
         result = { front_id: front!.id, day, marked: payload.marked }
       }
-      if (content.replays.length >= 5000) throw quota()
-      content.replays.push({ key: replayKey, operation, target: target ? normalizedKey(target) : null, payload, response: result })
+      if (operation !== 'delete_front' && content.replays.filter(r => r.operation !== 'delete_front').length >= 5000) throw quota()
+      content.replays.push({ key: replayKey, operation, target: target ? normalizedKey(target) : null, payload, response: result, ...(retiredKeys?.length ? { retired_keys: retiredKeys } : {}) })
       const saved = await save(snapshot, content)
       if (saved) {
         confirm({ snapshot: saved, content }, requestId, generation)
@@ -206,5 +232,6 @@ export function createPrivateApi(fetcher: typeof fetch, access: AccessContext, k
     async writeCheck(id, day, marked, requestId) { return await mutate('write_check', id, { day, marked }, requestId) as CheckResult },
     async trashFront(id, requestId) { return await mutate('trash_front', id, {}, requestId) as Front },
     async restoreFront(id, requestId) { return await mutate('restore_front', id, {}, requestId) as Front },
+    async deleteFront(id, requestId) { return await mutate('delete_front', id, {}, requestId) as DeleteResult },
   }
 }

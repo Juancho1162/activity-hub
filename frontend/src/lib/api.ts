@@ -7,7 +7,8 @@ export type DashboardItem = { front: Front; marked_dates: string[]; last_registe
 export type DashboardPage = { items: DashboardItem[]; total: number; limit: number; offset: number; start: string; end: string }
 export type DashboardQuery = { start: string; end: string; state?: FrontState | "all"; search?: string; limit?: number; offset?: number; order?: "created" | "activity_desc"; trashed?: boolean }
 export type CheckResult = { front_id: string; day: string; marked: boolean }
-export type ErrorKind = "access-pending" | "unauthorized" | "network" | "validation" | "conflict" | "unavailable" | "invalid-response" | "not-found"
+export type DeleteResult = { front_id: string; deleted: true }
+export type ErrorKind = "access-pending" | "unauthorized" | "network" | "validation" | "conflict" | "unavailable" | "invalid-response" | "not-found" | "deleted-request"
 export class ApiError extends Error {
   constructor(public kind: ErrorKind, message: string, public uncertain = false) { super(message) }
 }
@@ -18,6 +19,7 @@ export interface ActivityApi {
   writeCheck(id: string, day: string, marked: boolean, requestId: string): Promise<CheckResult>
   trashFront?(id: string, requestId: string): Promise<Front>
   restoreFront?(id: string, requestId: string): Promise<Front>
+  deleteFront?(id: string, requestId: string): Promise<DeleteResult>
   /** Project only the authenticated snapshot confirmed by this exact request. */
   confirmedDashboard?(requestId: string, query: DashboardQuery): DashboardPage | null
   forgetSnapshot?(): void

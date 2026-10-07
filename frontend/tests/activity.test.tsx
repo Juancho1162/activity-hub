@@ -14,6 +14,25 @@ function fakeApi(): ActivityApi {
 }
 
 describe("Estado de lectura y escrituras confirmadas", () => {
+  it("un recibo de solicitud eliminada cierra la incertidumbre sin recrear el frente y actualiza la vista", async () => {
+    const api = fakeApi(); const lock = vi.fn()
+    vi.mocked(api.createFront).mockRejectedValueOnce(new ApiError("network", "Respuesta perdida", true))
+      .mockRejectedValueOnce(new ApiError("deleted-request", "El frente de esa solicitud se ha eliminado para siempre."))
+    vi.mocked(api.dashboard).mockResolvedValueOnce(page()).mockResolvedValue({ ...page(), items: [], total: 0 })
+    const { result } = renderHook(() => useActivity(api, query, lock))
+    await waitFor(() => expect(result.current.canWrite).toBe(true))
+    const intent: Intent = { kind: "create", data: { name: "Guitarra", reference: null, state: "open" }, requestId: key }
+    await act(async () => { expect(await result.current.perform(intent)).toBe(false) })
+    expect(result.current.pending).toEqual(intent)
+    await act(async () => { expect(await result.current.retry()).toBe(false) })
+    expect(result.current.pending).toBeNull()
+    expect(result.current.mutationError?.uncertain).toBe(false)
+    await waitFor(() => expect(result.current.page?.total).toBe(0))
+    expect(result.current.canWrite).toBe(true)
+    expect(lock).toHaveBeenLastCalledWith(false)
+    expect(api.createFront).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(api.createFront).mock.calls[1]).toEqual(vi.mocked(api.createFront).mock.calls[0])
+  })
   it("dibuja el estado completo confirmado por el guardado sin una lectura HTTP adicional", async () => {
     const api = fakeApi(); const response = deferred<CheckResult>()
     vi.mocked(api.writeCheck).mockReturnValueOnce(response.promise)

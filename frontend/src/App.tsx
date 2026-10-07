@@ -77,7 +77,7 @@ function DashboardFront({ item, calendarDays, editAction }: {
 function RequestFeedback({ activity, onRetry }: { activity: Activity; onRetry: () => void }) {
   if (activity.saving || (!activity.pending && !activity.mutationError)) return null
   return <div className="request-feedback">
-    {activity.mutationError && <div role="alert"><h3>{activity.pending ? "Solicitud sin confirmar" : "El cambio no se ha guardado"}</h3><p>{activity.mutationError.message}</p></div>}
+    {activity.mutationError && <div role="alert"><h3>{activity.pending ? "Solicitud sin confirmar" : activity.mutationError.kind === "deleted-request" ? "El frente se ha eliminado" : "El cambio no se ha guardado"}</h3><p>{activity.mutationError.message}</p></div>}
     {activity.pending && <>
       {activity.pending.kind === "check" && <p>Solicitud del {formatDay(activity.pending.day)}: {activity.pending.marked ? "marcar actividad" : "quitar el registro"}.</p>}
       <p className="muted">No recargues ni cierres esta pestaña. La solicitud se conserva solo en memoria para reintentarla con la misma identidad.</p>
@@ -99,10 +99,12 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   const [search, setSearch] = useState("")
   const [offset, setOffset] = useState(0)
   const [editor, setEditor] = useState<Editor | null>(null)
+  const [deletion, setDeletion] = useState<Front | null>(null)
   const [formError, setFormError] = useState<{ field: "name" | "reference"; message: string } | null>(null)
   const opener = useRef<HTMLButtonElement | null>(null)
   const newButton = useRef<HTMLButtonElement | null>(null)
   const trashButton = useRef<HTMLButtonElement | null>(null)
+  const deleteOpener = useRef<HTMLButtonElement | null>(null)
   const hasTrash = !!api.trashFront && !!api.restoreFront
 
   useEffect(() => {
@@ -185,7 +187,11 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   }
   async function retryPending() {
     const editorRequest = pending?.kind === "create" || pending?.kind === "edit" || pending?.kind === "trash"
-    if (await activity.retry() && editorRequest) setEditor(null)
+    const deleteRequest = pending?.kind === "delete"
+    if (await activity.retry()) {
+      if (editorRequest) setEditor(null)
+      if (deleteRequest) setDeletion(null)
+    }
   }
   async function trashEditor() {
     if (!editor?.id || !canWrite || locked || !hasTrash) return
@@ -198,6 +204,15 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
       if (ownedFocus && trashButton.current?.getAttribute("aria-current") === "page"
         && (document.activeElement === button || document.activeElement === document.body)) trashButton.current.focus({ preventScroll: true })
     }
+  }
+  function confirmDeletion(front: Front, button: HTMLButtonElement) {
+    if (!canWrite || locked || !api.deleteFront) return
+    deleteOpener.current = button
+    setDeletion(front)
+  }
+  async function deletePermanently() {
+    if (!deletion || !canWrite || locked || !api.deleteFront) return
+    if (await activity.perform({ kind: "delete", id: deletion.id, requestId: crypto.randomUUID() })) setDeletion(null)
   }
   function checkPreview(id: string) {
     const preview = activity.optimisticCheck
@@ -233,7 +248,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
 
     <p className="sr-only" role="status">{navigating ? `Abriendo ${viewLabels[requestedView]}…` : ""}</p>
     <main id="contenido" className="main-content" tabIndex={-1} inert={navigating} aria-busy={navigating}>
-      {!editor && <div className="main-feedback">
+      {!editor && !deletion && <div className="main-feedback">
         <RequestFeedback activity={activity} onRetry={() => { void retryPending() }} />
       </div>}
       <div key={view} className="view-panel">
@@ -243,7 +258,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
         </header>
 
         <Card font="normal" className="toolbar-card"><CardContent font="normal" className="card-body">
-          {view === "trash" ? <div className="trash-help"><p>Recupera un frente con su estado y todos sus checks.</p><p className="muted">El contenido de la papelera se conserva y sigue ocupando espacio en tu cuenta.</p></div> : view === "daily" ? <div className="daily-controls">
+          {view === "trash" ? <div className="trash-help"><p>Recupera un frente con su estado y todos sus checks.</p><p className="muted">{api.deleteFront ? "Eliminar para siempre borra el frente y todo su historial. No podrás recuperarlo." : "El contenido de la papelera se conserva y sigue ocupando espacio en tu cuenta."}</p></div> : view === "daily" ? <div className="daily-controls">
             <div className="field date-field"><label htmlFor="registration-day">Fecha de registro</label><Input id="registration-day" type="date" font="normal" className="field-input" min={MIN_DAY} max={today} value={day} aria-invalid={!dailyValid} aria-describedby="date-help" onChange={(event) => chooseDay(event.target.value)} /></div>
             <div className="day-actions"><Button type="button" variant="outline" size="icon" aria-label="Día anterior" disabled={!dailyValid || day === MIN_DAY} onClick={() => chooseDay(shiftDay(day, -1))}><ChevronLeft aria-hidden="true" /></Button><Button type="button" variant="outline" size="icon" aria-label="Día siguiente" disabled={!dailyValid || day >= today} onClick={() => chooseDay(shiftDay(day, 1))}><ChevronRight aria-hidden="true" /></Button><Button type="button" variant="outline" onClick={() => { const currentToday = todayInMadrid(clock()); setToday(currentToday); chooseDay(currentToday) }}>Hoy</Button></div>
             <p id="date-help" className="date-help">Hoy, {formatDay(today, true)}</p>
@@ -269,7 +284,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
                 <div className="results-heading"><p>{page.total} {page.total === 1 ? "frente en esta vista" : "frentes en esta vista"}</p><span>{view === "daily" ? formatDay(day) : view === "trash" ? "Todos los estados" : "Mayor porcentaje primero"}</span></div>
                 {page.total === 0 ? <Card font="normal" className="message-card"><CardContent font="normal" className="card-body"><FolderOpen className="empty-icon" aria-hidden="true" /><h2>{view === "trash" ? (search.trim() ? "No hay frentes en la papelera con ese nombre" : "La papelera está vacía") : "No hay frentes en esta vista"}</h2><p className="muted">{view === "trash" ? "Los frentes que elimines aparecerán aquí para que puedas recuperarlos." : "Prueba otro estado o nombre, o crea un nuevo frente. Crear un frente no marca actividad."}</p></CardContent></Card> : <ul className={`front-list ${view === "dashboard" ? "dashboard-list" : view === "trash" ? "trash-list" : "daily-list"}`} aria-busy={saving || activity.refreshing || navigating} aria-label={view === "daily" ? "Frentes del registro diario" : view === "trash" ? "Frentes de la papelera" : "Frentes del dashboard"}>
                   {page.items.map((item) => <li key={`${item.front.id}:${view}:${page.start}:${page.end}`}><Card font="normal" className="front-card"><CardContent font="normal" className="card-body">
-                    {view === "daily" ? <div className="daily-row"><Checkbox className="min-h-11 min-w-11 activity-check" aria-label={`Actividad en ${item.front.name}`} aria-describedby={`check-status-${item.front.id}`} aria-busy={!!checkPreview(item.front.id)} checked={checkPreview(item.front.id)?.marked ?? item.marked_dates.includes(day)} aria-disabled={!canWrite || !dailyValid} onClick={(event) => { if (!canWrite || !dailyValid) event.preventDefault() }} onCheckedChange={(marked) => check(item.front.id, marked)} /><div><FrontInfo front={item.front} /><p id={`check-status-${item.front.id}`} className="sr-only" aria-live="polite">{checkStatus(item)}</p></div><FrontActions front={item.front}>{editButton(item.front)}</FrontActions></div> : view === "trash" ? <div className="trash-row"><FrontInfo front={item.front} /><Button type="button" variant="outline" font="normal" className="restore-front text-button" aria-label={`Restaurar ${item.front.name}`} title={`Restaurar ${item.front.name}`} disabled={!canWrite || locked} onClick={(event) => { void restore(item.front, event.currentTarget) }}><Undo2 aria-hidden="true" size={18} /><span className="restore-label">Restaurar</span></Button></div> : <DashboardFront item={item} calendarDays={calendarDays} editAction={editButton(item.front)} />}
+                    {view === "daily" ? <div className="daily-row"><Checkbox className="min-h-11 min-w-11 activity-check" aria-label={`Actividad en ${item.front.name}`} aria-describedby={`check-status-${item.front.id}`} aria-busy={!!checkPreview(item.front.id)} checked={checkPreview(item.front.id)?.marked ?? item.marked_dates.includes(day)} aria-disabled={!canWrite || !dailyValid} onClick={(event) => { if (!canWrite || !dailyValid) event.preventDefault() }} onCheckedChange={(marked) => check(item.front.id, marked)} /><div><FrontInfo front={item.front} /><p id={`check-status-${item.front.id}`} className="sr-only" aria-live="polite">{checkStatus(item)}</p></div><FrontActions front={item.front}>{editButton(item.front)}</FrontActions></div> : view === "trash" ? <div className="trash-row"><FrontInfo front={item.front} /><div className="trash-actions"><Button type="button" variant="outline" font="normal" className="restore-front text-button" aria-label={`Restaurar ${item.front.name}`} title={`Restaurar ${item.front.name}`} disabled={!canWrite || locked} onClick={(event) => { void restore(item.front, event.currentTarget) }}><Undo2 aria-hidden="true" size={18} /><span className="restore-label">Restaurar</span></Button>{api.deleteFront && <Button type="button" variant="ghost" font="normal" className="purge-front text-button" aria-label={`Eliminar para siempre ${item.front.name}`} title={`Eliminar para siempre ${item.front.name}`} disabled={!canWrite || locked} onClick={(event) => confirmDeletion(item.front, event.currentTarget)}><Trash2 aria-hidden="true" size={18} /><span className="purge-label">Eliminar para siempre</span></Button>}</div></div> : <DashboardFront item={item} calendarDays={calendarDays} editAction={editButton(item.front)} />}
                   </CardContent></Card></li>)}
                 </ul>}
               </>}
@@ -292,6 +307,15 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
             {editor.id && hasTrash && <div className="editor-trash"><Button type="button" variant="ghost" font="normal" className="delete-front text-button" disabled={!canWrite || locked} onClick={() => { void trashEditor() }}><Trash2 aria-hidden="true" size={18} />Eliminar frente</Button><p className="field-help">Se moverá a la Papelera. Podrás recuperarlo con todo su historial.</p></div>}
             <div className="editor-actions"><Button type="button" variant="outline" font="normal" className="text-button" disabled={locked} onClick={() => setEditor(null)}>Cancelar</Button><Button type="submit" disabled={!canWrite || locked}>{editor.id ? "Guardar cambios" : "Crear frente"}</Button></div>
           </form>
+        </CardContent></Card>
+      </Dialog.Content></Dialog.Portal>}
+    </Dialog.Root>
+    <Dialog.Root open={deletion !== null} onOpenChange={(open) => { if (!open && !locked) setDeletion(null) }}>
+      {deletion && <Dialog.Portal><Dialog.Overlay className="dialog-overlay" /><Dialog.Content role="alertdialog" className="editor-panel delete-panel" onOpenAutoFocus={(event) => { event.preventDefault(); document.getElementById("cancel-permanent-delete")?.focus() }} onEscapeKeyDown={(event) => { if (locked) event.preventDefault() }} onPointerDownOutside={(event) => { if (locked) event.preventDefault() }} onCloseAutoFocus={(event) => { event.preventDefault(); const target = deleteOpener.current; (target?.isConnected && !target.disabled ? target : trashButton.current)?.focus({ preventScroll: true }) }}>
+        <Card font="normal" className="editor-card"><CardHeader font="normal" className="editor-header"><div><Dialog.Title asChild><h2 className="retro">Eliminar para siempre</h2></Dialog.Title><Dialog.Description asChild><p className="muted">Se borrará <strong>{deletion.name}</strong> junto con todos sus checks y todo su historial. No podrás recuperarlo.</p></Dialog.Description></div></CardHeader><CardContent font="normal" className="editor-body">
+          <RequestFeedback activity={activity} onRetry={() => { void retryPending() }} />
+          {saving && <p role="status">Eliminando… Espera la confirmación.</p>}
+          <div className="editor-actions"><Button id="cancel-permanent-delete" type="button" variant="outline" font="normal" className="text-button" disabled={locked} onClick={() => setDeletion(null)}>Cancelar</Button><Button type="button" variant="destructive" font="normal" className="confirm-delete text-button" disabled={!canWrite || locked} onClick={() => { void deletePermanently() }}>Eliminar para siempre</Button></div>
         </CardContent></Card>
       </Dialog.Content></Dialog.Portal>}
     </Dialog.Root>

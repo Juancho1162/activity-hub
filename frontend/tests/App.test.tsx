@@ -12,8 +12,129 @@ function api(): ActivityApi {
     createFront: vi.fn(async () => front), patchFront: vi.fn(async () => front),
     writeCheck: vi.fn(async (id, day, marked) => ({ front_id: id, day, marked })) }
 }
+function trashApi(): ActivityApi {
+  const client = api()
+  client.trashFront = vi.fn(async () => front)
+  client.restoreFront = vi.fn(async () => front)
+  client.deleteFront = vi.fn(async id => ({ front_id: id, deleted: true as const }))
+  vi.mocked(client.dashboard).mockImplementation(async q => {
+    const data = page(q.start, q.end)
+    const items = q.trashed ? [{ ...data.items[0], front: { ...front, trashed_at: "2026-10-03T12:00:00Z" } }] : []
+    return { ...data, items, total: items.length }
+  })
+  client.confirmedDashboard = vi.fn((_id, q) => ({ ...page(q.start, q.end), items: [], total: 0 }))
+  return client
+}
 
 describe("Vistas de registro y dashboard", () => {
+  it("el borrado permanente solo se ofrece en Papelera y Cancelar, Enter o Escape no envían nada", async () => {
+    const client = trashApi()
+    render(<App api={client} clock={clock} />)
+    await screen.findByText("No hay frentes en esta vista")
+    expect(screen.queryByRole("button", { name: /Eliminar para siempre/ })).toBeNull()
+    await userEvent.click(screen.getByRole("button", { name: "Papelera" }))
+    const opener = await screen.findByRole("button", { name: "Eliminar para siempre Guitarra" })
+    for (const action of ["Enter", "Escape", "Cancelar"]) {
+      await userEvent.click(opener)
+      const confirmation = await screen.findByRole("alertdialog", { name: "Eliminar para siempre" })
+      expect(confirmation.textContent).toContain("Guitarra")
+      expect(confirmation.textContent).toMatch(/todos sus checks|todo su historial/)
+      expect(confirmation.textContent).toMatch(/No podrás recuperarlo/)
+      expect(document.activeElement).toBe(within(confirmation).getByRole("button", { name: "Cancelar" }))
+      if (action === "Cancelar") await userEvent.click(within(confirmation).getByRole("button", { name: "Cancelar" }))
+      else await userEvent.keyboard(`{${action}}`)
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+      expect(document.activeElement).toBe(opener)
+    }
+    expect(client.deleteFront).not.toHaveBeenCalled()
+    expect(client.restoreFront).not.toHaveBeenCalled()
+  })
+  it("confirma antes de borrar, conserva el frente hasta el ACK y devuelve el foco a Papelera", async () => {
+    const client = trashApi(); const response = deferred<{ front_id: string; deleted: true }>()
+    vi.mocked(client.deleteFront!).mockReturnValueOnce(response.promise)
+    render(<App api={client} clock={clock} />)
+    await userEvent.click(screen.getByRole("button", { name: "Papelera" }))
+    await userEvent.click(await screen.findByRole("button", { name: "Eliminar para siempre Guitarra" }))
+    expect(client.deleteFront).not.toHaveBeenCalled()
+    const confirmation = screen.getByRole("alertdialog")
+    const confirm = within(confirmation).getByRole("button", { name: "Eliminar para siempre" })
+    await userEvent.click(confirm)
+    expect(client.deleteFront).toHaveBeenCalledExactlyOnceWith(front.id, expect.any(String))
+    expect(document.querySelector(".front-card h2")?.textContent).toBe("Guitarra")
+    expect(document.querySelector(".restore-front")?.hasAttribute("disabled")).toBe(true)
+    expect(confirm.hasAttribute("disabled")).toBe(true)
+    expect(within(confirmation).getByRole("button", { name: "Cancelar" }).hasAttribute("disabled")).toBe(true)
+    await userEvent.keyboard("{Escape}")
+    expect(screen.getByRole("alertdialog")).toBe(confirmation)
+    await act(async () => { response.resolve({ front_id: front.id, deleted: true }) })
+    await screen.findByText("La papelera está vacía")
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Papelera" }))
+    expect(client.dashboard).toHaveBeenCalledTimes(2)
+    expect(client.restoreFront).not.toHaveBeenCalled()
+  })
+  it("una eliminación permanente incierta mantiene la confirmación bloqueada y reintenta la misma identidad", async () => {
+    const client = trashApi()
+    vi.mocked(client.deleteFront!).mockRejectedValueOnce(new ApiError("network", "Respuesta perdida.", true)).mockResolvedValueOnce({ front_id: front.id, deleted: true })
+    const view = render(<App api={client} clock={clock} />)
+    await userEvent.click(screen.getByRole("button", { name: "Papelera" }))
+    await userEvent.click(await screen.findByRole("button", { name: "Eliminar para siempre Guitarra" }))
+    await userEvent.click(screen.getByRole("button", { name: "Eliminar para siempre" }))
+    const retry = await screen.findByRole("button", { name: "Reintentar solicitud" })
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Cancelar" }).hasAttribute("disabled")).toBe(true)
+    await userEvent.keyboard("{Escape}")
+    expect(screen.getByRole("alertdialog")).toBeTruthy()
+    expect(client.deleteFront).toHaveBeenCalledTimes(1)
+    expect(document.querySelector(".front-card h2")?.textContent).toBe("Guitarra")
+    view.rerender(<App api={client} clock={clock} enabled={false} />)
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    expect(document.body.textContent).not.toContain("Guitarra")
+    view.rerender(<App api={client} clock={clock} enabled />)
+    await userEvent.click(await screen.findByRole("button", { name: retry.textContent! }))
+    await screen.findByText("La papelera está vacía")
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    expect(vi.mocked(client.deleteFront!).mock.calls[1]).toEqual(vi.mocked(client.deleteFront!).mock.calls[0])
+  })
+  it("un rechazo del borrado conserva el frente y permite cancelar sin restaurar ni repetir", async () => {
+    const client = trashApi()
+    vi.mocked(client.deleteFront!).mockRejectedValue(new ApiError("conflict", "El frente ya no está en la papelera."))
+    render(<App api={client} clock={clock} />)
+    await userEvent.click(screen.getByRole("button", { name: "Papelera" }))
+    const opener = await screen.findByRole("button", { name: "Eliminar para siempre Guitarra" })
+    await userEvent.click(opener)
+    await userEvent.click(screen.getByRole("button", { name: "Eliminar para siempre" }))
+    await screen.findByRole("alert")
+    expect(screen.queryByRole("button", { name: "Reintentar solicitud" })).toBeNull()
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+    expect(screen.getByText("Guitarra")).toBeTruthy()
+    expect(document.activeElement).toBe(opener)
+    expect(client.deleteFront).toHaveBeenCalledTimes(1)
+    expect(client.restoreFront).not.toHaveBeenCalled()
+  })
+  it("al borrar el último frente de la última página de Papelera vuelve a una página con resultados", async () => {
+    const client = trashApi(); let deleted = false
+    const fronts = Array.from({ length: 21 }, (_, index) => ({ ...front, id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, name: `Frente ${index + 1}`, trashed_at: "2026-10-03T12:00:00Z" }))
+    const project = (q: Parameters<ActivityApi["dashboard"]>[0]) => {
+      const available = q.trashed ? fronts.slice(0, deleted ? 20 : 21) : []
+      const offset = q.offset ?? 0
+      return { ...page(q.start, q.end), offset, total: available.length, items: available.slice(offset, offset + 20).map(saved => ({ front: saved, marked_dates: [], count: 0, last_registered_day: null })) }
+    }
+    vi.mocked(client.dashboard).mockImplementation(async q => project(q))
+    client.confirmedDashboard = vi.fn((_key, q) => project(q))
+    vi.mocked(client.deleteFront!).mockImplementation(async id => { deleted = true; return { front_id: id, deleted: true } })
+    render(<App api={client} clock={clock} />)
+    await userEvent.click(screen.getByRole("button", { name: "Papelera" }))
+    await screen.findByText("Página 1 de 2")
+    await userEvent.click(screen.getByRole("button", { name: "Página siguiente" }))
+    await userEvent.click(await screen.findByRole("button", { name: "Eliminar para siempre Frente 21" }))
+    await userEvent.click(screen.getByRole("button", { name: "Eliminar para siempre" }))
+    await screen.findByText("Página 1 de 1")
+    expect(screen.getByText("Frente 1")).toBeTruthy()
+    expect(screen.queryByText("Frente 21")).toBeNull()
+    expect(screen.queryByText("La papelera está vacía")).toBeNull()
+    expect(client.deleteFront).toHaveBeenCalledExactlyOnceWith(fronts[20].id, expect.any(String))
+  })
   it.each([true, false])("dibuja el check %s en el clic y guarda en segundo plano", async marked => {
     const client = api(); const response = deferred<CheckResult>()
     vi.mocked(client.dashboard).mockResolvedValue(page("2026-10-03", "2026-10-03", !marked))

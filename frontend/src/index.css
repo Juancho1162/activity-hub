@@ -122,6 +122,7 @@ a { color: var(--link); }
 [data-slot="button"][data-variant="default"]:hover { background: var(--primary-hover); }
 [data-slot="button"][data-variant="outline"] { background: var(--card); color: var(--foreground); }
 [data-slot="button"][data-variant="outline"]:hover { background: var(--accent); }
+[data-slot="button"][data-variant="destructive"], [data-slot="button"][data-variant="destructive"]:hover { background: var(--destructive); color: var(--destructive-foreground); }
 [data-slot="button-decorations"] > [class~="bg-foreground"] { background: var(--ring); }
 [data-slot="bit-card"] { box-shadow: 3px 3px 0 color-mix(in srgb, var(--foreground) 9%, transparent); }
 .muted { color: var(--muted-foreground); }
@@ -231,6 +232,11 @@ select:disabled { opacity: .5; cursor: not-allowed; }
 .daily-row { flex: 1; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
 .activity-check[data-slot="checkbox"] { cursor: pointer; animation: none; transition: none; }
 .trash-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; }
+.trash-actions { display: flex; align-items: center; gap: 8px; padding: 3px; }
+.trash-actions .purge-front { color: var(--destructive); }
+.delete-panel .editor-header { grid-template-columns: minmax(0, 1fr); }
+.delete-panel .editor-header strong { overflow-wrap: anywhere; }
+.delete-panel .editor-body { display: grid; gap: 18px; }
 .editor-trash { display: grid; justify-items: start; gap: 6px; padding-top: 16px; border-top: 1px dashed var(--border); }
 .editor-trash .delete-front { color: var(--destructive); }
 .front-info { min-width: 0; }
@@ -335,8 +341,8 @@ select:disabled { opacity: .5; cursor: not-allowed; }
   .view-nav { gap: 10px; }
   [data-slot="button"].nav-button { flex: 1; min-width: 0; gap: 8px; padding: 10px 8px; }
   [data-slot="button"].trash-nav { flex: 0 0 44px; min-width: 44px; padding: 10px; }
-  .trash-nav-label, .restore-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  [data-slot="button"].restore-front { width: 44px; min-width: 44px; padding: 10px; }
+  .trash-nav-label, .restore-label, .purge-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  [data-slot="button"].restore-front, [data-slot="button"].purge-front { width: 44px; min-width: 44px; padding: 10px; }
   .page-header { align-items: flex-start; gap: 16px; }
   .page-header > div { min-width: 0; }
   .page-header h1 { font-size: 16px; }

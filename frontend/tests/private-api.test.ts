@@ -1,8 +1,9 @@
 import { webcrypto, randomUUID } from 'node:crypto'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { deriveCredentials, generateCode, decryptVault } from '../src/lib/privacy-crypto'
-import { createPrivateApi } from '../src/lib/private-vault'
+import { deriveCredentials, generateCode, decryptVault, encryptVault, MAX_VAULT_BYTES } from '../src/lib/privacy-crypto'
+import { createPrivateApi, type PrivateDocument } from '../src/lib/private-vault'
 import { createPrivateAuthClient } from '../src/lib/private-auth'
+import { deferred } from './fixtures'
 
 beforeEach(() => vi.stubGlobal('crypto', webcrypto))
 const account = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -26,6 +27,193 @@ function vaultServer() {
   return { fetcher, lose() { loseNext = true }, stored: () => stored, replace(value: Record<string, unknown>) { stored = value }, advanceDay(value: string) { day = value } }
 }
 const period = { start: '2026-10-01', end: '2026-10-06' }
+async function contents(server: ReturnType<typeof vaultServer>, key: CryptoKey) {
+  const box = server.stored()
+  return await decryptVault(key, account, Number(box.version), { iv: String(box.iv), ciphertext: String(box.ciphertext) }) as PrivateDocument
+}
+it.each(['open', 'standby', 'archived'] as const)('permanent deletion removes a %s front, its checks and replay content, preserving other records', async state => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const api = createPrivateApi(server.fetcher, access, key)
+  const createKey = randomUUID()
+  const front = await api.createFront({ ...draft, state }, createKey)
+  await api.writeCheck(front.id, '2026-10-04', true, randomUUID())
+  await api.patchFront(front.id, { ...draft, name: 'Nombre a borrar', state })
+  await api.trashFront!(front.id, randomUUID())
+  const other = await api.createFront({ ...draft, name: 'Conservar', reference: null }, randomUUID())
+  await api.writeCheck(other.id, '2026-10-03', true, randomUUID())
+  const before = await contents(server, key)
+  const unrelated = before.replays.filter(r => r.target === other.id.replaceAll('-', '') || 'id' in r.response && r.response.id === other.id)
+  const request = randomUUID()
+  expect(await api.deleteFront!(front.id, request)).toEqual({ front_id: front.id, deleted: true })
+  const after = await contents(server, key)
+  expect(after.fronts).toEqual([other])
+  expect(after.checks).toEqual([{ front_id: other.id, day: '2026-10-03' }])
+  expect(after.replays.filter(r => unrelated.some(old => old.key === r.key))).toEqual(unrelated)
+  expect(JSON.stringify(after)).not.toContain(draft.name)
+  expect(JSON.stringify(after)).not.toContain('Nombre a borrar')
+  expect(JSON.stringify(after)).not.toContain(draft.reference)
+  expect(JSON.stringify(after)).not.toContain('2026-10-04')
+  expect(api.confirmedDashboard!(request, { ...period, trashed: true })?.total).toBe(0)
+  const reloaded = createPrivateApi(server.fetcher, access, key)
+  expect((await reloaded.dashboard(period)).items[0]).toMatchObject({ front: other, marked_dates: ['2026-10-03'] })
+  server.fetcher.mockClear()
+  await expect(reloaded.createFront({ ...draft, state }, createKey)).rejects.toMatchObject({ kind: 'deleted-request' })
+  await expect(reloaded.restoreFront!(front.id, randomUUID())).rejects.toMatchObject({ kind: 'not-found' })
+  expect(server.fetcher.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true)
+})
+it('a lost delete response is confirmed with the same key after reload, without deleting twice or reverting another tab', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const first = createPrivateApi(server.fetcher, access, key)
+  const front = await first.createFront(draft, randomUUID())
+  await first.trashFront!(front.id, randomUUID())
+  const request = randomUUID(); server.lose()
+  await expect(first.deleteFront!(front.id, request)).rejects.toMatchObject({ uncertain: true })
+  expect(first.confirmedDashboard!(request, period)).toBeNull()
+  const second = createPrivateApi(server.fetcher, access, key)
+  const other = await second.createFront({ ...draft, name: 'Otra pestaña' }, randomUUID())
+  const version = server.stored().version
+  server.fetcher.mockClear()
+  const reloaded = createPrivateApi(server.fetcher, access, key)
+  expect(await reloaded.deleteFront!(front.id, request)).toEqual({ front_id: front.id, deleted: true })
+  expect(server.stored().version).toBe(version)
+  expect(server.fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['GET'])
+  expect(reloaded.confirmedDashboard!(request, period)?.items.map(item => item.front.id)).toEqual([other.id])
+  await expect(reloaded.deleteFront!(other.id, request)).rejects.toMatchObject({ kind: 'conflict' })
+})
+it.each(['open', 'standby', 'archived'] as const)('permanent deletion rejects a live %s front and never saves', async state => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const api = createPrivateApi(server.fetcher, access, key)
+  const front = await api.createFront({ ...draft, state }, randomUUID())
+  const before = structuredClone(server.stored())
+  server.fetcher.mockClear()
+  await expect(api.deleteFront!(front.id, randomUUID())).rejects.toMatchObject({ kind: 'conflict' })
+  expect(server.stored()).toEqual(before)
+  expect(server.fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['GET'])
+})
+it('a stale cached check cannot resurrect a permanently deleted front', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const first = createPrivateApi(server.fetcher, access, key); const second = createPrivateApi(server.fetcher, access, key)
+  const front = await first.createFront(draft, randomUUID())
+  await first.dashboard(period)
+  await second.trashFront!(front.id, randomUUID())
+  await second.deleteFront!(front.id, randomUUID())
+  const version = server.stored().version
+  server.fetcher.mockClear()
+  await expect(first.writeCheck(front.id, '2026-10-04', true, randomUUID())).rejects.toMatchObject({ kind: 'not-found' })
+  expect(server.fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['PUT', 'GET'])
+  expect(server.stored().version).toBe(version)
+  expect((await contents(server, key)).fronts).toEqual([])
+})
+it.each([false, true])('a retired check always revalidates access even with a cached delete receipt (revoked: %s)', async revoked => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  let deny = false; const accessDenied = vi.fn()
+  const api = createPrivateApi(async (url, init) => deny ? Response.json({}, { status: 401 }) : server.fetcher(url, init), { ...access, onAccessDenied: accessDenied }, key)
+  const front = await api.createFront(draft, randomUUID()); const request = randomUUID()
+  await api.writeCheck(front.id, '2026-10-04', true, request)
+  await api.trashFront!(front.id, randomUUID())
+  await api.deleteFront!(front.id, randomUUID())
+  await api.dashboard(period)
+  deny = revoked; server.fetcher.mockClear()
+  await expect(api.writeCheck(front.id, '2026-10-04', true, request)).rejects.toMatchObject({ kind: revoked ? 'unauthorized' : 'deleted-request' })
+  if (revoked) expect(accessDenied).toHaveBeenCalledExactlyOnceWith(401)
+  else expect(server.fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['GET'])
+})
+it.each(['delete', 'restore'] as const)('a competing %s held before CAS cannot undo the other tab', async action => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const second = createPrivateApi(server.fetcher, access, key)
+  const front = await second.createFront(draft, randomUUID())
+  await second.writeCheck(front.id, '2026-10-04', true, randomUUID())
+  await second.trashFront!(front.id, randomUUID())
+  const ready = deferred<void>(); const release = deferred<void>(); let hold = true
+  const first = createPrivateApi(async (url, init) => {
+    if (init?.method === 'PUT' && hold) { hold = false; ready.resolve(); await release.promise }
+    return server.fetcher(url, init)
+  }, access, key)
+  const pending = action === 'delete' ? first.deleteFront!(front.id, randomUUID()) : first.restoreFront!(front.id, randomUUID())
+  await ready.promise
+  if (action === 'delete') await second.restoreFront!(front.id, randomUUID())
+  else await second.deleteFront!(front.id, randomUUID())
+  release.resolve()
+  await expect(pending).rejects.toMatchObject({ kind: action === 'delete' ? 'conflict' : 'not-found' })
+  const saved = await second.dashboard(period)
+  expect(saved.total).toBe(action === 'delete' ? 1 : 0)
+  if (action === 'delete') expect(saved.items[0].marked_dates).toEqual(['2026-10-04'])
+  expect((await second.dashboard({ ...period, trashed: true })).total).toBe(0)
+})
+it('concurrent identical permanent deletions commit once and replay even without the front', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const first = createPrivateApi(server.fetcher, access, key); const second = createPrivateApi(server.fetcher, access, key)
+  const front = await first.createFront(draft, randomUUID())
+  await first.trashFront!(front.id, randomUUID())
+  const version = Number(server.stored().version); const request = randomUUID()
+  const results = await Promise.all([first.deleteFront!(front.id, request), second.deleteFront!(front.id, request)])
+  expect(results).toEqual([{ front_id: front.id, deleted: true }, { front_id: front.id, deleted: true }])
+  expect(server.stored().version).toBe(version + 1)
+})
+it('permanent deletion frees a place when all 200 fronts are occupied', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const fronts = Array.from({ length: 200 }, (_, index) => ({ ...draft, name: `Frente ${index}`, id: randomUUID(), created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z', trashed_at: '2026-10-06T12:00:00Z' }))
+  server.replace({ version: 0, legacy_revision: 0, iv: null, ciphertext: null, legacy: { fronts, checks: [], replays: [] } })
+  const api = createPrivateApi(server.fetcher, access, key)
+  await expect(api.createFront(draft, randomUUID())).rejects.toMatchObject({ kind: 'validation' })
+  await api.deleteFront!(fronts[0].id, randomUUID())
+  await api.createFront(draft, randomUUID())
+  expect((await contents(server, key)).fronts).toHaveLength(200)
+  expect((await api.dashboard({ ...period, trashed: true })).total).toBe(199)
+})
+it('permanent deletion frees ciphertext space at the real byte limit, retiring request IDs without their content', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const large = { name: 'X'.repeat(200), reference: `https://example.test/${'x'.repeat(2000)}`, state: 'open' as const }
+  const front = { ...large, id: randomUUID(), created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z', trashed_at: '2026-10-06T12:00:00Z' }
+  const content: PrivateDocument = { format: 1, fronts: [front], checks: [], replays: [] }
+  let consumed!: string
+  while (true) {
+    const replay = { key: randomUUID().replaceAll('-', ''), operation: 'patch_front' as const, target: front.id.replaceAll('-', ''), payload: large, response: front }
+    if (new TextEncoder().encode(JSON.stringify({ ...content, replays: [...content.replays, replay] })).byteLength + 16 > MAX_VAULT_BYTES) break
+    content.replays.push(replay); consumed = replay.key
+  }
+  const box = await encryptVault(key, account, 1, content)
+  server.replace({ version: 1, legacy_revision: null, ...box, legacy: null })
+  const api = createPrivateApi(server.fetcher, access, key)
+  expect((await api.dashboard({ ...period, trashed: true })).total).toBe(1)
+  await expect(api.createFront(large, randomUUID())).rejects.toMatchObject({ kind: 'validation' })
+  await api.deleteFront!(front.id, randomUUID())
+  const after = await contents(server, key)
+  expect(JSON.stringify(after)).not.toContain(large.reference)
+  expect(after.replays).toHaveLength(1)
+  expect(after.replays[0].retired_keys).toContain(consumed)
+  await api.createFront(large, randomUUID())
+  expect((await api.dashboard(period)).total).toBe(1)
+  expect(String(server.stored().ciphertext).length).toBeLessThan(box.ciphertext.length)
+})
+it('deleting at the logical replay cap compacts old receipts and permits new work', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const front = { ...draft, id: randomUUID(), created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z', trashed_at: '2026-10-06T12:00:00Z' }
+  // The legacy fixture isolates the logical 5000-response cap from byte quota.
+  const replays = Array.from({ length: 5000 }, () => ({ key: randomUUID().replaceAll('-', ''), operation: 'patch_front', target: front.id.replaceAll('-', ''), payload: draft, response: front }))
+  server.replace({ version: 0, legacy_revision: 0, iv: null, ciphertext: null, legacy: { fronts: [front], checks: [], replays } })
+  const api = createPrivateApi(server.fetcher, access, key)
+  await expect(api.createFront(draft, randomUUID())).rejects.toMatchObject({ kind: 'validation' })
+  await api.deleteFront!(front.id, randomUUID())
+  expect((await contents(server, key)).replays).toHaveLength(1)
+  await api.createFront(draft, randomUUID())
+  expect((await api.dashboard(period)).total).toBe(1)
+})
+it.each(['content', 'duplicate-key', 'bad-key', 'revived-front'] as const)('an inconsistent delete receipt (%s) is rejected without overwriting the document', async defect => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const id = randomUUID(); const request = randomUUID().replaceAll('-', '')
+  const receipt = { key: request, operation: 'delete_front', target: id.replaceAll('-', ''), payload: {}, response: { front_id: id, deleted: true }, retired_keys: [randomUUID().replaceAll('-', '')] }
+  if (defect === 'content') Object.assign(receipt.response, { name: draft.name })
+  if (defect === 'duplicate-key') receipt.retired_keys.push(request)
+  if (defect === 'bad-key') receipt.retired_keys.push('bad-key')
+  const fronts = defect === 'revived-front' ? [{ ...draft, id, created_at: '2026-10-01T00:00:00Z', updated_at: '2026-10-01T00:00:00Z' }] : []
+  const box = await encryptVault(key, account, 1, { format: 1, fronts, checks: [], replays: [receipt] })
+  server.replace({ version: 1, legacy_revision: null, ...box, legacy: null })
+  const api = createPrivateApi(server.fetcher, access, key)
+  await expect(api.dashboard(period)).rejects.toMatchObject({ kind: 'invalid-response' })
+  await expect(api.createFront(draft, randomUUID())).rejects.toMatchObject({ kind: 'invalid-response' })
+  expect(server.fetcher.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true)
+})
 it('a loaded encrypted check needs only its PUT and exposes the complete confirmed snapshot once', async () => {
   const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
   const api = createPrivateApi(server.fetcher, access, key)

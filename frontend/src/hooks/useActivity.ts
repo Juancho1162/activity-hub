@@ -5,7 +5,7 @@ export type Intent =
   | { kind: "create"; data: FrontDraft; requestId: string }
   | { kind: "edit"; id: string; data: FrontDraft }
   | { kind: "check"; id: string; day: string; marked: boolean; requestId: string }
-  | { kind: "trash" | "restore"; id: string; requestId: string }
+  | { kind: "trash" | "restore" | "delete"; id: string; requestId: string }
 type ReadState = { context: number; token: string; page: DashboardPage | null; error: ApiError | null }
 
 /** Confirmed data stays separate from the immediate checkbox preview. No automatic retries or browser persistence. */
@@ -92,13 +92,14 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
       else if (intent.kind === "check") await api.writeCheck(intent.id, intent.day, intent.marked, intent.requestId)
       else if (intent.kind === "trash" && api.trashFront) await api.trashFront(intent.id, intent.requestId)
       else if (intent.kind === "restore" && api.restoreFront) await api.restoreFront(intent.id, intent.requestId)
+      else if (intent.kind === "delete" && api.deleteFront) await api.deleteFront(intent.id, intent.requestId)
       else throw new ApiError("unavailable", "La papelera no está disponible en este cliente.")
       pendingRef.current = null
       if (mounted.current) {
         setPending(null)
         setNotice("Cambio confirmado por el servidor.")
         let confirmedPage: DashboardPage | null = null
-        if ((intent.kind === "check" || intent.kind === "trash" || intent.kind === "restore") && query
+        if ((intent.kind === "check" || intent.kind === "trash" || intent.kind === "restore" || intent.kind === "delete") && query
           && client.current.generation === clientGeneration && scope.current.generation === context) {
           // This projects the complete document acknowledged by this exact
           // commit/replay. It never guesses a checkbox value from the intent.
@@ -117,13 +118,14 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
     } catch (error: unknown) {
       const attemptError = error instanceof ApiError ? error : new ApiError("network", "No podemos confirmar el resultado. Reintenta la misma solicitud.", true)
       // A denied retry says nothing about whether the original attempt committed.
-      const failure = previouslyUncertain && !attemptError.uncertain
+      const failure = previouslyUncertain && !attemptError.uncertain && attemptError.kind !== "deleted-request"
         ? new ApiError(attemptError.kind, `${attemptError.message} La solicitud original sigue sin confirmar.`, true)
         : attemptError
       if (!failure.uncertain) pendingRef.current = null
       if (mounted.current) {
         setMutationError(failure)
         if (!failure.uncertain) setPending(null)
+        if (failure.kind === "deleted-request") { api.forgetSnapshot?.(); refresh() }
         if (client.current.generation === clientGeneration && (failure.kind === "access-pending" || failure.kind === "unauthorized")) {
           readController.current?.abort()
           setRead({ context: scope.current.generation, token: currentToken.current, page: null, error: failure })

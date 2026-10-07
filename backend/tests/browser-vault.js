@@ -17,6 +17,10 @@ export function browserVault({ evaluate, account, origin, defaultContext }) {
   }
   return {
     remember(id, code) { codes.set(id, code); },
+    async inspect(ctx = defaultContext) {
+      const { content, box } = await read(ctx);
+      return { content, version: box.version };
+    },
     async query(route, ctx = defaultContext) {
       const { box, content } = await read(ctx);
       const url = new URL(route, origin);

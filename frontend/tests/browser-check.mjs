@@ -131,7 +131,7 @@ try {
         const rect=button.getBoundingClientRect();return rect.left>=bounds.left-.5 && rect.right<=bounds.right+.5;
       });
     }))`), true, `${name}: navigation buttons must fit their container`)
-    assert.equal(await evaluate(`([...document.querySelectorAll('.app-controls,.toolbar-card,.page-header,.daily-row,.trash-row,.front-actions,.pagination,.editor-trash,.editor-actions')].filter(el=>el.checkVisibility()).every(group=>{
+    assert.equal(await evaluate(`([...document.querySelectorAll('.app-controls,.toolbar-card,.page-header,.daily-row,.trash-row,.trash-actions,.front-actions,.pagination,.editor-trash,.editor-actions')].filter(el=>el.checkVisibility()).every(group=>{
       const bounds=group.getBoundingClientRect();
       return [...group.querySelectorAll('button,input,select,a')].filter(el=>el.checkVisibility()).every(el=>{
         const rect=el.getBoundingClientRect();return rect.left>=bounds.left-.5 && rect.right<=bounds.right+.5 && rect.height>=43.5;
@@ -588,7 +588,7 @@ try {
     }
     await click("Papelera")
     await waitFor(() => evaluate(`document.querySelector('[aria-label="Restaurar ${name}"]')?.disabled===false`), "recoverable front in trash")
-    assert.equal(await evaluate("document.querySelector('.new-front,.edit-front,.activity-check')===null"), true, "Trash offers only restoration")
+    assert.equal(await evaluate("document.querySelector('.new-front,.edit-front,.activity-check')===null"), true, "Trash offers restoration and explicit deletion without edits/checks")
     const trashed = (await api(`/api/fronts/${original.id}`)).body
     assert.deepEqual({ ...trashed, trashed_at: undefined }, { ...original, trashed_at: undefined })
     assert.ok(Number.isFinite(Date.parse(trashed.trashed_at)))
@@ -601,7 +601,7 @@ try {
           await evaluate("window.scrollTo(0,0)")
           await screenshot(`trash-${theme}-${width}`, width, 900)
         }
-        await assertTextContrast([[".trash-help", ".main-content"], [".trash-help .muted", ".main-content"], [".trash-row h2", ".front-card [data-slot=card]"], [".restore-front"]])
+        await assertTextContrast([[".trash-help", ".main-content"], [".trash-help .muted", ".main-content"], [".trash-row h2", ".front-card [data-slot=card]"], [".restore-front"], [".purge-front", ".front-card [data-slot=card]"]])
       }
     }
     await evaluate(`(() => { const button=document.querySelector('[aria-label="Restaurar ${name}"]');button.focus();button.click(); })()`)
@@ -615,6 +615,105 @@ try {
     await waitFor(() => evaluate("document.querySelector('.dashboard-list')!==null && !document.querySelector('main').inert"), "dashboard after restoration")
     await selectValue("state-filter", "all")
     await waitFor(() => evaluate(`document.querySelectorAll('.front-card h2').length===5 && [...document.querySelectorAll('.front-card h2')].some(el=>el.textContent===${JSON.stringify(name)})`), "restore returns front to the original state")
+  }
+
+  // Permanent deletion uses separate synthetic fronts, leaving earlier fixtures.
+  for (const state of ['open', 'standby', 'archived']) {
+    const name = `Borrado permanente ${state}${state === 'open' ? ' ' + 'X'.repeat(150) : ''}`
+    const reference = `https://example.test/borrar/${state}`
+    await click('Nuevo frente')
+    await waitFor(() => evaluate("document.getElementById('front-name')!==null"), 'permanent-delete fixture editor')
+    await inputValue('front-name', name)
+    await inputValue('front-reference', reference)
+    await selectValue('front-state', state)
+    await click('Crear frente')
+    await waitFor(() => evaluate("document.querySelector('[role=dialog]')===null"), 'permanent-delete fixture created')
+    const front = (await api(`/api/fronts?search=${encodeURIComponent(name)}`)).body.items[0]
+    await click('Registro')
+    await waitFor(() => evaluate("document.getElementById('registration-day')!==null && !document.querySelector('main').inert"), 'registration ready after navigation')
+    await inputValue('name-search', name)
+    await selectValue('state-filter', 'all')
+    for (const day of [fixtureDay, offsetDay(fixtureDay, 1)]) {
+      await inputValue('registration-day', day)
+      await waitFor(() => evaluate(`document.querySelectorAll('[role=checkbox].activity-check').length===1 && document.querySelector('[role=checkbox].activity-check').getAttribute('aria-disabled')==='false' && document.getElementById('registration-day').value===${JSON.stringify(day)}`), 'deletion fixture selected day')
+      await evaluate("document.querySelector('[role=checkbox].activity-check').click()")
+      await waitFor(() => evaluate("document.querySelector('[role=checkbox].activity-check').getAttribute('aria-checked')==='true' && document.querySelector('[role=checkbox].activity-check').getAttribute('aria-busy')==='false'"), 'deletion fixture check confirmed')
+    }
+    await evaluate("document.querySelector('.edit-front').click()")
+    await waitFor(() => evaluate("document.querySelector('.delete-front')!==null"), 'move permanent-delete fixture to trash')
+    await click('Eliminar frente')
+    await waitFor(() => evaluate("document.querySelector('[role=dialog]')===null"), 'fixture in trash')
+    await click('Papelera')
+    await waitFor(() => evaluate("document.querySelector('.purge-front')?.disabled===false"), 'permanent deletion offered in trash')
+    const before = await encrypted.inspect()
+    assert.equal(before.content.checks.filter(ch => ch.front_id === front.id).length, 2)
+    await evaluate("window.__deleteOpener=document.querySelector('.purge-front');window.__deleteOpener.click()")
+    await waitFor(() => evaluate("document.querySelector('[role=alertdialog]')!==null && document.activeElement.id==='cancel-permanent-delete'"), 'confirmation starts on Cancel')
+    assert.equal(await evaluate(`document.querySelector('[role=alertdialog]').textContent.includes(${JSON.stringify(name)}) && document.querySelector('[role=alertdialog]').textContent.includes('No podrás recuperarlo')`), true)
+    await click('Cancelar')
+    await waitFor(() => evaluate("document.querySelector('[role=alertdialog]')===null"), 'cancel permanent deletion')
+    assert.equal((await encrypted.inspect()).version, before.version, 'Cancellation performs no write')
+    assert.equal(await evaluate("document.activeElement===window.__deleteOpener"), true, 'Cancel restores the original control focus')
+    await evaluate("window.__deleteOpener.click()")
+    await waitFor(() => evaluate("document.querySelector('[role=alertdialog]')!==null"), 'explicit confirmation reopened')
+    if (state === 'open') {
+      for (const theme of ['dark', 'light']) {
+        await chooseTheme(theme, otherTab)
+        await waitFor(() => evaluate(`document.documentElement.dataset.theme===${JSON.stringify(theme)}`), 'confirmation follows theme')
+        for (const width of [1366, 390, 320]) await screenshot(`permanent-delete-${theme}-${width}`, width, 900)
+        await assertTextContrast([[".delete-panel .muted", ".editor-card [data-slot=card]"], [".confirm-delete"], ["#cancel-permanent-delete"]])
+      }
+    }
+    const requests = []; let blocked = null
+    onEvent = ({ method, params }) => {
+      if (params.context !== context || params.request.url !== `${origin}/api/vault`) return
+      if (method === 'network.beforeRequestSent') requests.push(params.request.method)
+      if (method === 'network.responseStarted' && params.isBlocked) {
+        if (params.request.method === 'PUT') blocked = params.request.request
+        else void command('network.continueResponse', { request: params.request.request })
+      }
+    }
+    const intercept = await command('network.addIntercept', { contexts: [context], phases: ['responseStarted'], urlPatterns: [{ type: 'string', pattern: `${origin}/api/vault` }] })
+    await evaluate("document.querySelector('[role=alertdialog] .confirm-delete').click()")
+    await waitFor(() => blocked !== null, 'hold actual permanent-delete commit response')
+    assert.equal(await evaluate("document.querySelector('[role=alertdialog]')!==null && document.querySelector('.confirm-delete').disabled && document.getElementById('cancel-permanent-delete').disabled && document.querySelector('.restore-front').disabled"), true, 'Pending deletion remains visible and locked')
+    if (state === 'standby') await command('network.failRequest', { request: blocked })
+    else await command('network.continueResponse', { request: blocked })
+    await command('network.removeIntercept', { intercept: intercept.intercept })
+    if (state === 'standby') {
+      await waitFor(() => evaluate("document.querySelector('[role=alertdialog]').textContent.includes('Solicitud sin confirmar')"), 'lost delete response keeps its confirmation')
+      assert.equal((await api(`/api/fronts/${front.id}`)).status, 404, 'Deletion committed despite the lost response')
+      const version = (await encrypted.inspect()).version
+      await click('Reintentar solicitud')
+      await waitFor(() => evaluate("document.querySelector('[role=alertdialog]')===null"), 'same delete request explicitly confirmed')
+      assert.equal((await encrypted.inspect()).version, version, 'Delete retry does not commit again')
+      assert.equal(requests.filter(method => method === 'PUT').length, 1)
+    } else {
+      await waitFor(() => evaluate("document.querySelector('[role=alertdialog]')===null"), 'permanent deletion confirmed')
+      assert.deepEqual(requests, ['GET', 'PUT'], 'Deletion reads current data and projects its confirmed snapshot without another GET')
+    }
+    onEvent = () => {}
+    assert.equal(await evaluate("document.activeElement===document.querySelector('.trash-nav')"), true, 'Deleted control returns focus to available trash navigation')
+    const after = await encrypted.inspect()
+    assert.equal(after.content.fronts.some(f => f.id === front.id), false)
+    assert.equal(after.content.checks.some(ch => ch.front_id === front.id), false)
+    assert.equal(JSON.stringify(after.content).includes(name), false, 'No deleted name remains in the current encrypted document or replay content')
+    assert.equal(JSON.stringify(after.content).includes(reference), false, 'No deleted reference remains in replay content')
+    assert.deepEqual(after.content.fronts, before.content.fronts.filter(f => f.id !== front.id))
+    assert.deepEqual(after.content.checks, before.content.checks.filter(ch => ch.front_id !== front.id))
+    if (state === 'archived') {
+      await navigate()
+      await waitFor(() => evaluate("document.getElementById('access-code')!==null"), 'permanent deletion survives losing the memory key')
+      await login(codeA)
+      await waitFor(() => evaluate("document.querySelector('.daily-list')!==null"), 'unlock after permanent deletion')
+      await click('Papelera')
+      await waitFor(() => evaluate("document.body.textContent.includes('La papelera está vacía')"), 'deleted fronts cannot be restored after reload')
+    }
+    await click('Dashboard')
+    await waitFor(() => evaluate("document.getElementById('period-start')!==null && !document.querySelector('main').inert"), 'dashboard ready after deletion')
+    await inputValue('name-search', '')
+    await selectValue('state-filter', 'all')
+    await waitFor(() => evaluate("document.querySelectorAll('.dashboard-list .front-card').length===5 && !document.querySelector('main').inert"), 'original fixtures preserved after permanent deletion')
   }
 
   // A later-created leader must move ahead of the FIRST page, not just sort
@@ -892,6 +991,7 @@ try {
   console.log("Native autofill: no React events; preserved through real focus/pageshow/visibility session checks and themes, same input/focus, explicit login/decryption and credential cleared on submit")
   console.log(`Instant check: mark/unmark drawn on first frame before sending, no animation/transition/spinner; real commit confirmation, one PUT/no GET, stable DOM/position/focus; frames ${JSON.stringify(checkFrames)}`)
   console.log("Trash: real encrypted delete/restore in open, standby and archived states, preserved identity/history/reference, hidden from normal views, reload persistence and restoration focus; both themes at1366/768/390/320px")
+  console.log("Permanent deletion: explicit confirmation/cancel in all three states, current ciphertext removes front/history/replay content, other records preserved; real held/lost commit response and explicit retry, reload/focus, both themes at1366/390/320px")
   console.log("View navigation: held real destination reads preserve source content, scroll and focus in both directions, both themes and desktop/mobile; stale controls stay inert")
   console.log("Compact rows/references: unchanged card dimensions with/without/restored long URL in both views/themes at1366/390/320px; short-name daily rows<=80px, checks>=44px; real reference edits never mark activity")
   console.log("Two tabs + failed committed HTTP response: A intent never applied to B, same A code restores it, same key retry produces exactly one front")
