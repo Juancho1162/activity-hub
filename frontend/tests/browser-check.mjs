@@ -606,6 +606,45 @@ try {
   await waitFor(() => evaluate("document.querySelectorAll('.coverage-value').length===20"), "restore dashboard after daily layout checks")
   await chooseTheme("light")
 
+  // A held destination read must retain the entire source view and viewport,
+  // then replace it atomically. Exercise real encryption/D1 in both directions.
+  let heldNavigation = null
+  onEvent = ({method,params}) => {
+    if (method === "network.responseStarted" && params.context === context && params.isBlocked) {
+      if (params.request.method === "GET") heldNavigation = params.request.request
+      else void command("network.continueResponse", {request:params.request.request})
+    }
+  }
+  const navigationIntercept = await command("network.addIntercept", {contexts:[context],phases:["responseStarted"],urlPatterns:[{type:"string",pattern:`${origin}/api/vault`}]})
+  for (const theme of ["light","dark"]) {
+    await chooseTheme(theme)
+    for (const width of [1366,390,320]) {
+      await command("browsingContext.setViewport", {context,viewport:{width,height:900},devicePixelRatio:1})
+      for (const [button,heading,selector,index] of [["Registro","Registro diario",".daily-list",0],["Dashboard","Dashboard",".dashboard-list",1]]) {
+        await evaluate(`document.querySelectorAll('.view-nav button')[${index}].focus({preventScroll:true});window.scrollTo(0,350);window.__navigationCard=document.querySelector('.front-card')`)
+        const before = JSON.parse(await evaluate("JSON.stringify({scroll:scrollY,height:document.documentElement.scrollHeight,heading:document.querySelector('h1').textContent})"))
+        heldNavigation = null
+        await click(button)
+        await waitFor(() => heldNavigation !== null, "hold navigation response")
+        await pause(150)
+        const during = JSON.parse(await evaluate("JSON.stringify({scroll:scrollY,height:document.documentElement.scrollHeight,heading:document.querySelector('h1').textContent})"))
+        assert.deepEqual(during,before, `${theme}/${width}/${button}: destination loading preserves source geometry and dates`)
+        assert.equal(await evaluate("document.querySelector('.front-card')===window.__navigationCard && window.__navigationCard.isConnected && document.querySelector('.main-content').inert && document.querySelector('.front-list').getAttribute('aria-busy')==='true' && !document.querySelector('.loading-message')"), true, "Navigation never collapses into a loading card or permits stale checks")
+        assert.equal(await evaluate("document.activeElement.closest('.view-nav')!==null"), true, "Navigation retains keyboard focus")
+        await screenshot(`navigation-${theme}-${width}-${button.toLowerCase()}`,width,900)
+        await command("network.continueResponse", {request:heldNavigation})
+        await waitFor(() => evaluate(`document.querySelector(${JSON.stringify(selector)})!==null && !document.querySelector('.main-content').inert`), "destination snapshot")
+        await evaluate("Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))).then(()=>true)")
+        assert.equal(await evaluate("document.querySelector('h1').textContent"), heading)
+        assert.ok(Math.abs(await evaluate("scrollY")-before.scroll)<1, "Navigation avoids an intermediate scroll reset")
+        assert.equal(await evaluate("document.activeElement.closest('.view-nav')!==null"), true, "Loaded view preserves navigation focus")
+      }
+    }
+  }
+  await command("network.removeIntercept", navigationIntercept)
+  onEvent = () => {}
+  await chooseTheme("light")
+
   // A second tab shares cookies; create B there and check the old A tab's gate.
   await click("Nuevo frente")
   await waitFor(() => evaluate("document.activeElement?.id === 'front-name'"), "A draft before account switch")
@@ -744,6 +783,7 @@ try {
   console.log(`Palettes: ${contrastChecks} checked text/icon/surface pairs at least 4.5:1; no horizontal overflow or card-frame overflow in captured views`)
   console.log("Themes: one-click light/dark, system default, reload persistence, login/signup/editor/pending intent retained; preference-only storage")
   console.log("Confirmed check: held REAL post-commit re-read preserves row DOM, viewport position and keyboard focus without optimistic success")
+  console.log("View navigation: held real destination reads preserve source content, scroll and focus in both directions, both themes and desktop/mobile; stale controls stay inert")
   console.log("Compact rows/references: unchanged card dimensions with/without/restored long URL in both views/themes at1366/390/320px; short-name daily rows<=80px, checks>=44px; real reference edits never mark activity")
   console.log("Two tabs + failed committed HTTP response: A intent never applied to B, same A code restores it, same key retry produces exactly one front")
   console.log("Delayed A logout headers cannot erase B's replacement cookie; A revoked, B still authenticated, old tab detects account change")

@@ -132,6 +132,8 @@ La UI conserva registro diario en columnas, dashboard con orden global antes de 
 
 La pantalla de acceso prioriza **Entrar**, con un botón de ancho completo y mayor altura; **Crear cuenta** queda como acción secundaria compacta. En escritorio, la barra lateral sigue la altura disponible de la ventana, permanece visible al hacer scroll y conserva «Espacio privado» al pie, sin el antiguo máximo de 900 px.
 
+Al alternar Registro y Dashboard, la vista anterior conserva sus datos, fechas, altura y posición mientras llega la nueva lectura, con sus controles bloqueados. La nueva vista entra con una transición de 180 ms; el menú conserva el foco y permite cambiar de destino durante la carga. La preferencia de reducir movimiento desactiva las animaciones.
+
 ### Privacidad y acceso
 
 - El navegador genera el código fijo de 32 símbolos aleatorios —160 bits— y lo muestra para guardarlo. Se aceptan mayúsculas/minúsculas ASCII, espacios y guiones. No se envía el código al servidor: se deriva una credencial de autenticación; D1 conserva otra huella de esa credencial.
@@ -323,6 +325,12 @@ Premortem: una ráfaga consume D1 antes del rechazo (limitador previo y prueba d
 **Publicado:** código `9392738`, integrado desde `feature/access-and-sidebar-layout`, Worker `e11d992a-5d52-4388-8962-c7e66c4385a9`. «Entrar» ocupa todo el ancho con 52 px de alto; «Crear cuenta» conserva un tamaño compacto y área táctil de 44 px. La barra de escritorio elimina el máximo de 900 px y mantiene su posición y margen inferior durante el scroll. Comprobados ambos temas: en ventanas de 720, 1080 y 1440 px de alto deja 24 px inferiores; a 480 px deja 12 px y el pie sigue visible. El acceso se ha inspeccionado a 320, 390 y 1366 px sin desbordamientos.
 
 `npm run release:prepare`: **36 pruebas backend y 162 frontend**, tipos/build, ambos recorridos Firefox y dry-run de producción pasan. Inspección visual y del diff por la sesión principal; ajuste de presentación sin cambios de autenticación ni de esquema. Despliegue y comprobaciones remotas correctos; HTML, JavaScript y CSS servidos coinciden exactamente con el artefacto verificado. Incremento terminado.
+
+### Transición entre Registro y Dashboard — 2026-10-07
+
+**Verificado, pendiente de publicación:** rama `feature/view-transitions`. La carga retiraba la lista y reducía toda la página a una tarjeta: en la reproducción, el scroll saltaba de 750 a 0 px. Se conserva la vista completa de origen, sin permitir acciones sobre datos antiguos, hasta recibir la nueva lectura. Encabezado y fechas permanecen con sus datos; un error muestra el destino con su opción de reintento. Las respuestas descartadas y los cambios de cliente/sesión no recuperan la vista antigua; las solicitudes de escritura pendientes conservan su identidad. Entrada de 180 ms y señal de espera en el menú, con reducción de movimiento respetada.
+
+`npm run release:prepare`: **36 pruebas backend y 167 frontend**, tipos/build, ambos recorridos Firefox y dry-run de producción pasan. Cinco regresiones de navegación y un recorrido con respuestas reales retenidas en ambos sentidos, ambos temas y anchos de 1366, 390 y 320 px comprueban contenido, scroll, foco y bloqueo de controles. Una comprobación adicional en Firefox con reducción de movimiento confirma ausencia de animaciones y transiciones; durante la carga conserva los 750 px de scroll. Revisión local del diff y de las capturas por la sesión principal, sin hallazgos pendientes. El cambio no requiere migraciones.
 
 ## 8. Ampliación de información y aprendizaje — diseño conservado, 2026-10-06
 
