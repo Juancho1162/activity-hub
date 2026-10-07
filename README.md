@@ -7,7 +7,7 @@ Activity Hub agrupa herramientas con un propósito común, no una única aplicac
 
 **Prioridad actual: empezar por registro y seguimiento**, con interfaz web e integración con pi mediante MCP. El módulo de notificaciones se definirá más adelante; no bloquea el trabajo sobre registro.
 
-**Versión publicada:** registro diario, dashboard, Papelera recuperable y cuentas independientes con código fijo, sin recuperación del código. Cifrado en el navegador, CAPTCHA de un solo uso, límites de uso y publicación verificable incorporados a `main`. Últimos ajustes de interfaz y respuesta del check desplegados y comprobados en Cloudflare el 2026-10-07. Véanse [estado y verificación](#6-estado-real-y-verificación) y [trabajo pendiente](#7-trabajo-previsto-y-siguiente-paso).
+**Versión publicada:** registro diario, dashboard, Papelera recuperable y cuentas independientes con código fijo, sin recuperación del código. Cifrado en el navegador, CAPTCHA de un solo uso, límites de uso y publicación verificable incorporados a `main`. Últimos ajustes de interfaz, respuesta del check y autocompletado desplegados y comprobados en Cloudflare el 2026-10-07. Véanse [estado y verificación](#6-estado-real-y-verificación) y [trabajo pendiente](#7-trabajo-previsto-y-siguiente-paso).
 
 ## 1. Notificaciones y asistencia
 
@@ -292,11 +292,11 @@ Riesgos considerados en esta primera publicación: apuntar por error a datos loc
 | --- | --- |
 | Promoción JavaScript + Workers/D1 | Completada en local: estructura, comandos, suites, medición, ambos recorridos Firefox y arranque/reinicio verificados. Revisión en la sesión principal; perfil independiente no disponible. |
 | Referencia Python | Secundaria en `experiments/python-sqlite/`; 102 pruebas pasan, sin modificación de reglas ni de la SQLite existente. |
-| Frontend oficial | React con presentación 8-bit, cifrado local, navegación estable, marcado/desmarcado inmediato sin animación y Papelera recuperable. 193 pruebas, tipos/build y ambos recorridos Firefox contra Worker/D1 pasan; publicado y comprobado. |
+| Frontend oficial | React con presentación 8-bit, cifrado local, acceso con autocompletado nativo, navegación estable, marcado/desmarcado inmediato sin animación y Papelera recuperable. 200 pruebas, tipos/build y ambos recorridos Firefox contra Worker/D1 pasan; publicado y comprobado. |
 | Datos entre implementaciones | Separados. La promoción de código no migra ni sincroniza cuentas/historial. Una transferencia requeriría procedimiento y petición específica. |
 | MCP de Activity Hub | Pendiente de concretar autenticación e implementar/probar el conector; el MCP de Cloudflare para Codex ya está instalado y autenticado. |
 | Alojamiento y copias | Worker y D1 publicados con límites y almacenamiento cifrado. Límites/CPU/coste bajo carga, copia externa y recuperación pendientes. La migración de contenido anterior requiere que su titular entre con el nuevo cliente. |
-| Git | `main` incorpora el código publicado en `8007d83`, incluidos seguridad, ajustes de acceso/barra lateral, navegación, marcado inmediato del check y Papelera. Etiqueta histórica `v0.1.0`. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin remoto Git ni despliegue automático; datos, credenciales y artefactos excluidos. |
+| Git | `main` incorpora el código publicado en `7f07cdb`, incluidos seguridad, ajustes de acceso/barra lateral, autocompletado, navegación, marcado inmediato del check y Papelera. Etiqueta histórica `v0.1.0`. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin remoto Git ni despliegue automático; datos, credenciales y artefactos excluidos. |
 | Dispositivos | Safari/iPhone físico pendientes. |
 | Notificaciones y asistencia | MVP pendiente de definir; no iniciado. |
 
@@ -365,11 +365,13 @@ Riesgos comprobables: presentar una marca pendiente como guardada (texto accesib
 
 ### Autocompletado del código de acceso — 2026-10-07
 
-**Verificado localmente**, rama `fix/password-manager-autofill`; integración y publicación pendientes. Reproducido el borrado del código: la revalidación de una cookie válida sin clave de descifrado vaciaba el campo, y el input controlado reemplazaba un valor nativo sin evento React al renderizar de nuevo. Se conserva el borrador al comprobar la misma cuenta; el formulario usa un campo nativo `password` con `current-password` y lee su valor al enviar. No se introduce inicio de sesión automático ni persistencia del secreto.
+**Publicado:** código `7f07cdb`, integrado desde `fix/password-manager-autofill`, Worker `f2bb2778-ca5b-4f96-b916-59d81bff6e4b`. Reproducido el borrado del código: la revalidación de una cookie válida sin clave de descifrado vaciaba el campo, y el input controlado reemplazaba un valor nativo sin evento React al renderizar de nuevo. Se conserva el borrador al comprobar la misma cuenta; el formulario usa un campo nativo `password` con `current-password` y lee su valor al enviar. No se introduce inicio de sesión automático ni persistencia del secreto.
 
 Siete regresiones cubren foco/pageshow/visibilidad, autocompletado sin eventos y envío por Enter, renovación de CSRF, cambio de cuenta y conservación del límite/error de entrada. Seis fallaron con el código previo y las siete pasan tras el arreglo. `npm run release:prepare` pasa con **36 pruebas backend y 200 frontend**, tipos/build, ambos recorridos Firefox contra Worker/D1 temporal y dry-run de producción. El recorrido de UI conserva el autocompletado durante las tres comprobaciones reales y cambios de tema, mantiene campo/foco y confirma entrada, descifrado y borrado al enviar. Artefacto congelado en `.release/build-98173617-8f8a-48a2-8c0f-fac52f76a276`. La prueba simula la asignación nativa con datos propios; no usa la extensión ni la bóveda personal de Bitwarden.
 
-Riesgos comprobables: conservar el secreto tras enviar o cambiar de cuenta (borrado explícito y pruebas); desactivar la revalidación para evitar el borrado (comprobaciones de sesión reales); saltarse el bloqueo de una solicitud pendiente o trasladarla a otra cuenta (recorridos existentes de dos pestañas y reautenticación). Revisión local de la sesión principal; sin atribuir una revisión independiente.
+Las comprobaciones remotas de web/CSP, salud, acceso privado y rechazo del alta sin CAPTCHA pasan, sin crear cuentas de producción. HTML, JavaScript y CSS servidos coinciden exactamente con el artefacto verificado. Sin migraciones D1, dependencias nuevas ni tareas pendientes de este incremento.
+
+Riesgos comprobables: conservar el secreto tras enviar o cambiar de cuenta (borrado explícito y pruebas); desactivar la revalidación para evitar el borrado (comprobaciones de sesión reales); saltarse el bloqueo de una solicitud pendiente o trasladarla a otra cuenta (recorridos existentes de dos pestañas y reautenticación). Revisión local del diff en la sesión principal, sin hallazgos pendientes; sin atribuir una revisión independiente.
 
 ## 8. Ampliación de información y aprendizaje — diseño conservado, 2026-10-06
 
