@@ -5,6 +5,7 @@ export type Intent =
   | { kind: "create"; data: FrontDraft; requestId: string }
   | { kind: "edit"; id: string; data: FrontDraft }
   | { kind: "check"; id: string; day: string; marked: boolean; requestId: string }
+  | { kind: "trash" | "restore"; id: string; requestId: string }
 type ReadState = { context: number; token: string; page: DashboardPage | null; error: ApiError | null }
 
 /** No optimistic writes, automatic retries, browser persistence, or auth bypass. */
@@ -13,6 +14,7 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
   const [read, setRead] = useState<ReadState | null>(null)
   const [pending, setPending] = useState<Intent | null>(null)
   const [saving, setSaving] = useState(false)
+  const [writeClient, setWriteClient] = useState<number | null>(null)
   const [mutationError, setMutationError] = useState<ApiError | null>(null)
   const [notice, setNotice] = useState("")
   const pendingRef = useRef<Intent | null>(null)
@@ -33,10 +35,10 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
   const currentToken = useRef(token)
   currentToken.current = token
 
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; api.forgetSnapshot?.() } }, [api])
   useEffect(() => {
     const currentQuery = JSON.parse(serialized) as DashboardQuery | null
-    if (!currentQuery) { setRead(null); readController.current = null; return }
+    if (!currentQuery) { setRead(null); readController.current = null; api.forgetSnapshot?.(); return }
     const controller = new AbortController()
     readController.current = controller
     let active = true
@@ -46,7 +48,7 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
       if (active && !controller.signal.aborted) setRead({ context, token, page: null,
         error: error instanceof ApiError ? error : new ApiError("network", "No se ha podido cargar el registro.") })
     })
-    return () => { active = false; controller.abort() }
+    return () => { active = false; controller.abort(); api.forgetSnapshot?.() }
   }, [api, serialized, token])
 
   useEffect(() => {
@@ -78,16 +80,32 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
     runningRef.current = true
     pendingRef.current = intent
     lockCallback.current?.(true) // Before transport: an immediate auth callback must see the lock.
-    setPending(intent); setSaving(true); setMutationError(null); setNotice("")
+    setPending(intent); setSaving(true); setWriteClient(clientGeneration); setMutationError(null); setNotice("")
     try {
       if (intent.kind === "create") await api.createFront(intent.data, intent.requestId)
       else if (intent.kind === "edit") await api.patchFront(intent.id, intent.data)
-      else await api.writeCheck(intent.id, intent.day, intent.marked, intent.requestId)
+      else if (intent.kind === "check") await api.writeCheck(intent.id, intent.day, intent.marked, intent.requestId)
+      else if (intent.kind === "trash" && api.trashFront) await api.trashFront(intent.id, intent.requestId)
+      else if (intent.kind === "restore" && api.restoreFront) await api.restoreFront(intent.id, intent.requestId)
+      else throw new ApiError("unavailable", "La papelera no está disponible en este cliente.")
       pendingRef.current = null
       if (mounted.current) {
         setPending(null)
         setNotice("Cambio confirmado por el servidor.")
-        refresh() // A fresh query, not a toggle of whatever date is currently on screen.
+        let confirmedPage: DashboardPage | null = null
+        if ((intent.kind === "check" || intent.kind === "trash" || intent.kind === "restore") && query
+          && client.current.generation === clientGeneration && scope.current.generation === context) {
+          // This projects the complete document acknowledged by this exact
+          // commit/replay. It never guesses a checkbox value from the intent.
+          try { confirmedPage = api.confirmedDashboard?.(intent.requestId, query) ?? null } catch { /* Reload a confirmed write; never resend it. */ }
+        }
+        if (confirmedPage) {
+          readController.current?.abort()
+          setRead({ context, token: currentToken.current, page: confirmedPage, error: null })
+        } else {
+          api.forgetSnapshot?.()
+          refresh() // Changed query/client or a transport without a confirmed snapshot.
+        }
       }
       return true
     } catch (error: unknown) {
@@ -124,5 +142,6 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
   async function retry(): Promise<boolean> {
     return pendingRef.current && !runningRef.current ? run(pendingRef.current, true) : false
   }
-  return { page, loading: !!query && !current && !page, refreshing, error, mutationError, notice, pending, saving, canWrite, refresh, perform, retry }
+  const savingCheck = saving && writeClient === clientGeneration && pending?.kind === "check" ? pending : null
+  return { page, loading: !!query && !current && !page, refreshing, error, mutationError, notice, pending, saving, savingCheck, canWrite, refresh, perform, retry }
 }

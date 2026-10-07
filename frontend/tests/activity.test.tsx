@@ -14,6 +14,65 @@ function fakeApi(): ActivityApi {
 }
 
 describe("Estado de lectura y escrituras confirmadas", () => {
+  it("dibuja el estado completo confirmado por el guardado sin una lectura HTTP adicional", async () => {
+    const api = fakeApi(); const response = deferred<CheckResult>()
+    vi.mocked(api.writeCheck).mockReturnValueOnce(response.promise)
+    api.confirmedDashboard = vi.fn(() => page(query.start, query.end, true))
+    const { result } = renderHook(() => useActivity(api, query))
+    await waitFor(() => expect(result.current.canWrite).toBe(true))
+    let saving!: Promise<boolean>
+    act(() => { saving = result.current.perform({ kind: "check", id: front.id, day: query.start, marked: true, requestId: key }) })
+    expect(result.current.page?.items[0].count).toBe(0)
+    expect(result.current.savingCheck?.id).toBe(front.id)
+    await act(async () => { response.resolve({ front_id: front.id, day: query.start, marked: true }); await saving })
+    expect(result.current.page?.items[0].count).toBe(1)
+    expect(result.current.canWrite).toBe(true)
+    expect(result.current.savingCheck).toBeNull()
+    expect(api.dashboard).toHaveBeenCalledTimes(1)
+    expect(api.confirmedDashboard).toHaveBeenCalledExactlyOnceWith(key, query)
+  })
+  it("una confirmación tardía no proyecta los datos sobre otra fecha", async () => {
+    const api = fakeApi(); const response = deferred<CheckResult>()
+    vi.mocked(api.writeCheck).mockReturnValueOnce(response.promise)
+    api.confirmedDashboard = vi.fn(() => page(query.start, query.end, true))
+    const { result, rerender } = renderHook(({ day }) => useActivity(api, { start: day, end: day }), { initialProps: { day: query.start } })
+    await waitFor(() => expect(result.current.canWrite).toBe(true))
+    let saving!: Promise<boolean>
+    act(() => { saving = result.current.perform({ kind: "check", id: front.id, day: query.start, marked: true, requestId: key }) })
+    rerender({ day: "2026-10-02" })
+    await act(async () => { response.resolve({ front_id: front.id, day: query.start, marked: true }); await saving })
+    await waitFor(() => expect(result.current.canWrite).toBe(true))
+    expect(api.confirmedDashboard).not.toHaveBeenCalled()
+    expect(result.current.page?.start).toBe("2026-10-02")
+    expect(result.current.page?.items[0].count).toBe(0)
+  })
+  it("cambiar de cliente descarta el indicador y la proyección del guardado anterior", async () => {
+    const first = fakeApi(); const second = fakeApi(); const response = deferred<CheckResult>()
+    vi.mocked(first.writeCheck).mockReturnValueOnce(response.promise)
+    first.confirmedDashboard = vi.fn(() => page(query.start, query.end, true))
+    first.forgetSnapshot = vi.fn()
+    const { result, rerender } = renderHook(({ api }) => useActivity(api, query), { initialProps: { api: first } })
+    await waitFor(() => expect(result.current.canWrite).toBe(true))
+    let saving!: Promise<boolean>
+    act(() => { saving = result.current.perform({ kind: "check", id: front.id, day: query.start, marked: true, requestId: key }) })
+    rerender({ api: second })
+    expect(result.current.savingCheck).toBeNull()
+    expect(first.forgetSnapshot).toHaveBeenCalled()
+    await act(async () => { response.resolve({ front_id: front.id, day: query.start, marked: true }); await saving })
+    await waitFor(() => expect(result.current.canWrite).toBe(true))
+    expect(first.confirmedDashboard).not.toHaveBeenCalled()
+    expect(result.current.page?.items[0].count).toBe(0)
+  })
+  it("un fallo al proyectar un commit confirmado recarga sin convertirlo en una escritura incierta", async () => {
+    const api = fakeApi()
+    api.confirmedDashboard = vi.fn(() => { throw new Error("Projection unavailable") })
+    const { result } = renderHook(() => useActivity(api, query))
+    await waitFor(() => expect(result.current.canWrite).toBe(true))
+    await act(async () => { expect(await result.current.perform({ kind: "check", id: front.id, day: query.start, marked: true, requestId: key })).toBe(true) })
+    expect(result.current.pending).toBeNull()
+    expect(result.current.mutationError).toBeNull()
+    expect(api.dashboard).toHaveBeenCalledTimes(2)
+  })
   it("notifica el bloqueo al padre antes de llamar al transporte y lo retiene si es incierto", async () => {
     let parentLocked = false
     const observed: boolean[] = []

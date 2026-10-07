@@ -184,6 +184,8 @@ select:disabled { opacity: .5; cursor: not-allowed; }
 .day-actions { display: flex; align-items: center; gap: 8px; padding: 3px; }
 .period-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
 .filter-controls { display: grid; grid-template-columns: minmax(170px, .85fr) minmax(0, 1.15fr); gap: 12px; align-content: start; }
+.filter-controls > .field:only-child { grid-column: 1 / -1; }
+.trash-help { display: grid; align-content: start; gap: 8px; font-size: 14px; }
 .date-help { grid-column: 1 / -1; color: var(--muted-foreground); padding-inline: 3px; font-size: 11px; }
 .field-help { font-size: 12px; color: var(--muted-foreground); }
 .validation-message { padding: 14px; border-left: 3px solid var(--destructive); background: var(--input); color: var(--destructive); margin: 18px 0; }
@@ -224,10 +226,16 @@ select:disabled { opacity: .5; cursor: not-allowed; }
 .front-card [data-slot="card"] { padding: 18px; gap: 0; }
 /* Keep useful card widths even with one result; auto-fill preserves empty
    columns instead of stretching a short daily entry across the desktop. */
-.daily-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 12px; }
+.daily-list, .trash-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 12px; }
 .daily-list .front-card [data-slot="card"] { padding: 8px 12px; }
 .daily-row { flex: 1; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
-.activity-check[data-slot="checkbox"] { cursor: pointer; }
+.activity-check[data-slot="checkbox"] { position: relative; cursor: pointer; }
+.activity-check[aria-busy="true"] [data-slot="checkbox-indicator"] { visibility: hidden; }
+.activity-check[aria-busy="true"]::after { content: ""; position: absolute; top: calc(50% - 7px); left: calc(50% - 7px); width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; animation: check-wait 640ms steps(4, end) infinite; pointer-events: none; }
+@keyframes check-wait { to { transform: rotate(360deg); } }
+.trash-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; }
+.editor-trash { display: grid; justify-items: start; gap: 6px; padding-top: 16px; border-top: 1px dashed var(--border); }
+.editor-trash .delete-front { color: var(--destructive); }
 .front-info { min-width: 0; }
 .front-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
 .state-badge { padding: 2px 7px; border: 1px solid var(--border); font-size: 10px; font-weight: 600; line-height: 1.6; white-space: nowrap; }
@@ -329,6 +337,9 @@ select:disabled { opacity: .5; cursor: not-allowed; }
   .brand-name { font-size: 10px; }
   .view-nav { gap: 10px; }
   [data-slot="button"].nav-button { flex: 1; min-width: 0; gap: 8px; padding: 10px 8px; }
+  [data-slot="button"].trash-nav { flex: 0 0 44px; min-width: 44px; padding: 10px; }
+  .trash-nav-label, .restore-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  [data-slot="button"].restore-front { width: 44px; min-width: 44px; padding: 10px; }
   .page-header { align-items: flex-start; gap: 16px; }
   .page-header > div { min-width: 0; }
   .page-header h1 { font-size: 16px; }

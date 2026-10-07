@@ -131,7 +131,7 @@ try {
         const rect=button.getBoundingClientRect();return rect.left>=bounds.left-.5 && rect.right<=bounds.right+.5;
       });
     }))`), true, `${name}: navigation buttons must fit their container`)
-    assert.equal(await evaluate(`([...document.querySelectorAll('.app-controls,.toolbar-card,.page-header,.daily-row,.front-actions,.pagination,.editor-actions')].filter(el=>el.checkVisibility()).every(group=>{
+    assert.equal(await evaluate(`([...document.querySelectorAll('.app-controls,.toolbar-card,.page-header,.daily-row,.trash-row,.front-actions,.pagination,.editor-trash,.editor-actions')].filter(el=>el.checkVisibility()).every(group=>{
       const bounds=group.getBoundingClientRect();
       return [...group.querySelectorAll('button,input,select,a')].filter(el=>el.checkVisibility()).every(el=>{
         const rect=el.getBoundingClientRect();return rect.left>=bounds.left-.5 && rect.right<=bounds.right+.5 && rect.height>=43.5;
@@ -387,21 +387,19 @@ try {
   await screenshot("daily-mobile", 390, 844)
   await evaluate("document.querySelector('.front-card').scrollIntoView({block:'start'})")
   await screenshot("daily-mobile-rows", 390, 844)
-  // Hold the re-read after a REAL check commit: the list must not collapse and
-  // reset the browser scroll/focus while it waits for the refreshed snapshot.
+  // Hold a REAL commit response: immediate busy feedback, then draw the exact
+  // committed document without a redundant read, optimistic check or DOM reset.
   const dailyReadUrl = `${origin}/api/vault`
-  const checkUrl = dailyReadUrl
-  let heldRefreshRequest = null
   let heldCheckRequest = null
-  let holdPostWriteRead = false
+  const checkRequests = []
   onEvent = ({ method, params }) => {
-    if (method === "network.responseStarted" && params.context === context && params.request.method === "GET" && params.request.url === dailyReadUrl && params.isBlocked) {
-      if (holdPostWriteRead) heldRefreshRequest = params.request.request
+    if (method === "network.responseStarted" && params.context === context && params.request.url === dailyReadUrl && params.isBlocked) {
+      checkRequests.push(params.request.method)
+      if (params.request.method === "PUT") heldCheckRequest = params.request.request
       else void command("network.continueResponse", {request:params.request.request})
     }
-    if (method === "network.responseStarted" && params.context === context && params.request.method === "PUT" && params.request.url === checkUrl && params.isBlocked) heldCheckRequest = params.request.request
   }
-  const heldRefresh = await command("network.addIntercept", { contexts: [context], phases: ["responseStarted"], urlPatterns: [{ type: "string", pattern: dailyReadUrl }] })
+  const heldCheck = await command("network.addIntercept", { contexts: [context], phases: ["responseStarted"], urlPatterns: [{ type: "string", pattern: dailyReadUrl }] })
   const beforeCheck = JSON.parse(await evaluate(`(() => {
     window.__checkTarget=document.querySelector('[role=checkbox].activity-check');
     window.__checkTarget.focus({preventScroll:true});
@@ -414,22 +412,23 @@ try {
   assert.equal(await evaluate("getComputedStyle(window.__checkTarget).cursor"), "pointer")
   await evaluate("window.__checkTarget.click()")
   await waitFor(async () => heldCheckRequest !== null, "hold real check response")
+  assert.equal(await evaluate("window.__checkTarget.getAttribute('aria-busy')"), "true", "The clicked check reports saving before the response")
+  assert.equal(await evaluate("getComputedStyle(window.__checkTarget,'::after').animationName"), "check-wait", "Only the clicked check draws its busy indicator")
+  assert.equal(await evaluate("document.getElementById(window.__checkTarget.getAttribute('aria-describedby')).textContent"), "Guardando actividad…")
   assert.equal(await evaluate("getComputedStyle(window.__checkTarget).cursor"), "pointer", "Check cursor remains stable while sending")
   assert.deepEqual(await otherControlAppearance(), stableControls, "Sending one check must not flash unrelated controls")
   assert.equal(await evaluate("document.querySelector('.main-feedback').textContent.trim()"), "", "Sending a check must not show a progress popup")
   assert.equal(await evaluate("window.__checkTarget.getAttribute('aria-checked')"), "false", "No optimistic check before the response")
-  holdPostWriteRead = true
-  await command("network.continueResponse", { request: heldCheckRequest })
-  await waitFor(async () => heldRefreshRequest !== null, "hold read after confirmed check")
-  assert.equal(await evaluate("getComputedStyle(window.__checkTarget).cursor"), "pointer", "Check cursor remains stable during the confirmed refresh")
-  assert.deepEqual(await otherControlAppearance(), stableControls, "Refreshing after a check must not flash unrelated controls")
   const duringCheck = JSON.parse(await evaluate("JSON.stringify({connected:window.__checkTarget.isConnected,scroll:scrollY,top:window.__checkTarget.getBoundingClientRect().top})"))
-  assert.equal(duringCheck.connected, true, `Check refresh removed its DOM node; scroll ${beforeCheck.scroll} -> ${duringCheck.scroll}`)
-  assert.ok(Math.abs(duringCheck.top-beforeCheck.top)<8, `A confirmed refresh must keep the clicked front in place: top ${beforeCheck.top} -> ${duringCheck.top}, scroll ${beforeCheck.scroll} -> ${duringCheck.scroll}`)
-  await command("network.continueResponse", { request: heldRefreshRequest })
-  await command("network.removeIntercept", { intercept: heldRefresh.intercept })
+  assert.equal(duringCheck.connected, true, `Sending a check removed its DOM node; scroll ${beforeCheck.scroll} -> ${duringCheck.scroll}`)
+  assert.ok(Math.abs(duringCheck.top-beforeCheck.top)<8, `Sending a check must keep the clicked front in place: top ${beforeCheck.top} -> ${duringCheck.top}, scroll ${beforeCheck.scroll} -> ${duringCheck.scroll}`)
+  const busyImage = await command("browsingContext.captureScreenshot", { context, origin: "viewport" })
+  await writeFile(join(output, "check-saving-mobile.png"), Buffer.from(busyImage.data, "base64"))
+  await command("network.continueResponse", { request: heldCheckRequest })
+  await waitFor(() => evaluate("window.__checkTarget.getAttribute('aria-checked') === 'true' && window.__checkTarget.getAttribute('aria-busy') === 'false' && window.__checkTarget.getAttribute('aria-disabled') === 'false'"), "HTTP check confirmation without another read")
+  assert.deepEqual(checkRequests, ["PUT"], "A loaded checkbox needs one confirmed PUT and no extra GET")
+  await command("network.removeIntercept", { intercept: heldCheck.intercept })
   onEvent = () => {}
-  await waitFor(() => evaluate("document.querySelector('[role=checkbox].activity-check')?.getAttribute('aria-checked') === 'true'"), "HTTP check confirmation")
   assert.deepEqual(await otherControlAppearance(), stableControls, "Confirmed check leaves unrelated controls unchanged")
   assert.equal(await evaluate("document.querySelector('.main-feedback').textContent.trim()"), "", "Confirmed check updates the row without a confirmation popup")
   assert.equal(await evaluate("window.__checkTarget===document.querySelector('[role=checkbox].activity-check') && document.activeElement===window.__checkTarget"), true, "Confirmed check preserves its DOM node and keyboard focus")
@@ -509,6 +508,67 @@ try {
   assert.equal(stored.items.length, 1)
   assert.equal(stored.items[0].reference, null)
   assert.equal(stored.items[0].state, "archived")
+
+  // Recoverable deletion uses the encrypted protocol and preserves identity,
+  // original state and historical checks across a reload, in every front state.
+  await selectValue("state-filter", "all")
+  await waitFor(() => evaluate("document.querySelectorAll('.front-card h2').length===5"), "all states before trash")
+  for (const [name, state] of [["Guitarra", "open"], ["Lectura", "standby"], ["Proyecto terminado", "archived"]]) {
+    const original = (await api(`/api/fronts?search=${encodeURIComponent(name)}`)).body.items[0]
+    const history = async () => (await api(`/api/history?start=${periodStart}&end=${periodEnd}`)).body.items.filter(check => check.front_id === original.id)
+    const originalChecks = await history()
+    assert.ok(originalChecks.length >= 3, "The trash fixture has historical activity")
+    await evaluate(`document.querySelector('[aria-label="Editar ${name}"]').click()`)
+    await waitFor(() => evaluate("document.querySelector('.delete-front')!==null"), "trash action in editor")
+    if (state === "open") {
+      for (const theme of ["dark", "light"]) {
+        await chooseTheme(theme, otherTab)
+        await waitFor(() => evaluate(`document.documentElement.dataset.theme===${JSON.stringify(theme)}`), "trash editor theme")
+        await screenshot(`trash-editor-${theme}-390`, 390, 844)
+        await screenshot(`trash-editor-${theme}-320`, 320, 780)
+        await assertTextContrast([[".delete-front", ".editor-card [data-slot=card]"], [".editor-trash .field-help", ".editor-card [data-slot=card]"]])
+      }
+    }
+    await click("Eliminar frente")
+    await waitFor(() => evaluate(`document.querySelector('[role=dialog]')===null && ![...document.querySelectorAll('.front-card h2')].some(el=>el.textContent===${JSON.stringify(name)})`), "confirmed front leaves normal dashboard")
+    assert.equal((await api(`/api/fronts?search=${encodeURIComponent(name)}`)).body.total, 0)
+    if (state === "open") {
+      await navigate()
+      await waitFor(() => evaluate("document.querySelector('#access-code')!==null"), "trash persists after losing memory key")
+      await login(codeA)
+      await waitFor(() => evaluate("document.querySelector('.daily-list')!==null"), "normal records after reload")
+      assert.equal(await evaluate("document.querySelector('[aria-label=\"Actividad en Guitarra\"]')===null"), true)
+    }
+    await click("Papelera")
+    await waitFor(() => evaluate(`document.querySelector('[aria-label="Restaurar ${name}"]')?.disabled===false`), "recoverable front in trash")
+    assert.equal(await evaluate("document.querySelector('.new-front,.edit-front,.activity-check')===null"), true, "Trash offers only restoration")
+    const trashed = (await api(`/api/fronts/${original.id}`)).body
+    assert.deepEqual({ ...trashed, trashed_at: undefined }, { ...original, trashed_at: undefined })
+    assert.ok(Number.isFinite(Date.parse(trashed.trashed_at)))
+    assert.deepEqual(await history(), originalChecks, "Moving to trash never deletes checks")
+    assert.equal((await api("/api/fronts?trashed=true")).body.total, 1)
+    if (state === "open") {
+      for (const theme of ["dark", "light"]) {
+        await chooseTheme(theme)
+        for (const width of [1366, 768, 390, 320]) {
+          await evaluate("window.scrollTo(0,0)")
+          await screenshot(`trash-${theme}-${width}`, width, 900)
+        }
+        await assertTextContrast([[".trash-help", ".main-content"], [".trash-help .muted", ".main-content"], [".trash-row h2", ".front-card [data-slot=card]"], [".restore-front"]])
+      }
+    }
+    await evaluate(`(() => { const button=document.querySelector('[aria-label="Restaurar ${name}"]');button.focus();button.click(); })()`)
+    await waitFor(() => evaluate("document.body.textContent.includes('La papelera está vacía')"), "restore removes front from trash")
+    assert.equal(await evaluate("document.activeElement===document.querySelector('.trash-nav')"), true, "Restoration leaves focus on the available trash navigation")
+    const restored = (await api(`/api/fronts/${original.id}`)).body
+    assert.deepEqual({ ...restored, trashed_at: undefined }, { ...original, trashed_at: undefined })
+    assert.deepEqual(await history(), originalChecks, "Restore preserves all original activity")
+    assert.equal((await api("/api/fronts?trashed=true")).body.total, 0)
+    await click("Dashboard")
+    await waitFor(() => evaluate("document.querySelector('.dashboard-list')!==null && !document.querySelector('main').inert"), "dashboard after restoration")
+    await selectValue("state-filter", "all")
+    await waitFor(() => evaluate(`document.querySelectorAll('.front-card h2').length===5 && [...document.querySelectorAll('.front-card h2')].some(el=>el.textContent===${JSON.stringify(name)})`), "restore returns front to the original state")
+  }
 
   // A later-created leader must move ahead of the FIRST page, not just sort
   // within page two. Standby fixtures keep the existing daily/open checks intact.
@@ -782,7 +842,8 @@ try {
   console.log("Calendars: inclusive percentages, independent disclosures, Enter/Space and visible focus, no activity requests for themes/layout/disclosure")
   console.log(`Palettes: ${contrastChecks} checked text/icon/surface pairs at least 4.5:1; no horizontal overflow or card-frame overflow in captured views`)
   console.log("Themes: one-click light/dark, system default, reload persistence, login/signup/editor/pending intent retained; preference-only storage")
-  console.log("Confirmed check: held REAL post-commit re-read preserves row DOM, viewport position and keyboard focus without optimistic success")
+  console.log("Confirmed check: immediate busy indicator while a REAL PUT response is held; one PUT/no GET, confirmed document, stable DOM/position/focus and unrelated controls, no optimistic success")
+  console.log("Trash: real encrypted delete/restore in open, standby and archived states, preserved identity/history/reference, hidden from normal views, reload persistence and restoration focus; both themes at1366/768/390/320px")
   console.log("View navigation: held real destination reads preserve source content, scroll and focus in both directions, both themes and desktop/mobile; stale controls stay inert")
   console.log("Compact rows/references: unchanged card dimensions with/without/restored long URL in both views/themes at1366/390/320px; short-name daily rows<=80px, checks>=44px; real reference edits never mark activity")
   console.log("Two tabs + failed committed HTTP response: A intent never applied to B, same A code restores it, same key retry produces exactly one front")

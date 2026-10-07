@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react"
 import { Dialog } from "radix-ui"
-import { CalendarDays, ChevronLeft, ChevronRight, ExternalLink, FolderOpen, LayoutDashboard, LockKeyhole, Pencil, Plus, TriangleAlert, X } from "lucide-react"
+import { CalendarDays, ChevronLeft, ChevronRight, ExternalLink, FolderOpen, LayoutDashboard, LockKeyhole, Pencil, Plus, Trash2, TriangleAlert, Undo2, X } from "lucide-react"
 import { Button } from "@/components/ui/8bit/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/8bit/card"
 import { Checkbox } from "@/components/ui/8bit/checkbox"
@@ -14,7 +14,8 @@ const defaultClock = () => new Date()
 const PAGE_SIZE = 20
 const MIN_DAY = "0001-01-01"
 const stateLabels: Record<FrontState, string> = { open: "Abierto", standby: "Standby", archived: "Archivado" }
-type View = "daily" | "dashboard"
+type View = "daily" | "dashboard" | "trash"
+const viewLabels: Record<View, string> = { daily: "Registro diario", dashboard: "Dashboard", trash: "Papelera" }
 type Navigation = { api: ActivityApi; source: View; target: View; page: DashboardPage }
 type Editor = { id: string | null; name: string; reference: string; state: FrontState }
 type Activity = ReturnType<typeof useActivity>
@@ -101,6 +102,8 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   const [formError, setFormError] = useState<{ field: "name" | "reference"; message: string } | null>(null)
   const opener = useRef<HTMLButtonElement | null>(null)
   const newButton = useRef<HTMLButtonElement | null>(null)
+  const trashButton = useRef<HTMLButtonElement | null>(null)
+  const hasTrash = !!api.trashFront && !!api.restoreFront
 
   useEffect(() => {
     // Update the boundary, not an absolute selection or a pending request.
@@ -119,10 +122,12 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
     ? "Selecciona fechas válidas, hasta hoy en Madrid."
     : end < start ? "La fecha «Desde» no puede ser posterior a «Hasta»."
       : days.length === 0 ? "El período no puede superar 366 días (ambos incluidos)." : ""
-  const invalid = requestedView === "daily" ? !dailyValid : !!windowError
+  const invalid = requestedView === "daily" ? !dailyValid : requestedView === "dashboard" ? !!windowError : false
   const query: DashboardQuery | null = !enabled || invalid ? null : {
-    start: requestedView === "daily" ? day : start, end: requestedView === "daily" ? day : end,
-    state, search: search.trim(), limit: PAGE_SIZE, offset, order: requestedView === "dashboard" ? "activity_desc" : "created",
+    start: requestedView === "daily" ? day : requestedView === "trash" ? today : start,
+    end: requestedView === "daily" ? day : requestedView === "trash" ? today : end,
+    state: requestedView === "trash" ? "all" : state, search: search.trim(), limit: PAGE_SIZE, offset, order: requestedView === "dashboard" ? "activity_desc" : "created",
+    ...(requestedView === "trash" ? { trashed: true } : {}),
   }
   const activity = useActivity(api, query, onWriteLockChange)
   const { page: receivedPage, error, pending, saving } = activity
@@ -179,9 +184,22 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
     if (await activity.perform(intent)) setEditor(null)
   }
   async function retryPending() {
-    const editorRequest = pending?.kind === "create" || pending?.kind === "edit"
+    const editorRequest = pending?.kind === "create" || pending?.kind === "edit" || pending?.kind === "trash"
     if (await activity.retry() && editorRequest) setEditor(null)
   }
+  async function trashEditor() {
+    if (!editor?.id || !canWrite || locked || !hasTrash) return
+    if (await activity.perform({ kind: "trash", id: editor.id, requestId: crypto.randomUUID() })) setEditor(null)
+  }
+  async function restore(front: Front, button: HTMLButtonElement) {
+    if (!canWrite || locked || !hasTrash) return
+    const ownedFocus = document.activeElement === button
+    if (await activity.perform({ kind: "restore", id: front.id, requestId: crypto.randomUUID() })) {
+      if (ownedFocus && trashButton.current?.getAttribute("aria-current") === "page"
+        && (document.activeElement === button || document.activeElement === document.body)) trashButton.current.focus({ preventScroll: true })
+    }
+  }
+  function savingCheck(id: string) { return activity.savingCheck?.id === id && activity.savingCheck.day === day }
   function check(id: string, marked: boolean | "indeterminate") {
     const boundary = todayInMadrid(clock())
     if (typeof marked !== "boolean" || !canWrite || !dailyValid || !isDay(day) || day > boundary) { setToday(boundary); return }
@@ -200,23 +218,24 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
       <nav className="view-nav" aria-label="Vistas">
         <Button type="button" variant="ghost" className="nav-button" aria-label="Registro diario" aria-current={requestedView === "daily" ? "page" : undefined} aria-busy={navigating && requestedView === "daily"} onClick={() => chooseView("daily")}><CalendarDays aria-hidden="true" /> Registro</Button>
         <Button type="button" variant="ghost" className="nav-button" aria-current={requestedView === "dashboard" ? "page" : undefined} aria-busy={navigating && requestedView === "dashboard"} onClick={() => chooseView("dashboard")}><LayoutDashboard aria-hidden="true" /> Dashboard</Button>
+        {hasTrash && <Button type="button" ref={trashButton} variant="ghost" className="nav-button trash-nav" aria-label="Papelera" title="Papelera" aria-current={requestedView === "trash" ? "page" : undefined} aria-busy={navigating && requestedView === "trash"} onClick={() => chooseView("trash")}><Trash2 aria-hidden="true" /><span className="trash-nav-label">Papelera</span></Button>}
       </nav>
       <div className="sidebar-note"><LockKeyhole aria-hidden="true" size={18} /><span>Espacio privado</span></div>
     </aside>
 
-    <p className="sr-only" role="status">{navigating ? `Abriendo ${requestedView === "daily" ? "Registro diario" : "Dashboard"}…` : ""}</p>
+    <p className="sr-only" role="status">{navigating ? `Abriendo ${viewLabels[requestedView]}…` : ""}</p>
     <main id="contenido" className="main-content" tabIndex={-1} inert={navigating} aria-busy={navigating}>
       {!editor && <div className="main-feedback">
         <RequestFeedback activity={activity} onRetry={() => { void retryPending() }} />
       </div>}
       <div key={view} className="view-panel">
         <header className="page-header">
-          <div><p className="eyebrow">REGISTRO PERSONAL</p><h1 className="retro">{view === "daily" ? "Registro diario" : "Dashboard"}</h1></div>
-          <Button type="button" ref={newButton} className="new-front" aria-label="Nuevo frente" title="Nuevo frente" disabled={locked || navigating} onClick={(event) => openEditor(null, event.currentTarget)}><Plus aria-hidden="true" /><span className="new-front-label">Nuevo frente</span></Button>
+          <div><p className="eyebrow">REGISTRO PERSONAL</p><h1 className="retro">{viewLabels[view]}</h1></div>
+          {view !== "trash" && <Button type="button" ref={newButton} className="new-front" aria-label="Nuevo frente" title="Nuevo frente" disabled={locked || navigating} onClick={(event) => openEditor(null, event.currentTarget)}><Plus aria-hidden="true" /><span className="new-front-label">Nuevo frente</span></Button>}
         </header>
 
         <Card font="normal" className="toolbar-card"><CardContent font="normal" className="card-body">
-          {view === "daily" ? <div className="daily-controls">
+          {view === "trash" ? <div className="trash-help"><p>Recupera un frente con su estado y todos sus checks.</p><p className="muted">El contenido de la papelera se conserva y sigue ocupando espacio en tu cuenta.</p></div> : view === "daily" ? <div className="daily-controls">
             <div className="field date-field"><label htmlFor="registration-day">Fecha de registro</label><Input id="registration-day" type="date" font="normal" className="field-input" min={MIN_DAY} max={today} value={day} aria-invalid={!dailyValid} aria-describedby="date-help" onChange={(event) => chooseDay(event.target.value)} /></div>
             <div className="day-actions"><Button type="button" variant="outline" size="icon" aria-label="Día anterior" disabled={!dailyValid || day === MIN_DAY} onClick={() => chooseDay(shiftDay(day, -1))}><ChevronLeft aria-hidden="true" /></Button><Button type="button" variant="outline" size="icon" aria-label="Día siguiente" disabled={!dailyValid || day >= today} onClick={() => chooseDay(shiftDay(day, 1))}><ChevronRight aria-hidden="true" /></Button><Button type="button" variant="outline" onClick={() => { const currentToday = todayInMadrid(clock()); setToday(currentToday); chooseDay(currentToday) }}>Hoy</Button></div>
             <p id="date-help" className="date-help">Hoy, {formatDay(today, true)}</p>
@@ -225,7 +244,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
             <div className="field"><label htmlFor="period-end">Hasta</label><Input id="period-end" type="date" font="normal" className="field-input" min={MIN_DAY} max={today} value={end} aria-invalid={!!windowError} aria-describedby="period-help" onChange={(event) => { setEnd(event.target.value); setOffset(0) }} /></div>
             <p id="period-help" className="date-help">Ambas fechas incluidas</p>
           </div>}
-          <div className="filter-controls"><div className="field"><label htmlFor="state-filter">Estado</label><select id="state-filter" value={state} onChange={(event) => { setState(event.target.value as FrontState | "all"); setOffset(0) }}><StateOptions all /></select></div><div className="field"><label htmlFor="name-search">Buscar por nombre</label><Input id="name-search" type="search" font="normal" className="field-input" placeholder="Nombre del frente…" value={search} onChange={(event) => { setSearch(event.target.value); setOffset(0) }} /></div></div>
+          <div className="filter-controls">{view !== "trash" && <div className="field"><label htmlFor="state-filter">Estado</label><select id="state-filter" value={state} onChange={(event) => { setState(event.target.value as FrontState | "all"); setOffset(0) }}><StateOptions all /></select></div>}<div className="field"><label htmlFor="name-search">Buscar por nombre</label><Input id="name-search" type="search" font="normal" className="field-input" placeholder="Nombre del frente…" value={search} onChange={(event) => { setSearch(event.target.value); setOffset(0) }} /></div></div>
         </CardContent></Card>
 
         {invalid ? <p className="validation-message" role="alert">{view === "daily" ? "Selecciona hoy o una fecha pasada." : windowError}</p>
@@ -239,16 +258,16 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
               <Button type="button" variant="outline" font="normal" className="text-button" onClick={activity.refresh}>Reintentar carga</Button>
             </CardContent></Card>
               : page && <>
-                <div className="results-heading"><p>{page.total} {page.total === 1 ? "frente en esta vista" : "frentes en esta vista"}</p><span>{view === "daily" ? formatDay(day) : "Mayor porcentaje primero"}</span></div>
-                {page.total === 0 ? <Card font="normal" className="message-card"><CardContent font="normal" className="card-body"><FolderOpen className="empty-icon" aria-hidden="true" /><h2>No hay frentes en esta vista</h2><p className="muted">Prueba otro estado o nombre, o crea un nuevo frente. Crear un frente no marca actividad.</p></CardContent></Card> : <ul className={`front-list ${view === "dashboard" ? "dashboard-list" : "daily-list"}`} aria-busy={saving || activity.refreshing || navigating} aria-label={view === "daily" ? "Frentes del registro diario" : "Frentes del dashboard"}>
+                <div className="results-heading"><p>{page.total} {page.total === 1 ? "frente en esta vista" : "frentes en esta vista"}</p><span>{view === "daily" ? formatDay(day) : view === "trash" ? "Todos los estados" : "Mayor porcentaje primero"}</span></div>
+                {page.total === 0 ? <Card font="normal" className="message-card"><CardContent font="normal" className="card-body"><FolderOpen className="empty-icon" aria-hidden="true" /><h2>{view === "trash" ? (search.trim() ? "No hay frentes en la papelera con ese nombre" : "La papelera está vacía") : "No hay frentes en esta vista"}</h2><p className="muted">{view === "trash" ? "Los frentes que elimines aparecerán aquí para que puedas recuperarlos." : "Prueba otro estado o nombre, o crea un nuevo frente. Crear un frente no marca actividad."}</p></CardContent></Card> : <ul className={`front-list ${view === "dashboard" ? "dashboard-list" : view === "trash" ? "trash-list" : "daily-list"}`} aria-busy={saving || activity.refreshing || navigating} aria-label={view === "daily" ? "Frentes del registro diario" : view === "trash" ? "Frentes de la papelera" : "Frentes del dashboard"}>
                   {page.items.map((item) => <li key={`${item.front.id}:${view}:${page.start}:${page.end}`}><Card font="normal" className="front-card"><CardContent font="normal" className="card-body">
-                    {view === "daily" ? <div className="daily-row"><Checkbox className="min-h-11 min-w-11 activity-check" aria-label={`Actividad en ${item.front.name}`} aria-describedby={`check-status-${item.front.id}`} checked={item.marked_dates.includes(day)} aria-disabled={!canWrite || !dailyValid} onClick={(event) => { if (!canWrite || !dailyValid) event.preventDefault() }} onCheckedChange={(marked) => check(item.front.id, marked)} /><div><FrontInfo front={item.front} /><p id={`check-status-${item.front.id}`} className="sr-only">{item.marked_dates.includes(day) ? "Actividad registrada" : "Sin actividad registrada"}</p></div><FrontActions front={item.front}>{editButton(item.front)}</FrontActions></div> : <DashboardFront item={item} calendarDays={calendarDays} editAction={editButton(item.front)} />}
+                    {view === "daily" ? <div className="daily-row"><Checkbox className="min-h-11 min-w-11 activity-check" aria-label={`Actividad en ${item.front.name}`} aria-describedby={`check-status-${item.front.id}`} aria-busy={savingCheck(item.front.id)} checked={item.marked_dates.includes(day)} aria-disabled={!canWrite || !dailyValid} onClick={(event) => { if (!canWrite || !dailyValid) event.preventDefault() }} onCheckedChange={(marked) => check(item.front.id, marked)} /><div><FrontInfo front={item.front} /><p id={`check-status-${item.front.id}`} className="sr-only" aria-live="polite">{savingCheck(item.front.id) ? "Guardando actividad…" : item.marked_dates.includes(day) ? "Actividad registrada" : "Sin actividad registrada"}</p></div><FrontActions front={item.front}>{editButton(item.front)}</FrontActions></div> : view === "trash" ? <div className="trash-row"><FrontInfo front={item.front} /><Button type="button" variant="outline" font="normal" className="restore-front text-button" aria-label={`Restaurar ${item.front.name}`} title={`Restaurar ${item.front.name}`} disabled={!canWrite || locked} onClick={(event) => { void restore(item.front, event.currentTarget) }}><Undo2 aria-hidden="true" size={18} /><span className="restore-label">Restaurar</span></Button></div> : <DashboardFront item={item} calendarDays={calendarDays} editAction={editButton(item.front)} />}
                   </CardContent></Card></li>)}
                 </ul>}
               </>}
 
         <nav className="pagination" aria-label="Paginación de frentes"><Button type="button" variant="outline" font="normal" className="text-button" aria-label="Página anterior" disabled={navigating || !page || offset === 0} onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))}><ChevronLeft aria-hidden="true" /> Anterior</Button><span>{page ? `Página ${Math.floor(page.offset / PAGE_SIZE) + 1} de ${Math.max(1, Math.ceil(page.total / PAGE_SIZE))}` : "Página —"}</span><Button type="button" variant="outline" font="normal" className="text-button" aria-label="Página siguiente" disabled={navigating || !page || offset + PAGE_SIZE >= page.total || offset + PAGE_SIZE > 100000} onClick={() => setOffset((current) => current + PAGE_SIZE)}>Siguiente <ChevronRight aria-hidden="true" /></Button></nav>
-        <footer className="page-footer">Los estados los decides tú. Los checks se pueden corregir también en standby y archivados.</footer>
+        <footer className="page-footer">{view === "trash" ? "Restaurar conserva el estado y todos los checks del frente." : "Los estados los decides tú. Los checks se pueden corregir también en standby y archivados."}</footer>
       </div>
     </main>
 
@@ -262,6 +281,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
             {formError && <p id="form-error" role="alert" className="validation-message">{formError.message}</p>}
             {!canWrite && !pending && <p className="preview-note">Guardar requiere acceso privado y una carga válida de los frentes.</p>}
             <RequestFeedback activity={activity} onRetry={() => { void retryPending() }} />
+            {editor.id && hasTrash && <div className="editor-trash"><Button type="button" variant="ghost" font="normal" className="delete-front text-button" disabled={!canWrite || locked} onClick={() => { void trashEditor() }}><Trash2 aria-hidden="true" size={18} />Eliminar frente</Button><p className="field-help">Se moverá a la Papelera. Podrás recuperarlo con todo su historial.</p></div>}
             <div className="editor-actions"><Button type="button" variant="outline" font="normal" className="text-button" disabled={locked} onClick={() => setEditor(null)}>Cancelar</Button><Button type="submit" disabled={!canWrite || locked}>{editor.id ? "Guardar cambios" : "Crear frente"}</Button></div>
           </form>
         </CardContent></Card>

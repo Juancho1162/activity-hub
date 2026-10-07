@@ -33,6 +33,7 @@ Se conservan las reglas acordadas para este módulo:
   - **Standby:** está aparcado con intención de retomarlo.
   - **Archivado:** se da por cerrado, porque se terminó o se decidió dejarlo. Sale de la vista habitual, pero conserva su historial.
 - Pasar a standby o archivar no borra actividad registrada. La app no cambia estados por falta de actividad.
+- **Eliminar mueve el frente a una Papelera recuperable**, independiente de su estado. Sale del registro y del dashboard; restaurarlo conserva su identidad, estado anterior y todos sus checks. No se purga automáticamente ni se borra de forma permanente: sigue ocupando almacenamiento y contando para el límite de frentes.
 - Registro manual con **un check por frente y día**. Vacío significa «sin actividad registrada», no «no lo hice». Manual significa decidido explícitamente por el usuario, también cuando lo solicita a pi.
 - La zona horaria del registro es **`Europe/Madrid`**, incluidos sus cambios de horario. Es la referencia común para los días y para interpretar «hoy» y «ayer» desde la web y pi/MCP, independientemente de la zona del servidor.
 - Se pueden **marcar y desmarcar checks de días pasados** para completar olvidos o corregir errores, tanto desde la web como mediante una petición explícita a pi.
@@ -45,10 +46,11 @@ Se conservan las reglas acordadas para este módulo:
 
 **Vista de registro diario:**
 
-- Tarjetas compactas de frentes abiertos, con un check por frente: varias columnas según el espacio disponible en ordenador y una columna en móvil. Con pocos resultados conservan un ancho contenido; las tarjetas de una misma fila tienen igual altura y muestran los nombres completos. El orden de lectura va de izquierda a derecha y después hacia abajo. Marcar conserva la posición y el foco: no se desmonta la lista durante su actualización ni se muestra un guardado optimista. El guardado se refleja en la vista sin avisos transitorios de envío o éxito, y sin atenuar los demás checks y botones.
+- Tarjetas compactas de frentes abiertos, con un check por frente: varias columnas según el espacio disponible en ordenador y una columna en móvil. Con pocos resultados conservan un ancho contenido; las tarjetas de una misma fila tienen igual altura y muestran los nombres completos. El orden de lectura va de izquierda a derecha y después hacia abajo. Marcar conserva la posición y el foco: no se desmonta la lista durante su actualización ni se muestra un guardado optimista. El check pulsado indica inmediatamente «guardando», respetando la reducción de movimiento; se dibuja su valor confirmado al terminar. Sin avisos transitorios de envío o éxito, ni atenuación de los demás checks y botones.
 - Hoy seleccionado por defecto, con posibilidad de elegir una fecha pasada.
 - Añadir o editar un frente con nombre y enlace opcional. La referencia no aumenta el tamaño de su tarjeta: aparece como acción compacta independiente. Tarjetas del registro diario densas, con un área de pulsación del check de al menos 44 px.
 - Acceso a los frentes en standby y archivados para consultarlos y gestionar su estado.
+- «Eliminar frente» desde su editor; «Papelera» en el menú para buscar y restaurar frentes de cualquier estado. Los frentes en la Papelera no se editan ni se marcan hasta restaurarlos.
 
 **Vista de dashboard:**
 
@@ -58,7 +60,7 @@ Se conservan las reglas acordadas para este módulo:
 - Dashboard ordenado de mayor a menor porcentaje del período, **antes de paginar** y dentro de los filtros/cuenta actuales. Empates estables por creación/UUID. El registro diario conserva su orden anterior.
 - Tarjetas de la misma fila con altura uniforme y acciones del calendario alineadas. El nombre más largo determina el espacio necesario, sin recortes ni una altura fija; cada calendario sigue abriéndose de forma independiente.
 
-**Acceso equivalente desde pi/MCP:** consultar frentes e historial, añadir o editar un frente, cambiar su estado y marcar o desmarcar un día. Las dos interfaces operan sobre los mismos datos y reglas, siempre con peticiones explícitas para los cambios.
+**Acceso equivalente desde pi/MCP:** consultar frentes e historial, añadir o editar un frente, cambiar su estado, marcar o desmarcar un día y mover a Papelera o restaurar. Las dos interfaces operan sobre los mismos datos y reglas, siempre con peticiones explícitas para los cambios; el conector sigue pendiente.
 
 Quedan fuera de este primer módulo las notificaciones, correo, Teams, el dashboard agregador y el agente coordinador. No se convierte el registro en un gestor de tareas ni en un detector automático de actividad.
 
@@ -132,7 +134,7 @@ La UI conserva registro diario en columnas, dashboard con orden global antes de 
 
 La pantalla de acceso prioriza **Entrar**, con un botón de ancho completo y mayor altura; **Crear cuenta** queda como acción secundaria compacta. En escritorio, la barra lateral sigue la altura disponible de la ventana, permanece visible al hacer scroll y conserva «Espacio privado» al pie, sin el antiguo máximo de 900 px.
 
-Al alternar Registro y Dashboard, la vista anterior conserva sus datos, fechas, altura y posición mientras llega la nueva lectura, con sus controles bloqueados. La nueva vista entra con una transición de 180 ms; el menú conserva el foco y permite cambiar de destino durante la carga. La preferencia de reducir movimiento desactiva las animaciones.
+Al alternar Registro, Dashboard y Papelera, la vista anterior conserva sus datos, fechas, altura y posición mientras llega la nueva lectura, con sus controles bloqueados. La nueva vista entra con una transición de 180 ms; el menú conserva el foco y permite cambiar de destino durante la carga. La preferencia de reducir movimiento desactiva las animaciones.
 
 ### Privacidad y acceso
 
@@ -170,7 +172,9 @@ Las rutas antiguas `/api/fronts`, `/api/history` y `/api/dashboard` devuelven 41
 
 Se conservan las reglas funcionales: nombre de 1–200 caracteres sin NUL; enlace HTTP(S) hasta 2048; estados `open`, `standby`, `archived`; un check por frente/día, sin fechas futuras; intervalos inclusivos de hasta 366 días. Búsqueda literal con comparación ASCII sin distinguir mayúsculas; orden por creación/UUID y, en dashboard, por actividad antes de paginar. No hay borrado permanente de frentes.
 
-**Concurrencia y reintentos:** el navegador lee, modifica y guarda con versión esperada. Ante un conflicto confirmado vuelve a leer y combina la operación, hasta cinco intentos; dos pestañas no sobrescriben a ciegas sus snapshots. Ante una pérdida de respuesta no se reintenta automáticamente: la UI conserva y bloquea la solicitud pendiente hasta confirmarla explícitamente. Las creaciones y checks guardan dentro del cifrado su clave, contenido y respuesta originales; repetirlos devuelve esa respuesta sin deshacer ediciones o desmarcados posteriores. Reutilizar una clave para otra operación devuelve conflicto. La fecha relativa queda fijada cuando se confirma por primera vez y se conserva en su replay.
+**Concurrencia y reintentos:** el navegador lee, modifica y guarda con versión esperada. Un check de fecha absoluta puede utilizar el documento confirmado que mantiene en memoria para esa cuenta y cliente: la escritura revalida versión, día de sincronización y acceso en el servidor. Ante un conflicto confirmado vuelve a leer y combina la operación, hasta cinco intentos; dos pestañas no sobrescriben a ciegas sus snapshots. Tras confirmar un check, traslado a Papelera o restauración, la UI calcula la vista desde el documento completo confirmado, sin otra lectura de red. La memoria se descarta al cambiar consulta/cliente, ocultar acceso o fallar el transporte; las consultas normales siguen leyendo del servidor.
+
+Ante una pérdida de respuesta no se reintenta automáticamente: la UI conserva y bloquea la solicitud pendiente hasta confirmarla explícitamente. Las creaciones, checks, traslados a Papelera y restauraciones guardan dentro del cifrado su clave, contenido y respuesta originales; repetirlos lee el documento actual y devuelve esa respuesta sin deshacer cambios posteriores. La vista se calcula desde el documento actual, no desde la respuesta histórica del replay. Reutilizar una clave para otra operación devuelve conflicto. La fecha relativa queda fijada cuando se confirma por primera vez y se conserva en su replay.
 
 La identidad pendiente vive solo en memoria de la pestaña; se avisa antes de recargar/cerrar, pero no hay recuperación tras cerrarla. Un cambio de sesión oculta datos y editor sin trasladar la operación a otra cuenta. Volver a entrar en la original permite continuar con la misma identidad. Cerrar sesión queda bloqueado mientras haya una escritura pendiente; un logout incierto mantiene los datos ocultos hasta confirmarlo. Las respuestas originales no caducan automáticamente; al llegar al límite se conserva lo existente y se rechazan nuevos cambios.
 
@@ -285,7 +289,7 @@ Riesgos considerados en esta primera publicación: apuntar por error a datos loc
 | --- | --- |
 | Promoción JavaScript + Workers/D1 | Completada en local: estructura, comandos, suites, medición, ambos recorridos Firefox y arranque/reinicio verificados. Revisión en la sesión principal; perfil independiente no disponible. |
 | Referencia Python | Secundaria en `experiments/python-sqlite/`; 102 pruebas pasan, sin modificación de reglas ni de la SQLite existente. |
-| Frontend oficial | React con presentación 8-bit, cifrado local y barra lateral ampliada en escritorio. 162 pruebas, tipos/build y ambos recorridos Firefox contra Worker/D1 pasan. |
+| Frontend oficial | React con presentación 8-bit, cifrado local, navegación estable, respuesta inmediata del check y Papelera recuperable. 187 pruebas, tipos/build y ambos recorridos Firefox contra Worker/D1 pasan; publicación del último incremento indicada abajo. |
 | Datos entre implementaciones | Separados. La promoción de código no migra ni sincroniza cuentas/historial. Una transferencia requeriría procedimiento y petición específica. |
 | MCP de Activity Hub | Pendiente de concretar autenticación e implementar/probar el conector; el MCP de Cloudflare para Codex ya está instalado y autenticado. |
 | Alojamiento y copias | Worker y D1 publicados con límites y almacenamiento cifrado. Límites/CPU/coste bajo carga, copia externa y recuperación pendientes. La migración de contenido anterior requiere que su titular entre con el nuevo cliente. |
@@ -331,6 +335,18 @@ Premortem: una ráfaga consume D1 antes del rechazo (limitador previo y prueba d
 **Publicado:** código `59f185d`, integrado desde `feature/view-transitions`, Worker `575dea62-aacd-4719-86a7-d0e5ac9988d6`. La carga retiraba la lista y reducía toda la página a una tarjeta: en la reproducción, el scroll saltaba de 750 a 0 px. Se conserva la vista completa de origen, sin permitir acciones sobre datos antiguos, hasta recibir la nueva lectura. Encabezado y fechas permanecen con sus datos; un error muestra el destino con su opción de reintento. Las respuestas descartadas y los cambios de cliente/sesión no recuperan la vista antigua; las solicitudes de escritura pendientes conservan su identidad. Entrada de 180 ms y señal de espera en el menú, con reducción de movimiento respetada.
 
 `npm run release:prepare`: **36 pruebas backend y 167 frontend**, tipos/build, ambos recorridos Firefox y dry-run de producción pasan. Cinco regresiones de navegación y un recorrido con respuestas reales retenidas en ambos sentidos, ambos temas y anchos de 1366, 390 y 320 px comprueban contenido, scroll, foco y bloqueo de controles. Una comprobación adicional en Firefox con reducción de movimiento confirma ausencia de animaciones y transiciones; durante la carga conserva los 750 px de scroll. Revisión local del diff y de las capturas por la sesión principal, sin hallazgos pendientes. Despliegue y comprobaciones remotas correctos; HTML, JavaScript y CSS servidos coinciden exactamente con el artefacto verificado. Sin migraciones ni tareas pendientes de este incremento.
+
+### Respuesta del check y Papelera — 2026-10-07
+
+**Verificado en local, listo para publicar; rama `feature/responsive-checks-and-front-deletion`.** El usuario ha elegido eliminar de forma recuperable. «Eliminar frente» está en el editor; la vista «Papelera» permite buscar y restaurar cualquier estado con todos sus checks. El check muestra inmediatamente que está guardando y utiliza una sola petición en el recorrido habitual. Se conserva el cifrado en el navegador y el control de versión, cuenta y día del servidor.
+
+`npm run release:prepare`: **36 pruebas backend y 187 frontend**, tipos/build, ambos recorridos Firefox contra Worker/D1 y dry-run de producción pasan. Incluye respuestas reales retenidas, una sola PUT sin GET para el check ya cargado, identidad/posición/foco estables, reintentos y conflictos entre pestañas, cambio de día, eliminación/restauración de los tres estados y persistencia tras recarga. Inspección de ambos temas a siete anchos, Papelera a 1366/768/390/320 px y 81 pares de contraste. Se han revisado localmente el diff y las capturas, sin hallazgos pendientes; no se afirma revisión independiente de este incremento.
+
+Medición puntual en Firefox contra Worker/D1 local, con **300 ms de demora artificial por petición**: antes GET, PUT y GET, con el check dibujado a los 931 ms; después una PUT, indicador visible a los 4 ms y check confirmado a los 310 ms. Es una comparación local simulada, no latencia observada en producción. Una comprobación adicional con reducción de movimiento confirma un indicador estático, sin animaciones.
+
+Se corrigieron dos hallazgos de la revisión y el navegador: repetir una solicitud que estaba en memoria debe leer el documento actual para no mostrar un check sustituido desde otra pestaña; restaurar debe recuperar el foco si el navegador lo retiró al deshabilitar el botón, sin quitárselo a otra acción. Quedan comprobados en las regresiones y el recorrido real. Pendientes: integración en `main`, despliegue y comprobaciones remotas del paquete congelado. Sin cambios de esquema D1 ni dependencias.
+
+Riesgos comprobables: un documento en memoria sobrescribe datos de otra pestaña (CAS y lectura tras conflicto); una confirmación antigua se muestra en otro día/cuenta (contextos separados y memoria invalidada); una respuesta perdida se toma como éxito o se duplica (misma identidad y reintento explícito); eliminar pierde checks o estado (Papelera conserva ambos y se prueba la recuperación). Después de usar la Papelera, una pestaña con el cliente anterior puede necesitar recarga para reconocer las nuevas operaciones del documento cifrado; falla cerrada en vez de sustituir contenido.
 
 ## 8. Ampliación de información y aprendizaje — diseño conservado, 2026-10-06
 

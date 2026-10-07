@@ -2,10 +2,10 @@ import { isDay } from "./dates"
 
 export type FrontState = "open" | "standby" | "archived"
 export type FrontDraft = { name: string; reference: string | null; state: FrontState }
-export type Front = FrontDraft & { id: string; created_at: string; updated_at: string }
+export type Front = FrontDraft & { id: string; created_at: string; updated_at: string; trashed_at?: string | null }
 export type DashboardItem = { front: Front; marked_dates: string[]; last_registered_day: string | null; count: number }
 export type DashboardPage = { items: DashboardItem[]; total: number; limit: number; offset: number; start: string; end: string }
-export type DashboardQuery = { start: string; end: string; state?: FrontState | "all"; search?: string; limit?: number; offset?: number; order?: "created" | "activity_desc" }
+export type DashboardQuery = { start: string; end: string; state?: FrontState | "all"; search?: string; limit?: number; offset?: number; order?: "created" | "activity_desc"; trashed?: boolean }
 export type CheckResult = { front_id: string; day: string; marked: boolean }
 export type ErrorKind = "access-pending" | "unauthorized" | "network" | "validation" | "conflict" | "unavailable" | "invalid-response" | "not-found"
 export class ApiError extends Error {
@@ -16,6 +16,11 @@ export interface ActivityApi {
   createFront(data: FrontDraft, requestId: string): Promise<Front>
   patchFront(id: string, data: FrontDraft): Promise<Front>
   writeCheck(id: string, day: string, marked: boolean, requestId: string): Promise<CheckResult>
+  trashFront?(id: string, requestId: string): Promise<Front>
+  restoreFront?(id: string, requestId: string): Promise<Front>
+  /** Project only the authenticated snapshot confirmed by this exact request. */
+  confirmedDashboard?(requestId: string, query: DashboardQuery): DashboardPage | null
+  forgetSnapshot?(): void
 }
 export function safeReference(value: string | null): string | null {
   if (!value) return null

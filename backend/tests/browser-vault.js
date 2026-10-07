@@ -28,7 +28,7 @@ export function browserVault({ evaluate, account, origin, defaultContext }) {
       const states = url.searchParams.getAll('states');
       const items = url.pathname === '/api/history'
         ? content.checks.filter(ch=>ch.day>=url.searchParams.get('start') && ch.day<=url.searchParams.get('end'))
-        : content.fronts.filter(f=>(!states.length || states.includes(f.state)) && (!url.searchParams.has('search') || f.name.includes(url.searchParams.get('search'))));
+        : content.fronts.filter(f=>!!f.trashed_at === (url.searchParams.get('trashed') === 'true') && (!states.length || states.includes(f.state)) && (!url.searchParams.has('search') || f.name.includes(url.searchParams.get('search'))));
       return { status:200, body:{items,total:items.length}, version:box.version };
     },
     async seed(fixtures, ctx = defaultContext) {
