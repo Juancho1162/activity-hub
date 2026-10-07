@@ -7,7 +7,7 @@ Activity Hub agrupa herramientas con un propósito común, no una única aplicac
 
 **Prioridad actual: empezar por registro y seguimiento**, con interfaz web e integración con pi mediante MCP. El módulo de notificaciones se definirá más adelante; no bloquea el trabajo sobre registro.
 
-**Versión publicada:** registro diario, dashboard y cuentas independientes con código fijo, sin recuperación. Cifrado en el navegador, CAPTCHA de un solo uso, límites de uso y publicación verificable incorporados a `main`, desplegados y comprobados en Cloudflare el 2026-10-06. Véanse [estado y verificación](#6-estado-real-y-verificación) y [trabajo pendiente](#7-trabajo-previsto-y-siguiente-paso).
+**Versión publicada:** registro diario, dashboard, Papelera recuperable y cuentas independientes con código fijo, sin recuperación del código. Cifrado en el navegador, CAPTCHA de un solo uso, límites de uso y publicación verificable incorporados a `main`. Últimos ajustes de interfaz y respuesta del check desplegados y comprobados en Cloudflare el 2026-10-07. Véanse [estado y verificación](#6-estado-real-y-verificación) y [trabajo pendiente](#7-trabajo-previsto-y-siguiente-paso).
 
 ## 1. Notificaciones y asistencia
 
@@ -289,11 +289,11 @@ Riesgos considerados en esta primera publicación: apuntar por error a datos loc
 | --- | --- |
 | Promoción JavaScript + Workers/D1 | Completada en local: estructura, comandos, suites, medición, ambos recorridos Firefox y arranque/reinicio verificados. Revisión en la sesión principal; perfil independiente no disponible. |
 | Referencia Python | Secundaria en `experiments/python-sqlite/`; 102 pruebas pasan, sin modificación de reglas ni de la SQLite existente. |
-| Frontend oficial | React con presentación 8-bit, cifrado local, navegación estable, respuesta inmediata del check y Papelera recuperable. 187 pruebas, tipos/build y ambos recorridos Firefox contra Worker/D1 pasan; publicación del último incremento indicada abajo. |
+| Frontend oficial | React con presentación 8-bit, cifrado local, navegación estable, respuesta inmediata del check y Papelera recuperable. 187 pruebas, tipos/build y ambos recorridos Firefox contra Worker/D1 pasan; publicado y comprobado. |
 | Datos entre implementaciones | Separados. La promoción de código no migra ni sincroniza cuentas/historial. Una transferencia requeriría procedimiento y petición específica. |
 | MCP de Activity Hub | Pendiente de concretar autenticación e implementar/probar el conector; el MCP de Cloudflare para Codex ya está instalado y autenticado. |
 | Alojamiento y copias | Worker y D1 publicados con límites y almacenamiento cifrado. Límites/CPU/coste bajo carga, copia externa y recuperación pendientes. La migración de contenido anterior requiere que su titular entre con el nuevo cliente. |
-| Git | `main` incorpora el código publicado en `9392738`, incluidos seguridad y ajustes de acceso/barra lateral. Etiqueta histórica `v0.1.0`. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin remoto Git ni despliegue automático; datos, credenciales y artefactos excluidos. |
+| Git | `main` incorpora el código publicado en `377acca`, incluidos seguridad, ajustes de acceso/barra lateral, navegación, respuesta del check y Papelera. Etiqueta histórica `v0.1.0`. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin remoto Git ni despliegue automático; datos, credenciales y artefactos excluidos. |
 | Dispositivos | Safari/iPhone físico pendientes. |
 | Notificaciones y asistencia | MVP pendiente de definir; no iniciado. |
 
@@ -338,13 +338,13 @@ Premortem: una ráfaga consume D1 antes del rechazo (limitador previo y prueba d
 
 ### Respuesta del check y Papelera — 2026-10-07
 
-**Verificado en local, listo para publicar; rama `feature/responsive-checks-and-front-deletion`.** El usuario ha elegido eliminar de forma recuperable. «Eliminar frente» está en el editor; la vista «Papelera» permite buscar y restaurar cualquier estado con todos sus checks. El check muestra inmediatamente que está guardando y utiliza una sola petición en el recorrido habitual. Se conserva el cifrado en el navegador y el control de versión, cuenta y día del servidor.
+**Publicado:** código `377acca`, integrado desde `feature/responsive-checks-and-front-deletion`, Worker `f588b41b-4106-425d-bd6b-3fc58f78be73`. El usuario ha elegido eliminar de forma recuperable. «Eliminar frente» está en el editor; la vista «Papelera» permite buscar y restaurar cualquier estado con todos sus checks. El check muestra inmediatamente que está guardando y utiliza una sola petición en el recorrido habitual. Se conserva el cifrado en el navegador y el control de versión, cuenta y día del servidor.
 
 `npm run release:prepare`: **36 pruebas backend y 187 frontend**, tipos/build, ambos recorridos Firefox contra Worker/D1 y dry-run de producción pasan. Incluye respuestas reales retenidas, una sola PUT sin GET para el check ya cargado, identidad/posición/foco estables, reintentos y conflictos entre pestañas, cambio de día, eliminación/restauración de los tres estados y persistencia tras recarga. Inspección de ambos temas a siete anchos, Papelera a 1366/768/390/320 px y 81 pares de contraste. Se han revisado localmente el diff y las capturas, sin hallazgos pendientes; no se afirma revisión independiente de este incremento.
 
 Medición puntual en Firefox contra Worker/D1 local, con **300 ms de demora artificial por petición**: antes GET, PUT y GET, con el check dibujado a los 931 ms; después una PUT, indicador visible a los 4 ms y check confirmado a los 310 ms. Es una comparación local simulada, no latencia observada en producción. Una comprobación adicional con reducción de movimiento confirma un indicador estático, sin animaciones.
 
-Se corrigieron dos hallazgos de la revisión y el navegador: repetir una solicitud que estaba en memoria debe leer el documento actual para no mostrar un check sustituido desde otra pestaña; restaurar debe recuperar el foco si el navegador lo retiró al deshabilitar el botón, sin quitárselo a otra acción. Quedan comprobados en las regresiones y el recorrido real. Pendientes: integración en `main`, despliegue y comprobaciones remotas del paquete congelado. Sin cambios de esquema D1 ni dependencias.
+Se corrigieron dos hallazgos de la revisión y el navegador: repetir una solicitud que estaba en memoria debe leer el documento actual para no mostrar un check sustituido desde otra pestaña; restaurar debe recuperar el foco si el navegador lo retiró al deshabilitar el botón, sin quitárselo a otra acción. Quedan comprobados en las regresiones y el recorrido real. Integrado en `main` y publicado desde el paquete congelado `.release/build-5c531f67-6220-4b72-92eb-35fbcc417c44`; comprobaciones remotas de web/CSP, salud, acceso privado y CAPTCHA correctas, sin crear cuentas de producción. HTML, JavaScript y CSS servidos coinciden exactamente con el artefacto verificado. Sin migraciones D1, dependencias nuevas ni tareas pendientes de este incremento.
 
 Riesgos comprobables: un documento en memoria sobrescribe datos de otra pestaña (CAS y lectura tras conflicto); una confirmación antigua se muestra en otro día/cuenta (contextos separados y memoria invalidada); una respuesta perdida se toma como éxito o se duplica (misma identidad y reintento explícito); eliminar pierde checks o estado (Papelera conserva ambos y se prueba la recuperación). Después de usar la Papelera, una pestaña con el cliente anterior puede necesitar recarga para reconocer las nuevas operaciones del documento cifrado; falla cerrada en vez de sustituir contenido.
 
