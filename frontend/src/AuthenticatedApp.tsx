@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/8bit/input"
 import { createApi, type AccessContext } from "@/lib/api"
 import { AuthError, type AuthClient, type AuthSession, type SignupOut } from "@/lib/auth"
 import { createPrivateAuthClient } from "@/lib/private-auth"
+import { offerBrowserPassword, signalBrowserSignIn } from "@/lib/browser-passwords"
 
 type Mode = "checking" | "login" | "signing-in" | "active" | "error" | "logging-out" | "logout-error"
   | "signing-up" | "signup-code" | "signup-login" | "signup-error" | "account-changed" | "account-blocked"
@@ -27,6 +28,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
   const [notice, setNotice] = useState("")
   const [created, setCreated] = useState<SignupOut | null>(null)
   const [saved, setSaved] = useState(false)
+  const [showCreatedCode, setShowCreatedCode] = useState(false)
   const [copyNotice, setCopyNotice] = useState("")
   const [retryAt, setRetryAt] = useState({ login: 0, signup: 0 })
   const loginCooling = retryAt.login > Date.now()
@@ -40,6 +42,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
   const authEpoch = useRef(0)
   const readController = useRef<AbortController | null>(null)
   const logoutTarget = useRef<AuthSession | null>(null)
+  const explicitSignIn = useRef(false)
   // Let the browser own this value, including autofill without React events.
   const codeForm = useRef<HTMLFormElement | null>(null)
   const clearCode = useCallback(() => {
@@ -76,18 +79,19 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
     if (auth.canRead && !auth.canRead(proof.account_id)) {
       const alreadyPrompting = modeRef.current === "login" && contextRef.current?.proof.account_id === proof.account_id
       rememberSession(proof)
-      if (alreadyPrompting) return
+      if (alreadyPrompting) return false
       setError(null); clearCode()
-      setNotice("Introduce tu código para descifrar el registro en esta pestaña. La clave no se guarda en el dispositivo.")
+      setNotice("Introduce tu código para descifrar el registro en esta pestaña.")
       transition(writeLockedRef.current ? "account-blocked" : "login")
-      return
+      return false
     }
     if (appAccountRef.current && appAccountRef.current !== proof.account_id
-      && (writeLockedRef.current || !explicit)) { gateChanged(proof); return }
+      && (writeLockedRef.current || !explicit)) { gateChanged(proof); return false }
     rememberSession(proof, explicit)
     appAccountRef.current = proof.account_id; setMountedAppAccountId(proof.account_id)
     setError(null); setNotice(""); clearCode()
     transition("active")
+    return true
   }, [auth, rememberSession, gateChanged, transition, clearCode])
   const requireLogin = useCallback((message: string) => {
     sessionGeneration.current++
@@ -130,6 +134,12 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
       document.removeEventListener("visibilitychange", visible)
     }
   }, [checkSession, cancelRead])
+  useEffect(() => {
+    if (mode === "active" && explicitSignIn.current) {
+      explicitSignIn.current = false
+      signalBrowserSignIn()
+    }
+  }, [mode])
   useEffect(() => {
     if (mode === "login" || mode === "account-blocked") document.getElementById("access-code")?.focus()
     if (mode === "signup-code") document.getElementById("signup-code")?.focus()
@@ -187,7 +197,10 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
     setError(null); transition("signing-in")
     try {
       const proof = await auth.login(submitted)
-      if (mounted.current && epoch === authEpoch.current) activate(proof, true)
+      if (mounted.current && epoch === authEpoch.current && activate(proof, true)) {
+        explicitSignIn.current = true
+        offerBrowserPassword(proof.account_id, submitted)
+      }
     } catch (error) {
       if (!mounted.current || epoch !== authEpoch.current) return
       reportAuthFailure("login", asAuthError(error)); transition(previousMode)
@@ -197,7 +210,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
     if (writeLockedRef.current || !["login", "signup-error"].includes(modeRef.current) || signupCooling) return
     cancelRead()
     const epoch = authEpoch.current
-    setError(null); setNotice(""); clearCode(); setSaved(false); setCopyNotice("")
+    setError(null); setNotice(""); clearCode(); setSaved(false); setShowCreatedCode(false); setCopyNotice("")
     transition("signing-up")
     try {
       const result = await auth.signup()
@@ -217,7 +230,10 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
       const proof = await auth.login(created.code)
       if (!mounted.current || epoch !== authEpoch.current) return
       if (proof.account_id !== created.account_id) throw new AuthError("invalid-response", "La respuesta de entrada no corresponde a la cuenta creada. Conserva tu código; no se ha confirmado el acceso a tu cuenta.")
-      activate(proof, true)
+      if (activate(proof, true)) {
+        explicitSignIn.current = true
+        offerBrowserPassword(proof.account_id, created.code)
+      }
       setCreated(null); setSaved(false); setCopyNotice("")
     } catch (error) {
       if (!mounted.current || epoch !== authEpoch.current) return
@@ -231,12 +247,12 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
       await navigator.clipboard.writeText(created.code)
       if (mounted.current) setCopyNotice("Código copiado. Guárdalo en un lugar seguro.")
     } catch {
-      if (mounted.current) setCopyNotice("No se pudo copiar. Selecciona el código y cópialo manualmente.")
+      if (mounted.current) setCopyNotice("No se pudo copiar. Pulsa «Mostrar código». Selecciona el código y cópialo manualmente.")
     }
   }
   function leaveSignup() {
     if (created && !window.confirm("Al salir se borrará el código de esta pantalla. No hay recuperación. ¿Lo has guardado y quieres salir?")) return
-    setCreated(null); setSaved(false); setCopyNotice(""); setError(null); clearCode()
+    setCreated(null); setSaved(false); setShowCreatedCode(false); setCopyNotice(""); setError(null); clearCode()
     transition("login")
   }
   function confirmLogout() {
@@ -316,7 +332,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
         {loginForm && <>
           <p className="muted">Entra con tu código privado. La sesión se recuerda solo en este dispositivo mediante una cookie protegida.</p>
           {writeLocked && mode !== "account-blocked" && <p>Vuelve a la cuenta original {mountedAppAccountId?.slice(0, 8)} para confirmar la solicitud pendiente.</p>}
-          <form ref={codeForm} method="post" className="auth-form" onSubmit={(event) => { void login(event) }}>
+          <form id="login-form" ref={codeForm} method="post" autoComplete="on" className="auth-form" onSubmit={(event) => { void login(event) }}>
             <div className="field"><label htmlFor="access-code">Código de acceso</label><Input id="access-code" name="password" type="password" font="normal" className="field-input" autoComplete="current-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={128} required defaultValue="" disabled={mode === "signing-in"} aria-invalid={error?.kind === "invalid-code"} aria-describedby={error ? "auth-error" : "code-help"} /><p id="code-help" className="field-help">Un único código permanente por cuenta. Sin usuario ni correo.</p></div>
             <Button type="submit" disabled={mode === "signing-in" || loginCooling}>Entrar</Button>
             {mode === "signing-in" && <p role="status">Comprobando el código…</p>}
@@ -324,17 +340,19 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
           {signupCooling && <p role="status">Espera antes de crear otra cuenta; el límite de altas sigue activo.</p>}
           {!writeLocked && mode === "login" && context === null && <Button type="button" variant="outline" font="normal" className="text-button auth-signup" disabled={signupCooling} onClick={() => { void signup() }}>Crear cuenta</Button>}
         </>}
-        {codeView && <div className="auth-form signup-code-view">
+        {codeView && <form id="signup-code-form" method="post" autoComplete="on" className="auth-form signup-code-view" onSubmit={(event) => { event.preventDefault(); void enterCreatedAccount() }}>
           <p>Tu cuenta empieza vacía. Este es su único código permanente y solo se muestra ahora.</p>
-          <div className="field"><label htmlFor="signup-code">Tu código permanente</label><textarea id="signup-code" className="permanent-code" readOnly value={created.code} rows={3} autoComplete="off" autoCapitalize="none" spellCheck={false} aria-describedby="permanent-code-warning" onFocus={(event) => event.currentTarget.select()} /></div>
-          <Button type="button" variant="outline" font="normal" className="text-button" onClick={() => { void copyCode() }}>Copiar</Button>
+          <input type="hidden" name="username" autoComplete="username" value={created.account_id} readOnly />
+          <div className="field"><label htmlFor="signup-code">Tu código permanente</label><Input id="signup-code" name="password" type={showCreatedCode ? "text" : "password"} font="normal" className="field-input permanent-code" readOnly value={created.code} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-describedby="permanent-code-warning" onFocus={(event) => event.currentTarget.select()} /></div>
+          <div className="code-actions"><Button type="button" variant="outline" font="normal" className="text-button" aria-controls="signup-code" aria-pressed={showCreatedCode} onClick={() => setShowCreatedCode(current => !current)}>{showCreatedCode ? "Ocultar código" : "Mostrar código"}</Button><Button type="button" variant="outline" font="normal" className="text-button" onClick={() => { void copyCode() }}>Copiar</Button></div>
           {copyNotice && <p role="status">{copyNotice}</p>}
           <p id="permanent-code-warning" className="code-warning"><strong>No hay recuperación.</strong> Guárdalo en un lugar seguro. No se puede cambiar, regenerar ni recuperar, ni siquiera desde una sesión abierta. Si lo pierdes, perderás el acceso a esta cuenta.</p>
           <label className="saved-code" htmlFor="saved-code"><Checkbox id="saved-code" checked={saved} disabled={mode === "signup-login"} onCheckedChange={(checked) => setSaved(checked === true)} />He guardado mi código</label>
-          <Button type="button" disabled={!saved || mode === "signup-login" || loginCooling} onClick={() => { void enterCreatedAccount() }}>Entrar en mi cuenta</Button>
+          <p className="field-help">Al entrar, tu navegador puede ofrecer guardar el código como contraseña. Conserva una copia segura si no aparece el aviso.</p>
+          <Button type="submit" disabled={!saved || mode === "signup-login" || loginCooling}>Entrar en mi cuenta</Button>
           {mode === "signup-login" && <p role="status">Comprobando el código guardado…</p>}
           <Button type="button" variant="outline" font="normal" className="text-button" disabled={mode === "signup-login"} onClick={leaveSignup}>Volver a entrar</Button>
-        </div>}
+        </form>}
         {mode === "signup-error" && <div className="auth-form">
           <p>No se ha confirmado una cuenta con un código utilizable. No reintentamos la creación automáticamente. Una nueva creación sería otra cuenta, no un código nuevo para la anterior.</p>
           <Button type="button" variant="outline" font="normal" className="text-button" disabled={signupCooling} onClick={() => { void signup() }}>Crear otra cuenta</Button>

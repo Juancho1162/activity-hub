@@ -27,6 +27,31 @@ function trashApi(): ActivityApi {
 }
 
 describe("Vistas de registro y dashboard", () => {
+  it("desplegar filtros conserva la búsqueda y el estado sin consultar ni escribir actividad", async () => {
+    const client = api()
+    render(<App api={client} clock={clock} />)
+    await screen.findByText("Guitarra")
+    const toggle = screen.getByRole("button", { name: "Buscar y filtrar" })
+    expect(toggle.getAttribute("aria-expanded")).toBe("false")
+    const reads = vi.mocked(client.dashboard).mock.calls.length
+    await userEvent.click(toggle)
+    expect(toggle.getAttribute("aria-expanded")).toBe("true")
+    expect(client.dashboard).toHaveBeenCalledTimes(reads)
+    await userEvent.selectOptions(screen.getByLabelText("Estado"), "standby")
+    await userEvent.type(screen.getByLabelText("Buscar por nombre"), "guitarra")
+    await waitFor(() => expect(vi.mocked(client.dashboard).mock.lastCall?.[0]).toMatchObject({ state: "standby", search: "guitarra" }))
+    const filteredReads = vi.mocked(client.dashboard).mock.calls.length
+    await userEvent.click(toggle)
+    expect(toggle.getAttribute("aria-expanded")).toBe("false")
+    expect(toggle.textContent).toContain("activos")
+    await userEvent.click(toggle)
+    expect((screen.getByLabelText("Buscar por nombre") as HTMLInputElement).value).toBe("guitarra")
+    expect((screen.getByLabelText("Estado") as HTMLSelectElement).value).toBe("standby")
+    expect(client.dashboard).toHaveBeenCalledTimes(filteredReads)
+    expect(client.createFront).not.toHaveBeenCalled()
+    expect(client.writeCheck).not.toHaveBeenCalled()
+    expect(client.patchFront).not.toHaveBeenCalled()
+  })
   it("el borrado permanente solo se ofrece en Papelera y Cancelar, Enter o Escape no envían nada", async () => {
     const client = trashApi()
     render(<App api={client} clock={clock} />)

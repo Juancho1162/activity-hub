@@ -41,6 +41,7 @@ if (mode === 'migrate') {
   wrangler(['dev', '--env', 'local', '--local', '--ip', '127.0.0.1', '--port', '8787', '--persist-to', '.state/local']);
 } else if (mode === 'browser-ui') {
   run(process.execPath, ['../frontend/tests/browser-check.mjs']);
+  run(process.execPath, ['../frontend/tests/browser-passwords.mjs']);
 } else if (mode === 'browser' || mode === 'measure') {
   run(process.execPath, [`scripts/${mode === 'browser' ? 'browser-check' : 'measure'}.js`]);
 } else {

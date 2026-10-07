@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import AuthenticatedApp from "../src/AuthenticatedApp"
 import { createAuthClient } from "../src/lib/auth"
 import { deferred, front, page } from "./fixtures"
@@ -37,6 +37,139 @@ async function enter() {
   await userEvent.click(screen.getByRole("button", { name: "Entrar" }))
 }
 const writes = (fetcher: ReturnType<typeof transport>) => fetcher.mock.calls.filter(([url, init]) => String(url).startsWith("/api/") && init?.method !== "GET")
+
+const originalCredentials = Object.getOwnPropertyDescriptor(navigator, "credentials")
+beforeEach(() => {
+  // Radix measures its native checkbox input inside a form; jsdom has no layout.
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} })
+})
+afterEach(() => {
+  if (originalCredentials) Object.defineProperty(navigator, "credentials", originalCredentials)
+  else Reflect.deleteProperty(navigator, "credentials")
+})
+function passwordManager() {
+  const store = vi.fn().mockResolvedValue(undefined)
+  const get = vi.fn()
+  const constructor = vi.fn(function (data: { id: string; password: string; name: string }) {
+    return { ...data, type: "password" }
+  })
+  vi.stubGlobal("isSecureContext", true)
+  vi.stubGlobal("PasswordCredential", constructor)
+  Object.defineProperty(navigator, "credentials", { configurable: true, value: { store, get } })
+  return { store, get, constructor }
+}
+
+describe("Guardar el código en el gestor del navegador", () => {
+  it("ofrece el valor nativo solo tras confirmar la entrada, sin esperar al gestor ni guardar en la app", async () => {
+    const manager = passwordManager()
+    manager.store.mockReturnValue(new Promise(() => {}))
+    const persistence = vi.spyOn(Storage.prototype, "setItem")
+    let formAtCompletion: boolean | undefined
+    const completion = vi.spyOn(window.history, "replaceState").mockImplementation(() => { formAtCompletion = !!document.querySelector("#login-form,#signup-code-form") })
+    const login = deferred<Response>()
+    const fetcher = transport(url => url === "/auth/login" ? login.promise : undefined)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
+    const input = await screen.findByLabelText("Código de acceso") as HTMLInputElement
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "autofilled-test-code")
+    const href = window.location.href, historyState = window.history.state
+    await userEvent.keyboard("{Enter}")
+    expect(manager.store).not.toHaveBeenCalled()
+    expect(completion).not.toHaveBeenCalled()
+    await act(async () => { login.resolve(response(session())) })
+    await screen.findByText("Guitarra")
+    expect(manager.store).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: accountA, password: "autofilled-test-code", type: "password" }))
+    expect(screen.queryByLabelText("Código de acceso")).toBeNull()
+    expect(input.value).toBe("")
+    expect(completion).toHaveBeenCalledExactlyOnceWith(historyState, "", href)
+    expect(formAtCompletion).toBe(false)
+    expect(persistence).not.toHaveBeenCalled()
+    expect(manager.get).not.toHaveBeenCalled()
+    expect(fetcher.mock.calls.filter(([url]) => url === "/auth/login")).toHaveLength(1)
+  })
+  it.each([401, 429, 503])("no ofrece guardar una entrada rechazada (%s)", async (status) => {
+    const manager = passwordManager()
+    const completion = vi.spyOn(window.history, "replaceState")
+    const fetcher = transport(url => url === "/auth/login" ? response({}, status) : undefined)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
+    await enter()
+    await screen.findByRole("alert")
+    expect(manager.store).not.toHaveBeenCalled()
+    expect(completion).not.toHaveBeenCalled()
+  })
+  it("el alta usa un formulario de contraseña y solo ofrece guardarla tras ACK y prueba de su cuenta", async () => {
+    const manager = passwordManager()
+    let account = accountB
+    const fetcher = transport(url => url === "/auth/login" ? response(session(csrfA, account)) : undefined)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
+    await userEvent.click(await screen.findByRole("button", { name: "Crear cuenta" }))
+    const input = await screen.findByLabelText("Tu código permanente") as HTMLInputElement
+    expect(input.tagName).toBe("INPUT")
+    expect(input.type).toBe("password")
+    expect(input.autocomplete).toBe("new-password")
+    expect(input.name).toBe("password")
+    expect(input.form?.querySelector<HTMLInputElement>('[autocomplete="username"]')?.value).toBe(accountA)
+    expect(input.readOnly).toBe(true)
+    await userEvent.click(screen.getByRole("button", { name: "Mostrar código" }))
+    expect(input.type).toBe("text")
+    expect(input.value).toBe(newCode)
+    await userEvent.click(screen.getByRole("button", { name: "Ocultar código" }))
+    expect(input.type).toBe("password")
+    expect(manager.store).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole("checkbox", { name: "He guardado mi código" }))
+    await userEvent.click(screen.getByRole("button", { name: "Entrar en mi cuenta" }))
+    await screen.findByRole("alert")
+    expect(manager.store).not.toHaveBeenCalled()
+    expect(input.value).toBe(newCode)
+    account = accountA
+    await userEvent.click(screen.getByRole("button", { name: "Entrar en mi cuenta" }))
+    await screen.findByText("Guitarra")
+    expect(manager.store).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: accountA, password: newCode }))
+    expect(screen.queryByLabelText("Tu código permanente")).toBeNull()
+  })
+  it.each(["unsupported", "insecure", "rejected", "throws"])("la entrada sigue funcionando si el guardado está %s", async (failure) => {
+    const manager = passwordManager()
+    if (failure === "unsupported") vi.stubGlobal("PasswordCredential", undefined)
+    if (failure === "insecure") vi.stubGlobal("isSecureContext", false)
+    if (failure === "rejected") manager.store.mockRejectedValue(new DOMException("Unavailable", "NotAllowedError"))
+    if (failure === "throws") manager.store.mockImplementation(() => { throw new Error("Unavailable") })
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={transport()} clock={clock} />)
+    await enter()
+    await screen.findByText("Guitarra")
+    expect(screen.queryByRole("alert")).toBeNull()
+    if (failure === "unsupported" || failure === "insecure") expect(manager.store).not.toHaveBeenCalled()
+    expect(manager.get).not.toHaveBeenCalled()
+  })
+  it("una sesión recordada o revalidada no provoca otro guardado ni entrada automática", async () => {
+    const manager = passwordManager()
+    const fetcher = transport(url => url === "/auth/session" ? response(session()) : undefined)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
+    await screen.findByText("Guitarra")
+    fireEvent.focus(window)
+    await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url === "/auth/session")).toHaveLength(2))
+    await act(async () => {})
+    expect(manager.store).not.toHaveBeenCalled()
+    expect(manager.get).not.toHaveBeenCalled()
+    expect(fetcher.mock.calls.filter(([url]) => url === "/auth/login")).toHaveLength(0)
+  })
+  it("no guarda una respuesta de entrada llegada después de desmontar la pantalla", async () => {
+    const manager = passwordManager()
+    const login = deferred<Response>()
+    const fetcher = transport(url => url === "/auth/login" ? login.promise : undefined)
+    const view = render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
+    await enter()
+    view.unmount()
+    await act(async () => { login.resolve(response(session())) })
+    expect(manager.store).not.toHaveBeenCalled()
+  })
+  it("identifica la credencial por la cuenta realmente autenticada", async () => {
+    const manager = passwordManager()
+    const fetcher = transport(url => url === "/auth/login" ? response(session(csrfB, accountB)) : undefined)
+    render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
+    await enter()
+    await screen.findByText("Guitarra")
+    expect(manager.store).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: accountB, password: "test-private-code" }))
+  })
+})
 
 describe("Entrada privada sin perder solicitudes pendientes", () => {
   it.each(["focus", "pageshow", "visibilitychange"])("la comprobación %s de la misma sesión bloqueada conserva el código y su campo", async (event) => {
@@ -150,7 +283,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
     const fetcher = transport()
     render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
     await userEvent.click(await screen.findByRole("button", { name: "Crear cuenta" }))
-    const shown = await screen.findByLabelText("Tu código permanente") as HTMLTextAreaElement
+    const shown = await screen.findByLabelText("Tu código permanente") as HTMLInputElement
     expect(shown.value).toBe(newCode)
     expect(shown.readOnly).toBe(true)
     expect(screen.getByText(/No hay recuperación/)).toBeTruthy()
@@ -219,7 +352,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
     await screen.findByText(/Selecciona el código/)
     await userEvent.click(screen.getByRole("button", { name: "Volver a entrar" }))
     expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/No hay recuperación/))
-    expect((screen.getByLabelText("Tu código permanente") as HTMLTextAreaElement).value).toBe(newCode)
+    expect((screen.getByLabelText("Tu código permanente") as HTMLInputElement).value).toBe(newCode)
     await userEvent.click(screen.getByRole("button", { name: "Volver a entrar" }))
     await screen.findByLabelText("Código de acceso")
     expect(screen.queryByLabelText("Tu código permanente")).toBeNull()
@@ -233,7 +366,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
     await userEvent.click(await screen.findByRole("checkbox", { name: "He guardado mi código" }))
     await userEvent.click(screen.getByRole("button", { name: "Entrar en mi cuenta" }))
     await screen.findByRole("alert")
-    expect((screen.getByLabelText("Tu código permanente") as HTMLTextAreaElement).value).toBe(newCode)
+    expect((screen.getByLabelText("Tu código permanente") as HTMLInputElement).value).toBe(newCode)
     expect((screen.getByRole("checkbox") as HTMLButtonElement).getAttribute("data-state")).toBe("checked")
     expect(fetcher.mock.calls.some(([url]) => String(url).startsWith("/api/"))).toBe(false)
     fireEvent.focus(window)
@@ -326,6 +459,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
     expect(writes(fetcher)).toHaveLength(1)
   })
   it("A incierta no se reintenta ni se pierde como B; volver a A conserva clave, cuerpo, día y cambia CSRF", async () => {
+    const manager = passwordManager()
     let statuses = 0; let logins = 0; let attempts = 0
     const fetcher = transport((url) => {
       if (url === "/auth/session") return ++statuses === 1 ? response(session()) : response(session(csrfB, accountB))
@@ -346,6 +480,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
     await screen.findByLabelText("Código de acceso")
     expect(screen.queryByText("Guitarra")).toBeNull()
     expect(writes(fetcher)).toHaveLength(1)
+    expect(manager.store).not.toHaveBeenCalled()
     await userEvent.type(screen.getByLabelText("Código de acceso"), "original-code")
     const count = fetcher.mock.calls.length
     fireEvent.focus(window)
@@ -359,6 +494,7 @@ describe("Entrada privada sin perder solicitudes pendientes", () => {
     const payloads = writes(fetcher).map(([, init]) => [init?.body, new Headers(init?.headers).get("Idempotency-Key"), new Headers(init?.headers).get("X-Activity-Account")])
     expect(payloads[1]).toEqual(payloads[0])
     expect(payloads[1][2]).toBe(accountA)
+    expect(manager.store).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: accountA, password: "original-code" }))
     expect(new Headers(writes(fetcher)[1][1]?.headers).get("X-CSRF-Token")).toBe(csrfB)
     expect(fetcher.mock.calls.filter(([url]) => String(url).startsWith("/api/")).every(([, init]) => new Headers(init?.headers).get("X-Activity-Account") === accountA)).toBe(true)
   })

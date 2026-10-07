@@ -99,7 +99,7 @@ try {
   async function evaluate(expression, targetContext = context) {
     const result = await command("script.evaluate", { expression, target: { context: targetContext }, awaitPromise: true })
     if (result.type !== "success") throw new Error("Browser assertion evaluation failed")
-    return result.result.value
+    return result.result.type === "null" ? null : result.result.value
   }
   const navigate = (targetContext = context) => command("browsingContext.navigate", { context: targetContext, url: origin, wait: "complete" })
   async function screenshot(name, width, height) {
@@ -131,12 +131,27 @@ try {
         const rect=button.getBoundingClientRect();return rect.left>=bounds.left-.5 && rect.right<=bounds.right+.5;
       });
     }))`), true, `${name}: navigation buttons must fit their container`)
+    if (width <= 600) {
+      assert.equal(await evaluate(`([...document.querySelectorAll('.nav-label,.trash-nav-label,.new-front-label')].every(label=>{
+        const bounds=label.getBoundingClientRect(), button=label.closest('button').getBoundingClientRect();
+        return label.checkVisibility() && bounds.left>=button.left && bounds.right<=button.right+.5 && bounds.top>=button.top && bounds.bottom<=button.bottom+.5;
+      }))`), true, `${name}: mobile keeps the main action labels visible inside their buttons`)
+      assert.equal(await evaluate(`(() => {
+        const button=document.querySelector('.filter-toggle');if(!button)return true;
+        return button.checkVisibility() && (button.getAttribute('aria-expanded')==='true')===document.getElementById('name-search').checkVisibility();
+      })()`), true, `${name}: mobile filters match the disclosure state`)
+    }
     assert.equal(await evaluate(`([...document.querySelectorAll('.app-controls,.toolbar-card,.page-header,.daily-row,.trash-row,.trash-actions,.front-actions,.pagination,.editor-trash,.editor-actions')].filter(el=>el.checkVisibility()).every(group=>{
       const bounds=group.getBoundingClientRect();
       return [...group.querySelectorAll('button,input,select,a')].filter(el=>el.checkVisibility()).every(el=>{
         const rect=el.getBoundingClientRect();return rect.left>=bounds.left-.5 && rect.right<=bounds.right+.5 && rect.height>=43.5;
       });
     }))`), true, `${name}: controls must fit their container and retain 44px touch height`)
+    assert.equal(await evaluate(`([...document.querySelectorAll('.app-controls,.view-nav,.toolbar-card,.page-header,.daily-row,.trash-row,.pagination,.editor-actions')].filter(el=>el.checkVisibility()).every(group=>{
+      const controls=[...group.querySelectorAll('button,input:not([type=hidden]),select,a')].filter(el=>el.checkVisibility()).map(el=>el.getBoundingClientRect());
+      return controls.every((a,index)=>controls.slice(index+1).every(b=>
+        Math.min(a.right,b.right)-Math.max(a.left,b.left)<1 || Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)<1));
+    }))`), true, `${name}: interactive controls must not overlap`)
     const signupStyle = await evaluate("document.querySelector('#signup-code')?.getAttribute('style') ?? null")
     await evaluate("(() => { const el=document.querySelector('#signup-code'); if(el){el.style.setProperty('visibility','hidden','important');el.style.setProperty('color','transparent','important');el.style.setProperty('text-shadow','none','important');el.style.setProperty('caret-color','transparent','important')} return true })()")
     try {
@@ -144,6 +159,7 @@ try {
       await writeFile(join(output, `${name}.png`), Buffer.from(image.data, "base64"))
     } finally {
       await evaluate(`(() => {const el=document.querySelector('#signup-code');if(el){const previous=${JSON.stringify(signupStyle)};if(previous===null)el.removeAttribute('style');else el.setAttribute('style',previous)}return true})()`)
+      await evaluate("Promise.all(document.getAnimations().filter(a=>a instanceof CSSTransition).map(a=>a.finished.catch(()=>{}))).then(()=>true)")
     }
   }
   let contrastChecks = 0
@@ -178,8 +194,18 @@ try {
     await waitFor(() => evaluate(`document.documentElement.dataset.theme === ${JSON.stringify(value)}`, ctx), `apply ${value} theme with one click`)
   }
   const click = (text, ctx = context) => evaluate(`(() => { const button = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)}); if (!button) throw new Error('Button missing'); button.click(); return true })()`, ctx)
-  const inputValue = (id, value, ctx = context) => evaluate(`(() => { const input = document.getElementById(${JSON.stringify(id)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', {bubbles:true})); return true })()`, ctx)
-  const selectValue = (id, value) => evaluate(`(() => { const input = document.getElementById(${JSON.stringify(id)}); input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event('change', {bubbles:true})); return true })()`)
+  async function showFilters(ctx = context) {
+    await evaluate("(() => {const button=document.querySelector('.filter-toggle');if(button?.checkVisibility() && button.getAttribute('aria-expanded')==='false')button.click();return true})()", ctx)
+    await waitFor(() => evaluate("document.querySelector('#name-search')?.checkVisibility() === true", ctx), "visible filter controls")
+  }
+  const inputValue = async (id, value, ctx = context) => {
+    if (id === "name-search") await showFilters(ctx)
+    return evaluate(`(() => { const input = document.getElementById(${JSON.stringify(id)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', {bubbles:true})); return true })()`, ctx)
+  }
+  const selectValue = async (id, value) => {
+    if (id === "state-filter") await showFilters()
+    return evaluate(`(() => { const input = document.getElementById(${JSON.stringify(id)}); input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event('change', {bubbles:true})); return true })()`)
+  }
   const login = async (code, ctx = context) => { await inputValue("access-code", code, ctx); await click("Entrar", ctx) }
   const account = (ctx = context) => evaluate("fetch('/auth/session').then(r=>r.json()).then(p=>p.account_id)", ctx)
   const encrypted = browserVault({evaluate, account, origin, defaultContext:context})
@@ -190,6 +216,11 @@ try {
     await waitFor(() => evaluate("document.getElementById('signup-code') !== null", ctx), "one-time signup code")
     const code = await evaluate("document.getElementById('signup-code').value", ctx)
     assert.ok(typeof code === "string" && code.length === 39, "generated account code format")
+    assert.equal(await evaluate(`(() => {
+      const field=document.getElementById('signup-code'), form=field.form;
+      return field.type==='password' && field.name==='password' && field.autocomplete==='new-password' && field.readOnly
+        && form?.method==='post' && form.autocomplete==='on' && form.querySelector('[autocomplete=username]').value.length===36;
+    })()`, ctx), true, "Signup is a native password form with its real account identifier")
     assert.equal(await evaluate("fetch('/auth/session').then(r => r.status)", ctx), 401, "Signup must not authenticate before saving the code")
     assert.equal(await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Entrar en mi cuenta').disabled", ctx), true)
     pendingCodes.set(ctx, code)
@@ -331,19 +362,29 @@ try {
   await waitFor(() => evaluate("document.body.textContent.includes('Código incorrecto')"), "wrong code denied")
   assert.equal(await evaluate("document.getElementById('access-code').value"), "")
   const codeA = await createAccount()
+  await evaluate(`(() => {
+    window.__signInCompletions=0;window.__formAtCompletion=false;
+    const replace=history.replaceState;
+    history.replaceState=function(...args){window.__signInCompletions++;window.__formAtCompletion ||= !!document.querySelector('#login-form,#signup-code-form');return replace.apply(this,args)};
+    return true;
+  })()`)
   for (const theme of ["light", "dark"]) {
     await chooseTheme(theme)
     assert.equal(await evaluate(`document.getElementById('signup-code').value===${JSON.stringify(codeA)}`), true, "Theme preserves the only displayed signup code")
     await screenshot(`signup-${theme}-desktop`, 1366, 1000)
     await screenshot(`signup-${theme}-mobile`, 390, 844)
-    await assertTextContrast([[".code-warning"], [".permanent-code"]])
+    await assertTextContrast([[".code-warning"], ["#signup-code"]])
   }
   await chooseTheme("light")
   // Do not touch the user's system clipboard: exercise the failure fallback only.
   await evaluate("Object.defineProperty(navigator, 'clipboard', {configurable:true, value:{writeText:async()=>{throw new Error('Test clipboard unavailable')}}})")
   await click("Copiar")
   await waitFor(() => evaluate("document.body.textContent.includes('cópialo manualmente')"), "clipboard fallback")
+  await click("Mostrar código")
+  assert.equal(await evaluate(`document.getElementById('signup-code').type==='text' && document.getElementById('signup-code').value===${JSON.stringify(codeA)}`), true, "Code can be revealed without editing or regenerating it")
+  await click("Ocultar código")
   await acknowledge()
+  assert.equal(await evaluate("window.__signInCompletions===1 && window.__formAtCompletion===false"), true, "Successful SPA sign-in removes the password form before signaling completion")
   assert.equal(await evaluate(`(async()=>{
     const icon=document.querySelector('link[rel="icon"]');
     if(!icon || icon.type!=='image/svg+xml' || new URL(icon.href).pathname!=='/favicon.svg')return false;
@@ -426,7 +467,7 @@ try {
   assert.equal(await evaluate("[...document.querySelectorAll('[role=checkbox].activity-check')].every(el=>el.getAttribute('aria-checked')==='false')"), true, "Reference edits never register activity")
   for (const theme of ["dark", "light"]) {
     await chooseTheme(theme)
-    for (const width of [1920, 1684, 1366, 1024, 768, 390, 320]) {
+    for (const width of [361, 601, 375, 390, 428, 600, 640, 768, 960, 1024, 1366, 1684, 1920, 360, 320]) {
       await evaluate("window.scrollTo(0,0)")
       await screenshot(`daily-compact-${theme}-${width}`, width, 900)
       await assertDailyGeometry(`two/${theme}/${width}`)
@@ -441,8 +482,13 @@ try {
   }
   await inputValue("name-search", "")
   await waitFor(() => evaluate("document.querySelectorAll('.daily-list .front-card').length===2"), "restore daily results")
+  await evaluate("document.querySelector('.filter-toggle').getAttribute('aria-expanded')==='true' && document.querySelector('.filter-toggle').click()")
   await screenshot("daily-desktop", 1366, 1000)
   await screenshot("daily-mobile", 390, 844)
+  await showFilters()
+  await screenshot("daily-mobile-filters", 375, 812)
+  await evaluate("document.querySelector('.filter-toggle').click()")
+  await screenshot("daily-landscape", 844, 390)
   await evaluate("document.querySelector('.front-card').scrollIntoView({block:'start'})")
   await screenshot("daily-mobile-rows", 390, 844)
   // Hold before the request reaches workerd, then hold its real commit response:
@@ -572,6 +618,13 @@ try {
     await waitFor(() => evaluate(`document.documentElement.dataset.theme===${JSON.stringify(theme)}`), "open editor follows the other tab's theme")
     assert.equal(await evaluate("document.getElementById('front-name').value"), "Frente de prueba del navegador")
     await screenshot(`editor-${theme}-mobile`, 390, 844)
+    await screenshot(`editor-${theme}-short`, 375, 430)
+    assert.equal(await evaluate(`(() => {
+      const dialog=document.querySelector('[role=dialog]'), bounds=dialog.getBoundingClientRect();
+      return bounds.top>=0 && bounds.bottom<=innerHeight && getComputedStyle(dialog).overflowY==='auto';
+    })()`), true, "Short screens keep the editor inside the viewport with scrolling")
+    await evaluate("document.querySelector('.editor-actions [type=submit]').scrollIntoView({block:'nearest'})")
+    assert.equal(await evaluate("(() => {const bounds=document.querySelector('.editor-actions [type=submit]').getBoundingClientRect();return bounds.top>=0 && bounds.bottom<=innerHeight})()"), true, "Save remains reachable in a short viewport")
     await assertTextContrast([[".editor-header .muted", ".editor-card [data-slot=card]"], ["#front-name"], [".editor-actions [type=submit]"]])
   }
   await inputValue("front-reference", "https://EXAMPLE.test:443")
@@ -1031,6 +1084,8 @@ try {
   console.log(`Palettes: ${contrastChecks} checked text/icon/surface pairs at least 4.5:1; no horizontal overflow or card-frame overflow in captured views`)
   console.log("Themes: one-click light/dark, system default, reload persistence, login/signup/editor/pending intent retained; preference-only storage")
   console.log("Native autofill: no React events; preserved through real focus/pageshow/visibility session checks and themes, same input/focus, explicit login/decryption and credential cleared on submit")
+  console.log("Mobile layout: 15 daily widths including 361/375/600/601/640px in both themes; controls do not overlap, primary labels remain visible, filters disclose correctly, landscape and short scrolling editors pass")
+  console.log("Password forms: native signup password/account identifier, reveal/copy/ACK retained; successful SPA sign-in signals completion after removing the form")
   console.log(`Instant check: mark/unmark drawn on first frame before sending, no animation/transition/spinner; real commit confirmation, one PUT/no GET, stable DOM/position/focus; frames ${JSON.stringify(checkFrames)}`)
   console.log("Trash: real encrypted delete/restore in open, standby and archived states, preserved identity/history/reference, hidden from normal views, reload persistence and restoration focus; both themes at1366/768/390/320px")
   console.log("Permanent deletion: explicit confirmation/cancel in all three states, current ciphertext removes front/history/replay content, other records preserved; real held/lost commit response and explicit retry, reload/focus, both themes at1366/390/320px")

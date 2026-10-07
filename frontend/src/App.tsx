@@ -114,6 +114,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   const [end, setEnd] = useState(today)
   const [state, setState] = useState<FrontState | "all">("open")
   const [search, setSearch] = useState("")
+  const [filtersExpanded, setFiltersExpanded] = useState(false)
   const [offset, setOffset] = useState(0)
   const [editor, setEditor] = useState<Editor | null>(null)
   const [deletion, setDeletion] = useState<Front | null>(null)
@@ -256,8 +257,8 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark" aria-hidden="true"><span /><span /><span /><span /></span><span className="brand-name retro">Activity Hub</span></div>
       <nav className="view-nav" aria-label="Vistas">
-        <Button type="button" variant="ghost" className="nav-button" aria-label="Registro diario" aria-current={requestedView === "daily" ? "page" : undefined} aria-busy={navigating && requestedView === "daily"} onClick={() => chooseView("daily")}><CalendarDays aria-hidden="true" /> Registro</Button>
-        <Button type="button" variant="ghost" className="nav-button" aria-current={requestedView === "dashboard" ? "page" : undefined} aria-busy={navigating && requestedView === "dashboard"} onClick={() => chooseView("dashboard")}><LayoutDashboard aria-hidden="true" /> Dashboard</Button>
+        <Button type="button" variant="ghost" className="nav-button" aria-label="Registro diario" aria-current={requestedView === "daily" ? "page" : undefined} aria-busy={navigating && requestedView === "daily"} onClick={() => chooseView("daily")}><CalendarDays aria-hidden="true" /><span className="nav-label">Registro</span></Button>
+        <Button type="button" variant="ghost" className="nav-button" aria-current={requestedView === "dashboard" ? "page" : undefined} aria-busy={navigating && requestedView === "dashboard"} onClick={() => chooseView("dashboard")}><LayoutDashboard aria-hidden="true" /><span className="nav-label">Dashboard</span></Button>
         {hasTrash && <Button type="button" ref={trashButton} variant="ghost" className="nav-button trash-nav" aria-label="Papelera" title="Papelera" aria-current={requestedView === "trash" ? "page" : undefined} aria-busy={navigating && requestedView === "trash"} onClick={() => chooseView("trash")}><Trash2 aria-hidden="true" /><span className="trash-nav-label">Papelera</span></Button>}
       </nav>
       <div className="sidebar-note"><LockKeyhole aria-hidden="true" size={18} /><span>Espacio privado</span></div>
@@ -284,7 +285,10 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
             <div className="field"><label htmlFor="period-end">Hasta</label><Input id="period-end" type="date" font="normal" className="field-input" min={MIN_DAY} max={today} value={end} aria-invalid={!!windowError} aria-describedby="period-help" onChange={(event) => { setEnd(event.target.value); setOffset(0) }} /></div>
             <p id="period-help" className="date-help">Ambas fechas incluidas</p>
           </div>}
-          <div className="filter-controls">{view !== "trash" && <div className="field"><label htmlFor="state-filter">Estado</label><select id="state-filter" value={state} onChange={(event) => { setState(event.target.value as FrontState | "all"); setOffset(0) }}><StateOptions all /></select></div>}<div className="field"><label htmlFor="name-search">Buscar por nombre</label><Input id="name-search" type="search" font="normal" className="field-input" placeholder="Nombre del frente…" value={search} onChange={(event) => { setSearch(event.target.value); setOffset(0) }} /></div></div>
+          <div className="filter-section">
+            <Button type="button" variant="outline" font="normal" className="text-button filter-toggle" aria-expanded={filtersExpanded} aria-controls="view-filters" onClick={() => setFiltersExpanded(current => !current)}>{filtersExpanded ? "Ocultar filtros" : "Buscar y filtrar"}{(search.trim() || (view !== "trash" && state !== "open")) ? " · activos" : ""}</Button>
+            <div id="view-filters" className={`filter-controls${filtersExpanded ? " is-expanded" : ""}`}>{view !== "trash" && <div className="field"><label htmlFor="state-filter">Estado</label><select id="state-filter" value={state} onChange={(event) => { setState(event.target.value as FrontState | "all"); setOffset(0) }}><StateOptions all /></select></div>}<div className="field"><label htmlFor="name-search">Buscar por nombre</label><Input id="name-search" type="search" font="normal" className="field-input" placeholder="Nombre del frente…" value={search} onChange={(event) => { setSearch(event.target.value); setOffset(0) }} /></div></div>
+          </div>
         </CardContent></Card>
 
         {invalid ? <p className="validation-message" role="alert">{view === "daily" ? "Selecciona hoy o una fecha pasada." : windowError}</p>

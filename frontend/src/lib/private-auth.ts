@@ -3,7 +3,7 @@ import { deriveCredentials, generateCode } from './privacy-crypto'
 import { createPrivateApi } from './private-vault'
 import { signupToken } from './turnstile'
 
-/** The code and encryption key never cross the network or enter browser storage. */
+/** Neither secret goes to the server or app storage; users may save their code in a native password manager. */
 export function createPrivateAuthClient(fetcher: typeof fetch = fetch): AuthClient {
   const sessions = createAuthClient(fetcher)
   let unlocked: { account: string; key: CryptoKey } | null = null
