@@ -215,6 +215,7 @@ experiments/cyberpunk-ui/    # Laboratorio visual
 experiments/art-ui/          # Laboratorio visual
 experiments/8bit-twist/       # Laboratorio visual
 README.md                    # Especificación y único estado/listado de trabajo
+.github/PULL_REQUEST_TEMPLATE.md # Cambio, verificación, revisión y publicación de cada PR
 ```
 
 ### Arrancar la app principal
@@ -302,7 +303,7 @@ Riesgos considerados en esta primera publicación: apuntar por error a datos loc
 | Datos entre implementaciones | Separados. La promoción de código no migra ni sincroniza cuentas/historial. Una transferencia requeriría procedimiento y petición específica. |
 | MCP de Activity Hub | Pendiente de concretar autenticación e implementar/probar el conector; el MCP de Cloudflare para Codex ya está instalado y autenticado. |
 | Alojamiento y copias | Worker y D1 publicados con límites y almacenamiento cifrado. Límites/CPU/coste bajo carga, copia externa y recuperación pendientes. La migración de contenido anterior requiere que su titular entre con el nuevo cliente. |
-| Git | `main` incorpora el código publicado en `7ab68de`, incluidos seguridad, guardado/autocompletado del código, interfaz móvil, navegación, marcado inmediato del check, calendarios por fila y Papelera con borrado permanente. Etiqueta histórica `v0.1.0`. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin remoto Git ni despliegue automático; datos, credenciales y artefactos excluidos. |
+| Git y GitHub | `main` incorpora el código publicado en `7ab68de`, incluidos seguridad, guardado/autocompletado del código, interfaz móvil, navegación, marcado inmediato del check, calendarios por fila y Papelera con borrado permanente. Repositorio privado [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub), con `origin`, historial de `main`, rama `feature/information-agent` y etiqueta histórica `v0.1.0` subidos y comprobados. Flujo de ramas/PR documentado en [backend/README.md](backend/README.md#flujo-de-cambio-pruebas-y-publicación), con plantilla de PR. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin CI, protección de ramas ni despliegue automático; datos, credenciales y artefactos excluidos. |
 | Dispositivos | Firefox y Brave/Chromium en macOS comprobados con anchos móviles y de escritorio. Safari/iPhone físico pendientes. |
 | Notificaciones y asistencia | MVP pendiente de definir; no iniciado. |
 
@@ -414,6 +415,14 @@ Artefacto congelado en `.release/build-2c324d21-eec2-4aa2-9e0e-c0a1448256a0`. Re
 Publicado desde `main` limpio. Pasan las comprobaciones remotas de web/CSP, salud, acceso privado y rechazo del alta sin CAPTCHA; HTML, JavaScript y CSS servidos coinciden exactamente con el artefacto verificado. No se han creado cuentas de producción. No quedan tareas pendientes de este incremento; la comprobación manual de Safari/iPhone y del aviso nativo en cada navegador sigue pendiente como verificación de dispositivos.
 
 Riesgos comprobables: guardar un código rechazado o de otra cuenta (solo tras prueba válida y activación, incluidos alta y bloqueo de solicitudes); bloquear el acceso por la política del gestor (API opcional sin esperar al diálogo); persistir el secreto en la app (sin localStorage, URLs ni tráfico del código original); romper Bitwarden al controlar el campo (mantener entrada nativa y pruebas existentes); ocultar controles o invadirlos al cambiar el ancho (medidas de límites, no superposición y 44 px, con capturas en tamaños intermedios).
+
+### GitHub y workflow de desarrollo — 2026-10-07
+
+Repositorio privado **[Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub)**, conectado como `origin`. Subidos y comprobados el historial de `main`, `feature/information-agent` y la etiqueta histórica `v0.1.0`; las demás ramas anteriores se conservan localmente. El flujo de rama, verificación, revisión, PR, integración y publicación está en [backend/README.md](backend/README.md#flujo-de-cambio-pruebas-y-publicación), con [plantilla de PR](.github/PULL_REQUEST_TEMPLATE.md). El cambio se registra en la **[PR #1](https://github.com/Juancho1162/activity-hub/pull/1)**, desde `chore/github-workflow`.
+
+Actualizados también `AGENTS.md`, la skill `engineering-workflow`, el README y el estado de **codexdev** en su perfil local, fuera de este repositorio. `python3 scripts/check_profile.py` pasa los cinco grupos, incluida la carga nativa de las tres skills. `quick_validate.py` sigue indisponible por falta de PyYAML; no se añadieron dependencias. Revisión local del diff, enlaces e instrucciones; `git diff --check` correcto. Inspeccionados 252 blobs del historial con patrones de credenciales y rutas privadas, sin coincidencias detectadas; no equivale a una auditoría exhaustiva.
+
+La API de GitHub confirma repositorio privado, `main` sin protección y cero workflows de Actions. Las pruebas siguen siendo locales; no hay CI ni despliegue automático. Este incremento modifica solo Markdown: no se repiten las suites funcionales ni se publica el Worker. La comprobación del artefacto confirma la misma huella de código ejecutable y los mismos hashes preparados de la última publicación. La revisión se hizo en la sesión principal, sin atribuir revisión independiente. Bases D1, credenciales y artefactos locales permanecen fuera de Git.
 
 ## 8. Ampliación de información y aprendizaje — diseño conservado, 2026-10-06
 
