@@ -49,14 +49,16 @@ Destino explícito: Worker `activity-hub`, entorno `production`, cuenta `72734ad
 
 Cada cambio sigue estos pasos desde la raíz con **Node 26**:
 
-1. Trabajar en una rama `feature/...` partiendo de `main`. Reutilizar la especificación, añadir regresiones significativas y aplicar cambios. `npm run migrate` aplica solo el esquema local; `npm run dev` arranca la aplicación sin migrar por su cuenta.
-2. Ejecutar `npm run verify`: sintaxis, tests backend/frontend, tipos/build y los dos recorridos Firefox. Las pruebas usan datos temporales. Si falla algo, corregir y repetir las comprobaciones afectadas; la publicación exige finalmente el conjunto completo.
+Repositorio privado: **[Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub)**. `origin` apunta a ese repositorio; `main` conserva el trabajo integrado y `feature/information-agent` mantiene la ampliación aplazada. El README raíz sigue siendo la especificación y el estado; las PR registran cada cambio y su evidencia.
+
+1. Comprobar `git status`, rama y remoto; ejecutar `git fetch origin` y actualizar `main` con `git pull --ff-only origin main` cuando esté limpio y sea posible. Crear una rama `feature/...`, `fix/...` o `chore/...` desde ese `main`. Inspeccionar divergencias o cambios ajenos antes de actuar. Reutilizar la especificación, añadir regresiones significativas y aplicar cambios. `npm run migrate` aplica solo el esquema local; `npm run dev` arranca la aplicación sin migrar por su cuenta.
+2. Para cambios ejecutables, ejecutar `npm run verify`: sintaxis, tests backend/frontend, tipos/build, los dos recorridos Firefox y el recorrido Brave/Chromium. Las pruebas usan datos temporales. Si falla algo, corregir y repetir las comprobaciones afectadas; la publicación exige finalmente el conjunto completo. Para cambios solo de documentación, revisar el diff, enlaces y coherencia de las instrucciones; no reconstruir ni publicar la app.
 3. Revisar el cambio y sus pruebas, incluyendo revisión independiente para seguridad, datos y reglas de negocio. Actualizar la especificación/estado raíz. No editar código mientras el revisor inspecciona la instantánea.
-4. Ejecutar `npm run release:prepare`. Reutiliza una verificación coincidente o ejecuta `verify`; valida el destino y los bindings, empaqueta con Wrangler dry-run y copia Worker, assets, configuración y migraciones en `.release/build-…/`. Guarda hashes del código y artefacto. No publica ni modifica Git.
-5. Registrar el cambio revisado en Git e incorporarlo a `main` explícitamente. Los comandos remotos exigen `main` y árbol limpio. No hacen commits, merges ni push por su cuenta. No existe remoto Git configurado: un `git push` y publicar en Cloudflare son acciones distintas.
+4. Si procede publicar código, ejecutar `npm run release:prepare`. Reutiliza una verificación coincidente o ejecuta `verify`; valida el destino y los bindings, empaqueta con Wrangler dry-run y copia Worker, assets, configuración y migraciones en `.release/build-…/`. Guarda hashes del código y artefacto. No publica ni modifica Git.
+5. Registrar únicamente los archivos del cambio, subir la rama y abrir una PR con base explícita `main` y la [plantilla del repositorio](../.github/PULL_REQUEST_TEMPLATE.md). Indicar resultados reales y comprobaciones pendientes; dejarla como borrador si está incompleta. Antes de integrar, comprobar el último commit, la revisión y los checks configurados. Integrar la PR con merge commit y sin saltarse protecciones; actualizar el `main` local mediante fast-forward desde `origin/main`. Los comandos remotos de publicación exigen `main` y árbol limpio; no hacen commits, merges ni push por su cuenta. Subir o integrar código en GitHub y publicarlo en Cloudflare son pasos separados.
 6. Si hay migraciones pendientes, revisarlas para que sean compatibles con la versión aún activa y ejecutar **`npm run release:migrate`**. Registra antes versiones del Worker y punto de Time Travel en `.release/before-migration.json`; aplica las migraciones congeladas a la D1 remota. No es un ensayo: modifica producción.
 7. Ejecutar **`npm run release:deploy`**. Revalida código/artefacto, destino, árbol limpio, nombre del secreto Turnstile y presencia del esquema. Publica el bundle congelado con `--no-bundle` y comprueba web, CSP, salud, 401/no-store en rutas privadas y rechazo de alta sin CAPTCHA. Registra commit/hash/fecha localmente. Si falla la comprobación posterior, el despliegue puede haber ocurrido: inspeccionar antes de repetir.
-8. Completar el recorrido remoto proporcional al cambio, registrar la versión y el resultado en el README raíz. Para Turnstile: un alta con token real y fresco y rechazo de ese mismo token al reutilizarlo. Los tokens ficticios y mocks no acreditan esta integración real.
+8. Completar el recorrido remoto proporcional al cambio, registrar PR, commit desplegado, versión y resultado en el README raíz; incorporar ese registro a GitHub. Para Turnstile: un alta con token real y fresco y rechazo de ese mismo token al reutilizarlo. Los tokens ficticios y mocks no acreditan esta integración real.
 
 Comandos habituales:
 
@@ -72,6 +74,15 @@ npm run release:smoke     # se puede repetir; no crea cuentas
 `.release/` contiene evidencia y artefactos locales ignorados por Git; no es una copia de D1. Si cambia código/configuración/tests, o se modifica el artefacto, hay que volver a prepararlo. Editar solo Markdown no cambia el artefacto ejecutable; el árbol debe quedar limpio igualmente. No añadir secretos a argumentos, repositorio, configuración versionada ni assets. Los builds locales aíslan configuración y credenciales de Wrangler; los comandos remotos usan la autenticación del operador y el archivo vacío `scripts/no-secrets.txt`.
 
 Wrangler puede sobrescribir configuración del panel: reconciliar cambios operativos con `wrangler.jsonc`. No pasar `--name activity-hub` junto a `--env production`; en esta versión de Wrangler se puede interpretar como nombre base y añadir un sufijo. El nombre del destino ya está fijado dentro del entorno. Observabilidad y URL de versiones permanecen deshabilitadas por la decisión de privacidad del proyecto. No se han configurado CI, despliegues automáticos ni recursos de staging.
+
+Para subir una rama y preparar su PR, con la sesión existente de GitHub CLI:
+
+```sh
+git push --set-upstream origin HEAD
+gh pr create --repo Juancho1162/activity-hub --base main --head "$(git branch --show-current)" --draft
+```
+
+Completar la descripción con la plantilla, revisar el diff y los resultados antes de marcarla lista. La revisión en esta misma sesión no se presenta como independiente. No usar push forzado, `--admin`, borrado de ramas ni despliegue automático para resolver un bloqueo. Las instrucciones del flujo no equivalen a protección de ramas: la consulta inicial a GitHub confirmó `main` sin protección y cero workflows de Actions. El código guardado en el repositorio no incluye las bases D1, `.env`, secretos, perfiles de navegador ni artefactos `.release/`.
 
 ### Límites e interruptores
 

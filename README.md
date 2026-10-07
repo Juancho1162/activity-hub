@@ -215,6 +215,7 @@ experiments/cyberpunk-ui/    # Laboratorio visual
 experiments/art-ui/          # Laboratorio visual
 experiments/8bit-twist/       # Laboratorio visual
 README.md                    # Especificación y único estado/listado de trabajo
+.github/PULL_REQUEST_TEMPLATE.md # Cambio, verificación, revisión y publicación de cada PR
 ```
 
 ### Arrancar la app principal
@@ -302,7 +303,7 @@ Riesgos considerados en esta primera publicación: apuntar por error a datos loc
 | Datos entre implementaciones | Separados. La promoción de código no migra ni sincroniza cuentas/historial. Una transferencia requeriría procedimiento y petición específica. |
 | MCP de Activity Hub | Pendiente de concretar autenticación e implementar/probar el conector; el MCP de Cloudflare para Codex ya está instalado y autenticado. |
 | Alojamiento y copias | Worker y D1 publicados con límites y almacenamiento cifrado. Límites/CPU/coste bajo carga, copia externa y recuperación pendientes. La migración de contenido anterior requiere que su titular entre con el nuevo cliente. |
-| Git | `main` incorpora el código publicado en `7ab68de`, incluidos seguridad, guardado/autocompletado del código, interfaz móvil, navegación, marcado inmediato del check, calendarios por fila y Papelera con borrado permanente. Etiqueta histórica `v0.1.0`. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin remoto Git ni despliegue automático; datos, credenciales y artefactos excluidos. |
+| Git y GitHub | `main` incorpora el código publicado en `7ab68de`, incluidos seguridad, guardado/autocompletado del código, interfaz móvil, navegación, marcado inmediato del check, calendarios por fila y Papelera con borrado permanente. Repositorio privado [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub), con `origin`, historial de `main`, rama `feature/information-agent` y etiqueta histórica `v0.1.0` subidos y comprobados. Flujo de ramas/PR documentado en [backend/README.md](backend/README.md#flujo-de-cambio-pruebas-y-publicación), con plantilla de PR. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin CI, protección de ramas ni despliegue automático; datos, credenciales y artefactos excluidos. |
 | Dispositivos | Firefox y Brave/Chromium en macOS comprobados con anchos móviles y de escritorio. Safari/iPhone físico pendientes. |
 | Notificaciones y asistencia | MVP pendiente de definir; no iniciado. |
 
