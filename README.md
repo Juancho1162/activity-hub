@@ -287,7 +287,7 @@ Riesgos considerados en esta primera publicación: apuntar por error a datos loc
 | Datos entre implementaciones | Separados. La promoción de código no migra ni sincroniza cuentas/historial. Una transferencia requeriría procedimiento y petición específica. |
 | MCP de Activity Hub | Pendiente de concretar autenticación e implementar/probar el conector; el MCP de Cloudflare para Codex ya está instalado y autenticado. |
 | Alojamiento y copias | Worker y D1 publicados con límites y almacenamiento cifrado. Límites/CPU/coste bajo carga, copia externa y recuperación pendientes. La migración de contenido anterior requiere que su titular entre con el nuevo cliente. |
-| Git | `main` incorpora el código publicado en `f37028c`, tras integrar `feature/security-hardening` y `fix/turnstile-single-use`. Etiqueta histórica `v0.1.0`. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin remoto Git ni despliegue automático; datos, credenciales y artefactos excluidos. |
+| Git | `main` incorpora el código publicado en `9392738`, incluidos seguridad y ajustes de acceso/barra lateral. Etiqueta histórica `v0.1.0`. Al retomar `feature/information-agent`, actualizarla desde `main`. Sin remoto Git ni despliegue automático; datos, credenciales y artefactos excluidos. |
 | Dispositivos | Safari/iPhone físico pendientes. |
 | Notificaciones y asistencia | MVP pendiente de definir; no iniciado. |
 
@@ -320,9 +320,9 @@ Premortem: una ráfaga consume D1 antes del rechazo (limitador previo y prueba d
 
 ### Ajustes de acceso y barra lateral — 2026-10-07
 
-En `feature/access-and-sidebar-layout`: «Entrar» ocupa todo el ancho con 52 px de alto; «Crear cuenta» conserva un tamaño compacto y área táctil de 44 px. La barra de escritorio elimina el máximo de 900 px y mantiene su posición y margen inferior durante el scroll. Comprobados ambos temas: en ventanas de 720, 1080 y 1440 px de alto deja 24 px inferiores; a 480 px deja 12 px y el pie sigue visible. El acceso se ha inspeccionado a 320, 390 y 1366 px sin desbordamientos.
+**Publicado:** código `9392738`, integrado desde `feature/access-and-sidebar-layout`, Worker `e11d992a-5d52-4388-8962-c7e66c4385a9`. «Entrar» ocupa todo el ancho con 52 px de alto; «Crear cuenta» conserva un tamaño compacto y área táctil de 44 px. La barra de escritorio elimina el máximo de 900 px y mantiene su posición y margen inferior durante el scroll. Comprobados ambos temas: en ventanas de 720, 1080 y 1440 px de alto deja 24 px inferiores; a 480 px deja 12 px y el pie sigue visible. El acceso se ha inspeccionado a 320, 390 y 1366 px sin desbordamientos.
 
-`npm run release:prepare`: **36 pruebas backend y 162 frontend**, tipos/build, ambos recorridos Firefox y dry-run de producción pasan. Inspección visual y del diff por la sesión principal; ajuste de presentación sin cambios de autenticación ni de esquema. Artefacto preparado; siguiente paso: integrar en `main`, publicar y comprobar los assets remotos.
+`npm run release:prepare`: **36 pruebas backend y 162 frontend**, tipos/build, ambos recorridos Firefox y dry-run de producción pasan. Inspección visual y del diff por la sesión principal; ajuste de presentación sin cambios de autenticación ni de esquema. Despliegue y comprobaciones remotas correctos; HTML, JavaScript y CSS servidos coinciden exactamente con el artefacto verificado. Incremento terminado.
 
 ## 8. Ampliación de información y aprendizaje — diseño conservado, 2026-10-06
 
