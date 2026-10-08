@@ -1,6 +1,6 @@
 # Referencia secundaria: Python + SQLite
 
-**2026-10-05:** esta es la implementación anterior de Activity Hub. JavaScript + Workers/D1 es ahora la principal; la especificación y el único estado de trabajo están en el [README principal](../../README.md). Python se conserva para comparación, pruebas de equivalencia y consulta, sin arrancarse desde el comando principal.
+Esta es la implementación anterior de Activity Hub. JavaScript + Workers/D1 es la principal; la [especificación](../../docs/APP.md) y el [estado de trabajo](../../docs/STATUS.md) están separados del README de presentación. Python se conserva para comparación, pruebas de equivalencia y consulta, sin arrancarse desde el comando principal.
 
 ## Qué se conserva
 
@@ -46,4 +46,4 @@ Python y D1 tienen cuentas e historiales independientes. En loopback sus cookies
 
 ## Documentación histórica
 
-[RENDER.md](RENDER.md) conserva la investigación anterior de alojamiento, precios, discos, CLI y recuperación. Sus fechas y límites originales se mantienen; no es la configuración principal ni un despliegue ejecutado. Las decisiones actuales de producto, frontend y trabajo futuro se consultan únicamente en el [README principal](../../README.md).
+[RENDER.md](RENDER.md) conserva la investigación anterior de alojamiento, precios, discos, CLI y recuperación. Sus fechas y límites originales se mantienen; no es la configuración principal ni un despliegue ejecutado. Las decisiones actuales de producto se consultan en [APP.md](../../docs/APP.md); el estado y trabajo futuro, en [STATUS.md](../../docs/STATUS.md).

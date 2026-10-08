@@ -1,6 +1,6 @@
 # Estudio visual: surrealismo, impresionismo y Renacimiento
 
-Experimento autorizado y aislado de la app y del [laboratorio cyberpunk](../cyberpunk-ui/README.md). La [especificación común](../../README.md) sigue siendo la referencia del producto.
+Experimento autorizado y aislado de la app y del [laboratorio cyberpunk](../cyberpunk-ui/README.md). La [especificación común](../../docs/APP.md) sigue siendo la referencia del producto.
 
 ## Pregunta y alcance
 

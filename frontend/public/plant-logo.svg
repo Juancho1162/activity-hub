@@ -1,5 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges">
   <title>Activity Hub</title>
+  <style>
+    .plant { animation: step 2400ms steps(1) infinite; }
+    .leaf-left { animation: leaf-left 2400ms steps(1) infinite; }
+    .leaf-right { animation: leaf-right 2400ms steps(1) infinite; }
+    .eyes-open { animation: eyes-open 5200ms steps(1) infinite; }
+    .eyes-closed { animation: eyes-closed 5200ms steps(1) infinite; }
+    @keyframes step { 0%, 100% { transform: translateY(0); } 35%, 65% { transform: translateY(-1px); } }
+    @keyframes leaf-left { 0%, 100% { transform: translateY(0); } 35%, 65% { transform: translateY(1px); } }
+    @keyframes leaf-right { 0%, 100% { transform: translateY(0); } 35%, 65% { transform: translateX(1px); } }
+    @keyframes eyes-open { 0%, 93%, 98%, 100% { opacity: 1; } 94%, 97% { opacity: 0; } }
+    @keyframes eyes-closed { 0%, 93%, 98%, 100% { opacity: 0; } 94%, 97% { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
   <g transform="translate(0 1)"><g class="plant">
     <g class="leaf-left">
       <path fill="#2c4633" d="M4 1h5v1h3v2h2v3H9V6H6V4H4z"/>

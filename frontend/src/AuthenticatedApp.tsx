@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
-import { LockKeyhole } from "lucide-react"
 import App from "./App"
 import { Button } from "@/components/ui/8bit/button"
 import { ThemeToggle } from "@/components/Theme"
@@ -11,6 +10,7 @@ import { AuthError, type AuthClient, type AuthSession, type SignupOut } from "@/
 import { createPrivateAuthClient } from "@/lib/private-auth"
 import { offerBrowserPassword, signalBrowserSignIn } from "@/lib/browser-passwords"
 import { LanguageSelect, useLanguage } from "@/components/Language"
+import { PlantLogo } from "@/components/PlantLogo"
 import type { MessageKey, MessageValues } from "@/lib/i18n"
 
 type Mode = "checking" | "login" | "signing-in" | "active" | "error" | "logging-out" | "logout-error"
@@ -321,7 +321,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
     </nav>}<LanguageSelect /><ThemeToggle /></div>
     {!active && <main className="auth-shell">
       <Card font="normal" className="message-card auth-card"><CardContent font="normal" className="card-body">
-        <span className="message-icon" aria-hidden="true"><LockKeyhole /></span>
+        <PlantLogo welcome />
         <p className="eyebrow">{t("ACTIVITY HUB · ESPACIO PRIVADO")}</p>
         <h1 className="retro">{codeView ? t("Guarda tu código") : mode === "logging-out" || mode === "logout-error" ? t("Cerrar sesión") : t("Tu registro personal")}</h1>
         {notice && <p role="status">{t(notice.key, notice.values)}</p>}

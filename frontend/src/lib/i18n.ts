@@ -6,6 +6,9 @@ export const locales: Record<Language, string> = { es: "es-ES", en: "en-GB" }
 // translation together; user-authored names/references never go through this map.
 const english = {
   "Idioma": "Language",
+  "Animación de la planta": "Plant animation",
+  "Pausar la animación": "Pause animation",
+  "Reanudar la animación": "Resume animation",
   "Activity Hub · Tu registro de actividad": "Activity Hub · Your activity log",
   "Abierto": "Open",
   "Standby": "Standby",

@@ -9,6 +9,7 @@ import { useActivity, type Intent } from "@/hooks/useActivity"
 import { createApi, safeReference, type ActivityApi, type DashboardItem, type DashboardPage, type DashboardQuery, type Front, type FrontDraft, type FrontState } from "@/lib/api"
 import { daysInWindow, formatDay, isDay, shiftDay, todayInMadrid } from "@/lib/dates"
 import { useLanguage } from "@/components/Language"
+import { PlantLogo } from "@/components/PlantLogo"
 import type { MessageKey } from "@/lib/i18n"
 
 const defaultApi = createApi()
@@ -263,7 +264,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   return <div className="app-shell">
     <a className="skip-link" href="#contenido">{t("Ir al contenido")}</a>
     <aside className="sidebar">
-      <div className="brand"><span className="brand-mark" aria-hidden="true"><span /><span /><span /><span /></span><span className="brand-name retro">Activity Hub</span></div>
+      <div className="brand"><PlantLogo /><span className="brand-name retro">Activity Hub</span></div>
       <nav className="view-nav" aria-label={t("Vistas")}>
         <Button type="button" variant="ghost" className="nav-button" aria-label={t("Registro diario")} aria-current={requestedView === "daily" ? "page" : undefined} aria-busy={navigating && requestedView === "daily"} onClick={() => chooseView("daily")}><CalendarDays aria-hidden="true" /><span className="nav-label">{t("Registro")}</span></Button>
         <Button type="button" variant="ghost" className="nav-button" aria-current={requestedView === "dashboard" ? "page" : undefined} aria-busy={navigating && requestedView === "dashboard"} onClick={() => chooseView("dashboard")}><LayoutDashboard aria-hidden="true" /><span className="nav-label">{t("Dashboard")}</span></Button>

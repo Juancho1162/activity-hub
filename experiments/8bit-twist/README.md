@@ -1,6 +1,6 @@
 # 8-bit con encanto — experimento aislado
 
-El usuario prefiere la interfaz estable 8-bit y ha pedido un giro con más gracia, no sustituirla por cyberpunk u otros movimientos artísticos. La [especificación común](../../README.md) sigue siendo la referencia del producto.
+El usuario prefiere la interfaz estable 8-bit y ha pedido un giro con más gracia, no sustituirla por cyberpunk u otros movimientos artísticos. La [especificación común](../../docs/APP.md) sigue siendo la referencia del producto.
 
 **Propuesta elegida y promoción autorizada:** posteriormente se han trasladado a la app principal los estilos y la ilustración, no la simulación ni sus controles. La corrección de altura del dashboard vive en el CSS base compartido, por lo que mejora también esta comparación. El aspecto aprobado se carga aparte en la entrada principal; «Base» sigue sin esos adornos. Verificación de integración y estado vigentes en el README común.
 
