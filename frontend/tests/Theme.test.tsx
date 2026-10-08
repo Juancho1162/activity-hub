@@ -59,7 +59,7 @@ describe("Preferencia visual independiente de las cuentas y escrituras", () => {
     expect((select() as HTMLSelectElement).value).toBe("system")
     expect(current()).toBe(dark ? "dark" : "light")
     expect(document.documentElement.classList.contains("dark")).toBe(dark)
-    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute("content")).toBe(dark ? "#2E3440" : "#F2ECE2")
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute("content")).toBe(dark ? "#24271F" : "#F2ECE2")
     expect(localStorage.length).toBe(0)
     expect(sessionStorage.length).toBe(0)
     expect(listeners.size).toBe(1)

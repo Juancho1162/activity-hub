@@ -5,7 +5,7 @@ Source components copied from official registries on 2026-10-03, then adapted lo
 - 8bitcn: https://www.8bitcn.com/r/{button,card,input,checkbox}.json
 - shadcn/ui: https://ui.shadcn.com/r/styles/new-york-v4/{button,card,input,checkbox}.json
 - Press Start 2P: original unmodified font from https://github.com/google/fonts/tree/main/ofl/pressstart2p; bundled locally, license in public/fonts/OFL.txt.
-- Nord: dark palette adapted from https://www.nordtheme.com/docs/colors-and-palettes/ and https://github.com/nordtheme/nord, with brighter secondary/error colors for this UI. No Nord package or runtime dependency is installed.
+- Nord: used by an earlier dark palette (https://www.nordtheme.com/docs/colors-and-palettes/ and https://github.com/nordtheme/nord). The current palette uses the app's warm earth and plant colors; the historical license notice is retained. No Nord package or runtime dependency is installed.
 
 Adaptations: use the existing local cn helper instead of an additional cn package; local font instead of Google Fonts; shared Radix checkbox types; do not forward styling-only props to DOM; thinner pixel borders for cards/fields/checkboxes and button decorations, preserving their stepped geometry and accessible target sizes; card custom classes apply to the outer frame only to avoid duplicated margins. Components remain editable source, not a runtime registry dependency.
 

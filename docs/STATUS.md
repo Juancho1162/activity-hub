@@ -8,7 +8,7 @@ La [web](https://activity-hub.software-juancho-prego-gundin.workers.dev) permite
 
 Último código publicado: `c2c6fac`, [PR #6](https://github.com/Juancho1162/activity-hub/pull/6), Worker `32a7f030-272a-488e-a149-738ecaa6068f`. El código y la documentación están en [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub), que GitHub muestra actualmente como público. Sin GitHub Actions, protección de main ni despliegue automático. La referencia Python y los laboratorios visuales siguen en `experiments/`; no sirven la aplicación publicada.
 
-Plantita y reorganización documental publicadas y verificadas. El README presenta la aplicación; APP conserva las reglas, este documento mantiene el estado y CHANGELOG registra las publicaciones anteriores.
+Verificados localmente: oscuro cálido alineado con la paleta clara y la plantita, logo junto al nombre en acceso/navegación y favicon simplificado. Pendientes integración y despliegue; la publicación vigente sigue siendo la anterior. El README presenta la aplicación; APP conserva las reglas, este documento mantiene el estado y CHANGELOG registra las publicaciones anteriores.
 
 ## Trabajo
 
@@ -19,14 +19,12 @@ Plantita y reorganización documental publicadas y verificadas. El README presen
 
 ## Verificación vigente
 
-**Plantita y reorganización verificadas y publicadas, 2026-10-08.** `npm run release:prepare` pasa con 36 pruebas backend y 263 frontend, tipos/build, dry-run, ambos recorridos Firefox y Brave. La pausa funciona por teclado y conserva el estado al cambiar de idioma. Brave comprueba que el SVG servido cambia de frame y que movimiento reducido detiene movimiento y parpadeo; pausar/reanudar conserva el campo y autocompletado. Se mantienen 108 pares de contraste ≥4,5:1 y cuatro bordes ≥3:1. Capturas revisadas en acceso claro y dashboard oscuro a 1366/390/320 px. Revisión en la sesión principal, sin revisión independiente.
+**Oscuro cálido y marca ampliada verificados localmente, 2026-10-08; publicación pendiente.** `npm run release:prepare` pasa con 36 pruebas backend y 263 frontend, tipos/build, dry-run y los recorridos Firefox/Brave. Se mantienen 108 pares de contraste ≥4,5:1 y cuatro bordes ≥3:1. Capturas revisadas en acceso claro/oscuro, dashboard y editor a 1366/390/320 px; la plantita y el nombre quedan alineados sin solapamientos. El favicon se revisa a 16/32/64/128 px en ambos fondos. Autocompletado, idiomas, pausa y movimiento reducido siguen funcionando. Tick dibujado en el primer frame (4/5/4 ms). Revisión en la sesión principal, sin revisión independiente.
 
-La regresión que prohibía cualquier imagen se adaptó para admitir exclusivamente el logo local; sigue rechazando imágenes inyectadas desde los nombres de frentes. Pasan la suite y la revisión de enlaces/conservación de documentación. Artefacto `build-993eb676-a7fc-4e93-bee0-152cd47cabd4`, huella ejecutable `fa796115438a100a07c9c5e91f209714fe8846bae883d95cf5397690dc074946`, hash `4f03505b2eee6097f526a7f19533a752f9826631e1b6aef3b3625c489cf55c40`.
-
-`npm run release:deploy` publicó desde main limpio. Web/CSP, salud, 401/no-store y rechazo de alta sin CAPTCHA pasan. Los siete archivos públicos coinciden byte por byte con el artefacto. Brave contra producción comprueba pausa/reanudación, frames distintos del SVG y movimiento reducido sin parpadeo, autocompletado/foco, idiomas, temas, layout a 320/390/1366 px y recarga; no se han creado cuentas ni actividad. Se verificaron 64 enlaces/anclas locales y la conservación literal de los registros anteriores; la API de GitHub renderiza el README con el logo y el contenido introductorio. GitHub confirma cero workflows, main sin protección y ninguna revisión/CI en la PR.
+Artefacto `build-ed388471-ff7b-49ed-9a43-aaf4ca08fc21`, huella ejecutable `d7b9b139cf4331b16376aa4cb5f50b09ca2a82bc7bb8a9e0dbc13d12d975298c`, hash `2cedfed0f9540c26a70ca514431d408b8f4a162e7ce8dd43b4a224299d05ec6c`. Se verifican 66 enlaces/anclas locales y la conservación literal de los registros anteriores. La versión remota anterior conserva su verificación en [CHANGELOG](../CHANGELOG.md); las comprobaciones remotas del nuevo artefacto siguen pendientes.
 
 Las pruebas locales no acreditan dispositivos físicos, comodidad visual durante uso prolongado, coste alojado ni recuperación de D1.
 
 ## Siguiente paso
 
-El incremento solicitado está terminado. Para la siguiente mejora, seguir el workflow de ramas, pruebas, revisión, PR y despliegue verificado; actualizar aquí el estado actual y añadir al historial solo la evidencia relevante. Mantener el README como presentación y guía.
+Integrar la PR del oscuro cálido y la marca ampliada, publicar desde main limpio y comprobar la web remota; registrar la revisión y versión publicada aquí y en CHANGELOG. Mantener el README como presentación y guía.

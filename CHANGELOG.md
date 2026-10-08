@@ -2,6 +2,12 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-08 — Oscuro cálido y marca ampliada
+
+**Verificado localmente; pendiente de publicación.** El oscuro comparte los tonos del claro y la plantita: carbón oliva, crema, verde hoja y terracota, con sombras cortas pixeladas. La marca crece a 96 px en acceso y 64 px en navegación, con «Activity Hub» siempre al lado. El favicon simplifica cara/hojas para leerse a 16 px y versiona su URL; pausar la animación conserva el personaje completo mediante un SVG estático separado. La paleta clara se conserva.
+
+`npm run release:prepare` pasa con **36 pruebas backend y 263 frontend**, tipos/build, dry-run y Firefox/Brave. 108 pares de contraste ≥4,5:1 y cuatro bordes ≥3:1; capturas claras/oscuras revisadas a 1366/390/320 px y favicon a 16/32/64/128 px. Las verificaciones conservan límites geométricos, autocompletado, idiomas, pausa y movimiento reducido; el tick aparece en el primer frame (4/5/4 ms). Se verifican 66 enlaces/anclas y la conservación literal de la documentación histórica. Revisión en la sesión principal, sin revisión independiente; Safari/iPhone físico no probado. No hay dependencias ni migraciones nuevas.
+
 ## 2026-10-08 — Plantita 8-bit y documentación
 
 **Publicado:** código `c2c6fac`, [PR #6](https://github.com/Juancho1162/activity-hub/pull/6), Worker `32a7f030-272a-488e-a149-738ecaa6068f`. El README pasa a presentar la aplicación y explicar su uso; las reglas se conservan en `docs/APP.md`, el estado en `docs/STATUS.md` y los registros anteriores en este archivo. Se actualizan los enlaces y el workflow para mantener esta separación. La identidad se sustituye por una plantita humanoide propia, dibujada en SVG con píxeles nítidos, pequeños movimientos y parpadeo. Tiene pausa mediante clic/teclado, movimiento reducido y favicon estático; se usa en acceso, navegación y README.

@@ -32,7 +32,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = resolved
     document.documentElement.classList.toggle("dark", resolved === "dark")
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "dark" ? "#2E3440" : "#F2ECE2")
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "dark" ? "#24271F" : "#F2ECE2")
   }, [resolved])
   useEffect(() => {
     const changed = (event: StorageEvent) => {

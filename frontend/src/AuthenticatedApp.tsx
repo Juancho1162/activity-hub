@@ -321,7 +321,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
     </nav>}<LanguageSelect /><ThemeToggle /></div>
     {!active && <main className="auth-shell">
       <Card font="normal" className="message-card auth-card"><CardContent font="normal" className="card-body">
-        <PlantLogo welcome />
+        <div className="brand auth-brand"><PlantLogo welcome /><span className="brand-name retro">Activity Hub</span></div>
         <p className="eyebrow">{t("ACTIVITY HUB · ESPACIO PRIVADO")}</p>
         <h1 className="retro">{codeView ? t("Guarda tu código") : mode === "logging-out" || mode === "logout-error" ? t("Cerrar sesión") : t("Tu registro personal")}</h1>
         {notice && <p role="status">{t(notice.key, notice.values)}</p>}
