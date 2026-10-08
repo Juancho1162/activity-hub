@@ -2,6 +2,22 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-08 — Landing sin accesos repetidos y con la app real
+
+Retirados el «Ya tengo cuenta» de cabecera y el bloque final «Empieza por un
+frente». El texto principal conserva un único «Empezar» y «Ya tengo cuenta».
+La maqueta se sustituye por cuatro capturas WebP de la app real, con datos
+ficticios y variantes ES/EN y claro/oscuro. Se muestran bajo el texto principal
+para disponer de ancho suficiente. Script local para regenerarlas con Brave y
+D1 temporales; no utiliza cuentas de producción.
+
+`npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build, dry-run y
+recorridos Firefox/Brave. Verificación pública a 1366/390/320 px, ambos temas,
+cambio de idioma/captura, accesos sin duplicados y cero consultas privadas.
+Revisión visual de capturas y revisión en la sesión principal. Sin cambios de
+API, autenticación, migraciones o dependencias. Evidencia del build automático
+y smoke posterior en la PR de este cambio.
+
 ## 2026-10-08 — Publicación desde GitHub con Cloudflare Builds
 
 Conectado el Worker existente a `Juancho1162/activity-hub`, rama `main`, raíz

@@ -6,11 +6,13 @@
 
 La [web](https://activity-hub.software-juancho-prego-gundin.workers.dev) permite registrar actividad por frente y día, consultar porcentajes/calendarios por período y gestionar una Papelera recuperable con borrado permanente confirmado. Interfaz 8-bit con plantita humanoide animada y pausa accesible, adaptable a móvil, castellano/inglés con detección del navegador, tema claro y oscuro cálido con verde hoja y terracota. Código fijo por cuenta y contenido cifrado en el navegador, CAPTCHA, máximo inicial de 100 cuentas y límites de uso.
 
-Código funcional publicado: `63df8df`, [PR #12](https://github.com/Juancho1162/activity-hub/pull/12). Cloudflare Builds está conectado a [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub): cada push a `main`, incluso de documentación, compila y publica. Configuración: raíz `backend`, Node 26, entorno `production`, sin previews. El build remoto no ejecuta la batería de pruebas ni migraciones. Sin GitHub Actions ni protección de main. La referencia Python y los laboratorios siguen en `experiments/`; no sirven la aplicación publicada.
+Cloudflare Builds está conectado a [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub): cada push a `main`, incluso de documentación, compila y publica. Configuración: raíz `backend`, Node 26, entorno `production`, sin previews. El build remoto no ejecuta la batería de pruebas ni migraciones. Sin GitHub Actions ni protección de main. La referencia Python y los laboratorios siguen en `experiments/`; no sirven la aplicación publicada.
 
 La portada `/` presenta el producto y permanece pública siempre; `/app/` abre el
 acceso privado. La landing reutiliza identidad, temas e idiomas de la app. Sus
-ejemplos son ilustrativos y no consulta cuentas ni actividad. Las slides quedan
+capturas muestran la app real con datos ficticios, en ES/EN y claro/oscuro; no
+consulta cuentas ni actividad. Hay un único «Empezar» y «Ya tengo cuenta» junto al
+texto principal, sin acceso duplicado en cabecera ni bloque final de llamada a la acción. Las slides quedan
 como material independiente en `presentations/product-demo/`, sin enlaces ni build
 público. `/presentacion` y sus subrutas redirigen a la landing.
 
@@ -23,23 +25,22 @@ público. `/presentacion` y sus subrutas redirigen a la landing.
 
 ## Verificación vigente
 
-**Cloudflare Builds verificado contra GitHub, 2026-10-08.**
-Build `a9d2db7c-4bbb-4709-a485-e10efecc96b9`, iniciado mediante API para
-`main` en `7c631db`, terminado con `success`. Instalación con Node 26.11.1,
-tipos/build y publicación correctos; versión `f3172b15-3b2b-4a30-a75b-1ee7f788c82d`
-activa al 100 %. No hubo cambios ejecutables frente a `63df8df` ni migraciones.
+**Landing simplificada y capturas reales verificadas, 2026-10-08.**
+`npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build y dry-run,
+recorridos de cifrado y UI en Firefox, autocompletado y geometría en Brave.
+El recorrido público comprueba los dos enlaces de acceso sin duplicados, captura
+real según tema/idioma, 1366/390/320 px, preferencias, plantita/movimiento reducido,
+redirecciones y ausencia de consultas privadas. Capturas de escritorio y móvil
+revisadas; revisión en la sesión principal, sin revisor independiente.
 
-`npm run release:smoke` pasa contra producción: landing, acceso/CSP,
-redirecciones antiguas, salud, rutas privadas con 401/no-store y rechazo de alta
-sin CAPTCHA. No se crearon cuentas ni actividad. Revisión de documentación en la
-sesión principal, sin revisión independiente. La [PR #14](https://github.com/Juancho1162/activity-hub/pull/14) registra
-además el resultado del build por push al integrar esta documentación.
+`node frontend/scripts/capture-landing.mjs` genera las cuatro imágenes desde la
+app real con cuentas locales desechables, cuatro frentes y dos checks; no usa
+cuentas de producción. No cambian API, autenticación, datos ni dependencias.
+La publicación automática y su comprobación remota se registran en la PR de este
+cambio para no encadenar builds solo al actualizar el commit documentado.
 
-La verificación funcional anterior (37 pruebas backend, 264 frontend y recorridos
-Firefox/Brave) se conserva en [CHANGELOG](../CHANGELOG.md); no se repitió para este
-cambio solo documental. Cloudflare recompila desde GitHub y no actualiza el
-registro local `.release/last-deployment.json`. Safari/iPhone físico, coste bajo
-carga y restauración de D1 siguen pendientes.
+La evidencia anterior se conserva en [CHANGELOG](../CHANGELOG.md). Safari/iPhone
+físico, coste bajo carga y restauración de D1 siguen pendientes.
 
 ## Siguiente paso
 

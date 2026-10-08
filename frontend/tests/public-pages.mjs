@@ -69,11 +69,12 @@ try {
   await until(() => evaluate("!!document.querySelector('.landing')"), "public landing even with a remembered session cookie")
   await evaluate("document.fonts.ready.then(()=>true)")
   assert.equal(await evaluate("document.querySelector('#access-code,.app-shell')===null && location.pathname==='/'"), true)
-  assert.equal(await evaluate("[...document.querySelectorAll('a[href=\"/app/\"]')].length>=3 && !document.querySelector('a[href^=\"/presentacion\"]')"), true)
+  assert.equal(await evaluate("[...document.querySelectorAll('a[href=\"/app/\"]')].length===2 && !document.querySelector('a[href^=\"/presentacion\"]')"), true)
   const chooseLanguage = async value => {
     await evaluate(`(()=>{const el=document.querySelector('.language-picker select');el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));return true})()`)
     await until(() => evaluate(`document.documentElement.lang===${JSON.stringify(value)}`), `landing language ${value}`)
   }
+  assert.equal(await evaluate("document.querySelector('.landing-header a[href=\"/app/\"],.landing-close,.landing-demo-week')===null"), true, "no duplicate entry links, final CTA or invented weekly view")
   await chooseLanguage("es")
   await mkdir(output, { recursive: true })
   for (const theme of ["light", "dark"]) {
@@ -83,12 +84,19 @@ try {
       await pause(80)
       assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth"), true, `${theme}/${width}: no horizontal overflow`)
       assert.equal(await evaluate(`([...document.querySelectorAll('.landing a[data-slot=button]')].every(el=>{const r=el.getBoundingClientRect();return r.height>=44 && r.left>=0 && r.right<=innerWidth}))`), true, `${theme}/${width}: usable CTA targets`)
+      assert.equal(await evaluate(`(async()=>{
+        const images=[...document.querySelectorAll('.landing-preview img')].filter(el=>el.checkVisibility());
+        if(images.length!==1)return false;
+        await images[0].decode();
+        return images[0].naturalWidth===1100 && images[0].src.endsWith('registro-es-${theme}.webp');
+      })()`), true, `${theme}/${width}: actual app capture matches theme`)
       const shot = await command("Page.captureScreenshot", { captureBeyondViewport: true }, sessionId)
       await writeFile(new URL(`landing-${theme}-${width}.png`, output), Buffer.from(shot.data, "base64"))
     }
   }
   await chooseLanguage("en")
   assert.equal(await evaluate("document.querySelector('h1').textContent.includes('projects') && document.body.textContent.includes('no recovery')"), true, "English product and privacy copy")
+  assert.equal(await evaluate("(async()=>{const img=[...document.querySelectorAll('.landing-preview img')].find(el=>el.checkVisibility());await img.decode();return img.src.endsWith('registro-en-dark.webp') && img.alt.includes('Actual daily log')})()"), true, "capture and accessible description follow English")
   await command("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] }, sessionId)
   assert.equal(await evaluate("document.getAnimations().length===0"), true, "reduced motion")
   await evaluate("document.querySelector('.plant-toggle').click();true")
