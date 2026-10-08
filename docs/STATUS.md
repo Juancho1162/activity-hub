@@ -41,7 +41,7 @@ Fondo liso y brotes botánicos en los bordes de la captura de portada y la barra
 lateral de escritorio, aceptados tras la prueba local. Las cuatro capturas públicas
 se han regenerado sin barras de scroll; el generador las oculta solo en su navegador
 de captura y comprueba que no ocupen espacio. La aplicación conserva su desplazamiento.
-Integración y publicación autorizadas; la PR de este cambio recoge el resultado
+Integración y publicación autorizadas; la [PR #19](https://github.com/Juancho1162/activity-hub/pull/19) recoge el resultado
 del build automático y las comprobaciones remotas.
 
 ## Trabajo
@@ -60,7 +60,8 @@ valida el artefacto y el destino con dry-run. Cuatro capturas regeneradas con da
 ficticios y comprobación de ausencia de barras. Revisión del diff y capturas en
 la sesión principal, sin hallazgos ni revisión independiente adicional. Sin cambios
 en API, datos, migraciones o dependencias. La evidencia de publicación se registra
-en la PR para evitar otro despliegue provocado solo por documentación.
+en la [PR #19](https://github.com/Juancho1162/activity-hub/pull/19) para evitar otro
+despliegue provocado solo por documentación.
 
 **Tipografía de landing y aplicación verificada, 2026-10-08.** Prueba local
 aceptada por el usuario. `npm run verify` pasa sobre el cambio conciliado con

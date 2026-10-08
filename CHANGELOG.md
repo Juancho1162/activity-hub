@@ -14,7 +14,8 @@ Prueba visual aceptada. `npm run verify`: 37 pruebas backend, 264 frontend,
 tipos/build/dry-run e integración/UI Firefox/Brave; `release:prepare` correcto.
 Revisión del diff y capturas en la sesión principal, sin hallazgos. Sin cambios
 de API, datos, migraciones o dependencias. Integración y publicación autorizadas;
-la PR de este cambio registra el commit, build, versión activa y smoke remoto.
+la [PR #19](https://github.com/Juancho1162/activity-hub/pull/19) registra el commit,
+build, versión activa y smoke remoto.
 
 ## 2026-10-08 — Chakra Petch en la landing y la aplicación
 
