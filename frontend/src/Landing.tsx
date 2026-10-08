@@ -1,4 +1,4 @@
-import { ArrowRight, LockKeyhole } from "lucide-react"
+import { ArrowRight, CodeXml, LockKeyhole } from "lucide-react"
 import { LanguageSelect, useLanguage } from "@/components/Language"
 import { ThemeToggle } from "@/components/Theme"
 import { PlantLogo } from "@/components/PlantLogo"
@@ -11,7 +11,10 @@ export default function Landing() {
     <a className="skip-link" href="#contenido">{t("Ir al contenido")}</a>
     <header className="landing-header">
       <div className="landing-brand"><PlantLogo /><span>Activity Hub</span></div>
-      <div className="app-controls landing-controls"><LanguageSelect /><ThemeToggle /></div>
+      <div className="app-controls landing-controls">
+        <a className="landing-source" href="https://github.com/Juancho1162/activity-hub"><CodeXml aria-hidden="true" size={18} />{t("Código fuente")}</a>
+        <LanguageSelect /><ThemeToggle />
+      </div>
     </header>
     <main id="contenido">
       <section className="landing-hero" aria-labelledby="landing-title">

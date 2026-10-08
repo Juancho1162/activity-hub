@@ -5,6 +5,7 @@ export const locales: Record<Language, string> = { es: "es-ES", en: "en-GB" }
 // Spanish is the source language. Typed message IDs keep UI copy and its English
 // translation together; user-authored names/references never go through this map.
 const english = {
+  "Código fuente": "Source code",
   "Registro diario real: fecha, filtros y tarjetas de frentes con sus checks de actividad.": "Actual daily log: date, filters and focus area cards with activity checks.",
   "Captura de la aplicación con datos de ejemplo.": "Screenshot of the app with sample data.",
   "Ya tengo cuenta": "I have an account",

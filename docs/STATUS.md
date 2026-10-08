@@ -16,6 +16,11 @@ texto principal, sin acceso duplicado en cabecera ni bloque final de llamada a l
 como material independiente en `presentations/product-demo/`, sin enlaces ni build
 público. `/presentacion` y sus subrutas redirigen a la landing.
 
+Cambio local pendiente de publicar: enlace «Código fuente»/«Source code» al
+repositorio público en la cabecera de la landing, adaptable a móvil. El proyecto
+no tiene licencia general declarada; la MIT de la presentación corresponde a
+Beatdeck y los avisos del frontend recogen licencias de terceros.
+
 ## Trabajo
 
 - [ ] MCP de Activity Hub: concretar autenticación antes de implementar el conector de pi; distinto del MCP de administración de Cloudflare disponible para desarrollo.
@@ -24,6 +29,13 @@ público. `/presentacion` y sus subrutas redirigen a la landing.
 - [ ] Información/LLM y notificaciones: diseño conservado en [APP.md](APP.md#6-ampliación-de-información-y-aprendizaje--diseño-aplazado), desarrollo aplazado. Modelos mentales siguen separados.
 
 ## Verificación vigente
+
+**Enlace al código fuente verificado localmente, 2026-10-08.**
+`npm run build`, `npm --prefix frontend test` (264 pruebas) y
+`node frontend/tests/public-pages.mjs` pasan. Recorrido público en Brave a
+1366/390/320 px, temas claro/oscuro e idiomas ES/EN; capturas revisadas en la
+sesión principal. Sin revisión independiente ni publicación. No se ha ejecutado
+`npm run verify` completo para este cambio de cabecera.
 
 **Landing simplificada y capturas reales verificadas, 2026-10-08.**
 `npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build y dry-run,

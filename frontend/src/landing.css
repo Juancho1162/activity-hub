@@ -3,7 +3,8 @@
 .landing { max-width: 1184px; margin: 0 auto; padding: 0 32px; font-family: "Press Start 2P", ui-monospace, monospace; font-synthesis: none; font-size: 11px; line-height: 2.15; letter-spacing: 0; }
 .landing-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 0; border-bottom: 2px solid var(--frame); }
 .landing-brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; font-size: 11px; }
-.landing-controls.app-controls { padding: 0; gap: 12px; }
+.landing-controls.app-controls { padding: 0; gap: 12px; flex-wrap: wrap; }
+.landing-source { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 8px; white-space: nowrap; text-underline-offset: 4px; }
 .landing .language-picker select { font-family: inherit; font-size: 8px; }
 .landing-hero { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 48px; padding: 86px 0 88px; }
 .landing-intro { max-width: 800px; margin-inline: auto; text-align: center; }
@@ -51,6 +52,7 @@
   .landing-header { justify-content: center; }
   .landing-brand { width: 100%; justify-content: center; }
   .landing-controls.app-controls { justify-content: center; }
+  .landing-source { flex-basis: 100%; justify-content: center; }
   .landing-hero { padding-top: 44px; }
   .landing h1 { font-size: 18px; }
   .landing h2 { font-size: 15px; }
