@@ -62,6 +62,13 @@ Quedan fuera de este primer módulo las notificaciones, correo, Teams, el dashbo
 
 **Temas:** se conserva la paleta clara cálida. El oscuro comparte su familia de colores y los de la plantita: fondo carbón oliva, superficies diferenciadas, texto crema, verde hoja y acentos terracota. El fondo es liso y las sombras cortas mantienen la geometría pixelada. Las etiquetas secundarias y los errores mantienen contraste en texto pequeño. Ambos conservan la presentación 8-bit y controles accesibles; el selector nativo de idioma comparte el marco pixelado de los botones.
 
+**Tipografía de landing y aplicación (2026-10-08):** Chakra Petch para textos,
+controles, formularios, títulos secundarios y porcentajes; Press Start 2P para
+la marca y los títulos principales. Las fuentes se sirven desde el propio sitio
+con sus licencias, sin solicitudes a Google Fonts durante el uso. Se mantienen
+la plantita, paleta y marcos 8-bit. La elección se aprobó tras revisión local;
+no se extiende al material de presentación histórico.
+
 ### Entrada pública
 
 Decisión del 2026-10-08: `/` muestra siempre una landing pública, también para

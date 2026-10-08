@@ -30,7 +30,15 @@ APP.md. El enlace al código fuente usa el logotipo oficial de GitHub, con licen
 Octicons conservada. Cambio verificado en la [PR #17](https://github.com/Juancho1162/activity-hub/pull/17),
 con integración/publicación autorizadas y evidencia remota en esa PR.
 
+La tipografía de landing y aplicación ha sido aceptada tras la prueba local:
+Chakra Petch en textos/controles y Press Start 2P en marca/títulos principales.
+Fuentes locales con licencia y capturas de ejemplo actualizadas. La integración
+con los cambios actuales de `main` está verificada y revisada en la
+[PR #18](https://github.com/Juancho1162/activity-hub/pull/18). Merge y publicación
+autorizados; la evidencia del despliegue automático se registra en esa PR.
+
 ## Trabajo
+
 
 - [ ] MCP de Activity Hub: concretar autenticación antes de implementar el conector de pi; distinto del MCP de administración de Cloudflare disponible para desarrollo.
 - [ ] Capacidad/coste bajo carga, copia externa y restauración: pendientes de validar.
@@ -38,6 +46,17 @@ con integración/publicación autorizadas y evidencia remota en esa PR.
 - [ ] Información/LLM y notificaciones: diseño conservado en [APP.md](APP.md#6-ampliación-de-información-y-aprendizaje--diseño-aplazado), desarrollo aplazado. Modelos mentales siguen separados.
 
 ## Verificación vigente
+
+**Tipografía de landing y aplicación verificada, 2026-10-08.** Prueba local
+aceptada por el usuario. `npm run verify` pasa sobre el cambio conciliado con
+`main`: 37 pruebas backend, 264 frontend, tipos/build/dry-run, integración
+cifrada Firefox y UI Firefox/Brave en ES/EN, claro/oscuro y móvil/escritorio.
+`npm run release:prepare` valida el artefacto y el destino de producción con
+dry-run. Revisión independiente sin hallazgos; capturas revisadas y evidencia
+documental final comprobada en la sesión principal. Sin cambios en API,
+esquema, datos o paquetes. El build, versión activa y smoke posteriores al
+merge se registran en la [PR #18](https://github.com/Juancho1162/activity-hub/pull/18).
+
 
 **README centrado en el producto e icono GitHub verificados, 2026-10-08.**
 `npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build y dry-run,
