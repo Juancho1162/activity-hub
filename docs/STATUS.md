@@ -16,6 +16,11 @@ no consulta cuentas ni actividad. Las slides se mantienen en
 
 ## Trabajo
 
+- [ ] Retirada de slides implementada y verificada; pendiente integrar y publicar.
+  Sin enlaces ni build público; código independiente conservado y direcciones
+  anteriores redirigidas a la landing. `release:prepare` correcto con 37 pruebas
+  backend, 264 frontend y recorridos Firefox/Brave. Revisión en la sesión principal.
+
 - [ ] MCP de Activity Hub: concretar autenticación antes de implementar el conector de pi; distinto del MCP de administración de Cloudflare disponible para desarrollo.
 - [ ] Capacidad/coste bajo carga, copia externa y restauración: pendientes de validar.
 - [ ] Safari/iPhone físico: pendiente.

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node ../backend/scripts/run.js dev",
-    "build": "tsc --noEmit && vite build && node scripts/build-presentation.mjs",
+    "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "node ../backend/scripts/run.js dev",
     "test": "vitest run",

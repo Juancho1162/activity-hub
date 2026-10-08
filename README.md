@@ -9,7 +9,6 @@
 <p align="center">
   <a href="https://activity-hub.software-juancho-prego-gundin.workers.dev">Conocer Activity Hub</a> ·
   <a href="https://activity-hub.software-juancho-prego-gundin.workers.dev/app/">Abrir la aplicación</a> ·
-  <a href="https://activity-hub.software-juancho-prego-gundin.workers.dev/presentacion/">Ver presentación</a> ·
   <a href="docs/STATUS.md">Estado del proyecto</a> ·
   <a href="CHANGELOG.md">Historial de cambios</a>
 </p>
@@ -40,16 +39,15 @@ El contenido de tus frentes y tu actividad se cifra en el navegador antes de env
 
 Esta protección impide leer el contenido directamente desde D1 o sus copias. Una web modificada deliberadamente para capturar el código podría comprometerlo. El navegador puede guardar tu código en su gestor de contraseñas si lo autorizas. [Detalles y límites](docs/APP.md#privacidad-y-acceso).
 
-## Web y presentación
+## Web y material de presentación
 
 La portada `/` explica la aplicación y permanece pública aunque ya tengas cuenta.
-Guarda `/app/` para acceder directamente. `/presentacion/` abre las slides en
-castellano, con navegación por clic o flechas y notas del presentador con **P**.
+Guarda `/app/` para acceder directamente. La web se centra en explicar el producto
+y empezar a usarlo; no incluye una presentación adicional.
 
-El frontend de la landing y el acceso está en `frontend/`. La demo se mantiene
-independiente en [presentations/product-demo/](presentations/product-demo/README.md):
-`deck/` contiene slides y recursos; `docs/CONTENT-AUDIT.md` conserva el guion y
-las decisiones. El build oficial incluye ambos en una sola publicación.
+Las slides se conservan como material independiente en
+[presentations/product-demo/](presentations/product-demo/README.md), fuera del
+build y despliegue de la web. Su README explica cómo abrirlas o editarlas localmente.
 
 ## Desarrollo local
 
@@ -59,16 +57,15 @@ Necesitas **Node 26** y npm. Desde la raíz:
 npm ci
 npm --prefix backend ci
 npm --prefix frontend ci
-npm --prefix presentations/product-demo ci
 npm run migrate
 npm run dev
 ```
 
-Abre **http://127.0.0.1:8787** para la landing, **http://127.0.0.1:8787/app/** para el acceso y **http://127.0.0.1:8787/presentacion/** para las slides. La D1 local está separada de producción; las migraciones son explícitas y no importan cuentas ni historial. Tras modificar el frontend, reinicia `npm run dev` para recompilarlo.
+Abre **http://127.0.0.1:8787** para la landing, **http://127.0.0.1:8787/app/** para el acceso. La D1 local está separada de producción; las migraciones son explícitas y no importan cuentas ni historial. Tras modificar el frontend, reinicia `npm run dev` para recompilarlo.
 
 React/TypeScript y Vite en el frontend; JavaScript, Cloudflare Workers y D1 en el backend. La plantita 8-bit es un SVG local, con animación que puedes pausar y respeto por movimiento reducido.
 
-Antes de publicar código, el [workflow de desarrollo](backend/README.md#flujo-de-cambio-pruebas-y-publicación) exige rama, pruebas y revisión, PR, integración en `main` y despliegue del artefacto verificado. `npm run release:prepare` reúne las comprobaciones; los recorridos de navegador usan Firefox/Brave y perfiles temporales en macOS, y las pruebas diferenciales requieren la [referencia Python](experiments/python-sqlite/README.md). La presentación se verifica con `npm run test:presentation` después del build; para Chromium, sigue las instrucciones de su README.
+Antes de publicar código, el [workflow de desarrollo](backend/README.md#flujo-de-cambio-pruebas-y-publicación) exige rama, pruebas y revisión, PR, integración en `main` y despliegue del artefacto verificado. `npm run release:prepare` reúne las comprobaciones; los recorridos de navegador usan Firefox/Brave y perfiles temporales en macOS, y las pruebas diferenciales requieren la [referencia Python](experiments/python-sqlite/README.md). Para trabajar con las slides conservadas, sigue su README; sus dependencias y verificaciones son independientes.
 
 ## Documentación
 

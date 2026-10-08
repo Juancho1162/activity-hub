@@ -7,13 +7,12 @@ import { Button } from "@/components/ui/8bit/button"
 /** Public, illustrative product page. No auth client, account state or API. */
 export default function Landing() {
   const { t, language } = useLanguage()
-  const presentationLabel = language === "en" ? t("Ver presentación (en español)") : t("Ver presentación")
   return <div className="landing">
     <a className="skip-link" href="#contenido">{t("Ir al contenido")}</a>
     <header className="landing-header">
       <div className="landing-brand"><PlantLogo /><span>Activity Hub</span></div>
       <nav className="landing-nav" aria-label={t("Navegación pública")}>
-        <a href="/presentacion/">{presentationLabel}</a><a href="/app/">{t("Ya tengo cuenta")}</a>
+        <a href="/app/">{t("Ya tengo cuenta")}</a>
       </nav>
       <div className="app-controls landing-controls"><LanguageSelect /><ThemeToggle /></div>
     </header>
@@ -50,7 +49,7 @@ export default function Landing() {
         <div><LockKeyhole aria-hidden="true" className="landing-lock" /><p className="landing-eyebrow">{t("SENCILLO Y PRIVADO")}</p><h2 id="landing-privacy-title">{t("Tu espacio. Tu código.")}</h2></div>
         <div className="landing-privacy-copy"><p>{t("Tu contenido se cifra en el navegador. Accedes con un único código privado, sin usuario ni correo.")}</p><p className="landing-code-warning">{t("Guarda tu código: no hay recuperación.")}</p></div>
       </section>
-      <section className="landing-close" aria-labelledby="landing-close-title"><h2 id="landing-close-title">{t("Empieza por un frente.")}</h2><p>{t("Un pequeño registro para lo que te importa.")}</p><div className="landing-actions"><Button asChild><a href="/app/">{t("Empezar")}<ArrowRight aria-hidden="true" size={16} /></a></Button><a className="landing-secondary" href="/presentacion/">{presentationLabel}</a></div></section>
+      <section className="landing-close" aria-labelledby="landing-close-title"><h2 id="landing-close-title">{t("Empieza por un frente.")}</h2><p>{t("Un pequeño registro para lo que te importa.")}</p><div className="landing-actions"><Button asChild><a href="/app/">{t("Empezar")}<ArrowRight aria-hidden="true" size={16} /></a></Button></div></section>
     </main>
     <footer className="landing-footer"><span>Activity Hub</span><span>{t("Tu registro de actividad, sencillo y privado.")}</span></footer>
   </div>
