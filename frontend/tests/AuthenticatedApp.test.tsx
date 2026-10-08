@@ -38,6 +38,15 @@ async function enter() {
 }
 const writes = (fetcher: ReturnType<typeof transport>) => fetcher.mock.calls.filter(([url, init]) => String(url).startsWith("/api/") && init?.method !== "GET")
 
+it("ofrece volver a la landing solo desde el acceso sin una operación pendiente", async () => {
+  render(<AuthenticatedApp authFactory={createAuthClient} fetcher={transport()} clock={clock} />)
+  await screen.findByLabelText("Código de acceso")
+  expect(screen.getByRole("link", { name: "Conoce Activity Hub" }).getAttribute("href")).toBe("/")
+  await userEvent.click(screen.getByRole("button", { name: "Crear cuenta" }))
+  await screen.findByLabelText("Tu código permanente")
+  expect(screen.queryByRole("link", { name: "Conoce Activity Hub" })).toBeNull()
+})
+
 const originalCredentials = Object.getOwnPropertyDescriptor(navigator, "credentials")
 beforeEach(() => {
   // Radix measures its native checkbox input inside a form; jsdom has no layout.

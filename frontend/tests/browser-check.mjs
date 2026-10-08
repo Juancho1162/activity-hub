@@ -102,7 +102,7 @@ try {
     if (result.type !== "success") throw new Error("Browser assertion evaluation failed")
     return result.result.type === "null" ? null : result.result.value
   }
-  const navigate = (targetContext = context) => command("browsingContext.navigate", { context: targetContext, url: origin, wait: "complete" })
+  const navigate = (targetContext = context) => command("browsingContext.navigate", { context: targetContext, url: `${origin}/app/`, wait: "complete" })
   async function screenshot(name, width, height) {
     await command("browsingContext.activate", { context })
     await command("browsingContext.setViewport", { context, viewport: { width, height }, devicePixelRatio: 1 })

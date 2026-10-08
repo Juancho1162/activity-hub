@@ -368,6 +368,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
         </div>}
         {mode === "error" && <Button type="button" variant="outline" font="normal" className="text-button" onClick={() => { void checkSession(true) }}>{t("Reintentar conexión")}</Button>}
         {mode === "logout-error" && <Button type="button" variant="outline" font="normal" className="text-button" onClick={() => { void logout() }}>{t("Reintentar cierre")}</Button>}
+        {mode === "login" && context === null && !writeLocked && <a href="/" className="auth-landing-link">{t("Conoce Activity Hub")}</a>}
       </CardContent></Card>
     </main>}
     {mountedAppAccountId && <App key={mountedAppAccountId} api={api} clock={clock} enabled={active} onWriteLockChange={reportWriteLock} />}

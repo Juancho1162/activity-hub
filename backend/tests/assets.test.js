@@ -42,3 +42,28 @@ test('canonical API routing preserves Allow and authorized trailing-slash redire
   assert.equal(redirect.headers.get('cache-control'), 'no-store');
   assert.equal((await fetcher('/api/fronts/', { redirect: 'manual' })).status, 401);
 });
+
+test('public landing, private app and offline presentation have independent canonical pages', async t => {
+  const { fetcher, DB } = await fixture(t, { assets: true, legacy: false });
+  const home = await fetcher('/', { headers: { Accept: 'text/html', Cookie: 'activity_hub_session=synthetic-remembered-session' } });
+  const html = await home.text();
+  assert.match(html, /<meta name="description"/);
+  const app = await fetcher('/app/', { redirect: 'manual' });
+  assert.equal(app.status, 200);
+  const appHtml = await app.text();
+  assert.notEqual(appHtml.match(/src="([^"]+\.js)"/)[1], html.match(/src="([^"]+\.js)"/)[1]);
+  for (const route of ['/app', '/presentacion']) {
+    const response = await fetcher(route, { redirect: 'manual' });
+    assert.equal(response.status, 307, route);
+    assert.equal(new URL(response.headers.get('location'), 'http://localhost').pathname, `${route}/`);
+  }
+  const presentation = await fetcher('/presentacion/', { redirect: 'manual' });
+  assert.equal(presentation.status, 200);
+  const presentationHtml = await presentation.text();
+  assert.match(presentationHtml, /<title>Activity Hub/);
+  const script = presentationHtml.match(/src="([^"]+\.js)"/)[1];
+  const bundledScript = await fetcher(new URL(script, 'http://localhost/presentacion/').pathname);
+  assert.equal(bundledScript.status, 200);
+  assert.match(bundledScript.headers.get('content-type'), /javascript/);
+  for (const table of ['accounts', 'encrypted_vaults']) assert.equal((await DB.prepare(`SELECT count(*) AS n FROM ${table}`).first()).n, 0);
+});

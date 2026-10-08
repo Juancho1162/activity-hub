@@ -15,6 +15,10 @@ const proxy = Object.fromEntries(["/api", "/auth", "/health"].map((route) => [ro
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
+  build: { rolldownOptions: { input: {
+    landing: fileURLToPath(new URL("./index.html", import.meta.url)),
+    app: fileURLToPath(new URL("./app/index.html", import.meta.url)),
+  } } },
   server: { host: "127.0.0.1", proxy },
   preview: { host: "127.0.0.1", proxy },
   test: { environment: "jsdom", setupFiles: ["./tests/setup.ts"], clearMocks: true },

@@ -2,6 +2,21 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-08 — Landing pública y presentación integrada
+
+Landing siempre pública en `/`, con propuesta de valor, ejemplo ilustrativo,
+tres pasos, privacidad y enlaces al acceso en `/app/`. Mantiene la identidad 8-bit,
+plantita, castellano/inglés y temas claro/oscuro. La demo aprobada se conserva en
+`presentations/product-demo/` y se publica en `/presentacion/`, con QR al acceso.
+Ambas entradas se compilan separadas: visitar la landing no carga autenticación
+ni consulta o escribe datos. No se modifican API, cifrado, cuentas o migraciones.
+
+Verificación local: `npm run verify` y `npm run release:prepare` correctos,
+37 pruebas backend, 264 frontend, Firefox/Brave y 10 beats de la presentación.
+Recorrido público sin auth/API/escrituras; temas/idiomas/recarga a 1366/390/320 px,
+navegación a acceso y slides bajo CSP. Capturas y contact sheet revisados;
+revisión independiente PASS, sin hallazgos accionables. Publicación pendiente.
+
 ## 2026-10-08 — Oscuro cálido y marca ampliada
 
 **Publicado:** código `fbcea9e`, [PR #8](https://github.com/Juancho1162/activity-hub/pull/8), versión `e38b4c39-1a8a-480a-b4e5-df65c45c3d8e`. El oscuro comparte los tonos del claro y la plantita: carbón oliva, crema, verde hoja y terracota, con sombras cortas pixeladas. La marca crece a 96 px en acceso y 64 px en navegación, con «Activity Hub» siempre al lado. El favicon simplifica cara/hojas para leerse a 16 px y versiona su URL; pausar la animación conserva el personaje completo mediante un SVG estático separado. La paleta clara se conserva.

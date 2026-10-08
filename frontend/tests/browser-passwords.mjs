@@ -72,7 +72,7 @@ try {
     };
     return true;
   })()` }, sessionId)
-  await command("Page.navigate", { url: url.origin }, sessionId)
+  await command("Page.navigate", { url: url.origin + "/app/" }, sessionId)
   await until(() => evaluate("!!document.getElementById('access-code')"), "private entry form")
   // Choose through the UI in this disposable profile; never assume the Mac's language.
   const chooseLanguage = async language => {
