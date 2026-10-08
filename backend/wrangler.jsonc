@@ -29,6 +29,18 @@
       "account_id": "72734ad9e032887b9758d0c2216e3d48",
       "workers_dev": true,
       "preview_urls": false,
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "enabled": true,
+          "invocation_logs": true,
+          "persist": true
+        },
+        "traces": {
+          "enabled": true,
+          "persist": true
+        }
+      },
       "vars": {
         "WEB_ORIGIN": "https://activity-hub.software-juancho-prego-gundin.workers.dev",
         "TURNSTILE_SITEKEY": "0x4AAAAAAFPTqGIgedBUAMzm",
