@@ -73,13 +73,11 @@ Before publishing code, follow the [development workflow](backend/README.md#fluj
 
 The detailed project documentation is currently in Spanish:
 
-- [Product and rules](docs/APP.md): behaviour, privacy, contracts and future plans.
+- [Product and rules](docs/APP.md): behaviour, privacy and contracts.
 - [Project status](docs/STATUS.md): published capabilities, verification and remaining work.
 - [Changelog](CHANGELOG.md): previous changes and releases.
 - [Backend and deployment](backend/README.md): commands, environments, migrations and the GitHub/Cloudflare workflow.
 - [Third-party notices](frontend/THIRD_PARTY_NOTICES.md): credits and licenses for bundled components and assets.
-
-Email, an AI-maintained wiki, chat, summaries and mental models are future ideas. The available product is the activity log; the project status distinguishes shipped features from planned work.
 
 ## License
 
