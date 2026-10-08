@@ -2,6 +2,17 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-09 — Logs y trazas en producción
+
+Habilitados Workers Logs, logs de invocación y trazas en el entorno `production`,
+con persistencia en el panel de Cloudflare. La configuración local conserva la
+observabilidad deshabilitada. Sin cambios en código de aplicación, datos o paquetes.
+
+`npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build/dry-run e
+integración/UI Firefox/Brave. Revisión del diff en la sesión principal, sin hallazgos.
+Integración/publicación autorizadas; la [PR #20](https://github.com/Juancho1162/activity-hub/pull/20) recoge el build,
+la configuración activa y el smoke remoto tras publicar.
+
 ## 2026-10-09 — Fondo liso y detalles botánicos
 
 Retirado el patrón de puntos que cambiaba de visibilidad con el zoom. Brotes
