@@ -12,13 +12,15 @@ La portada `/` presenta el producto y permanece pública siempre; `/app/` abre e
 acceso privado. La landing reutiliza identidad, temas e idiomas de la app. Sus
 capturas muestran la app real con datos ficticios, en ES/EN y claro/oscuro; no
 consulta cuentas ni actividad. Hay un único «Empezar» y «Ya tengo cuenta» junto al
-texto principal, sin acceso duplicado en cabecera ni bloque final de llamada a la acción. Las slides y los experimentos se han retirado del árbol local; permanecen en el
+texto principal, sin acceso duplicado en cabecera ni bloque final de llamada a la acción. Las slides y los experimentos se han retirado del repositorio; permanecen en el
 historial de Git. `/presentacion` y sus subrutas redirigen a la landing.
 
-El enlace «Código fuente»/«Source code» de la cabecera está subido a la rama
-`Juancho1162/feat-landing-source-link` (commit `942de0d`), sin integrar en `main`.
-Esta misma rama contiene la limpieza de slides/experimentos, el README en
-inglés y la licencia MIT del proyecto, verificados y pendientes de integración. Se conservan los avisos de terceros.
+El enlace «Código fuente»/«Source code» de la cabecera, la limpieza de
+slides/experimentos, el README en inglés y la licencia MIT están verificados en
+la [PR #16](https://github.com/Juancho1162/activity-hub/pull/16). Integración y
+publicación autorizadas; el resultado del build y del smoke se registra en esa
+PR para evitar publicaciones adicionales solo por actualizar esta evidencia.
+Se conservan los avisos de terceros.
 Las pruebas de contratos usan resultados fijos capturados de Python antes de
 retirarlo; ya no requieren ese runtime. La comparación histórica `measure` y
 el comando de verificación de slides se han retirado.
@@ -41,7 +43,7 @@ resultados fijos capturados de la referencia del commit `942de0d`.
 Enlaces locales y coherencia de manifiestos/lockfiles comprobados. Revisión
 independiente de la limpieza, fixtures, README y licencia sin hallazgos;
 actualización final de estado/historial revisada en la sesión principal.
-Sin integración en `main` ni nuevo despliegue.
+La evidencia de integración y despliegue se mantiene en la PR #16 enlazada arriba.
 
 `node frontend/scripts/capture-landing.mjs` genera las cuatro imágenes desde la
 app real con cuentas locales desechables, cuatro frentes y dos checks; no usa

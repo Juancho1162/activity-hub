@@ -4,7 +4,7 @@ Registra cambios completados, publicaciones y su evidencia. El estado vigente es
 
 ## 2026-10-08 — Código fuente visible, licencia MIT y limpieza del repositorio
 
-**Verificado en rama, pendiente de integración y publicación.** La cabecera de
+**Verificado; integración y publicación autorizadas en la [PR #16](https://github.com/Juancho1162/activity-hub/pull/16).** El resultado del build automático y del smoke se registra en esa PR. La cabecera de
 la landing enlaza al repositorio público en ES/EN. README raíz en inglés y
 licencia MIT para Activity Hub, también declarada en los manifiestos. Se
 conservan los avisos y licencias de terceros utilizados por la aplicación.
