@@ -78,7 +78,7 @@ try {
     if (result.type !== 'success') throw new Error('Browser assertion evaluation failed');
     return result.result.value;
   }
-  const navigate = (ctx = context) => command('browsingContext.navigate', { context: ctx, url: origin, wait: 'complete' });
+  const navigate = (ctx = context) => command('browsingContext.navigate', { context: ctx, url: `${origin}/app/`, wait: 'complete' });
   const click = async (label, ctx = context) => {
     await waitFor(() => evaluate(`([...document.querySelectorAll('button')].some(b=>b.textContent.trim()===${JSON.stringify(label)} && !b.disabled))`, ctx), `enabled ${label}`);
     return evaluate(`([...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)}).click(), true)`, ctx);

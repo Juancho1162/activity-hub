@@ -66,9 +66,10 @@ function dryBundle(artifact) {
 }
 async function verify() {
   const source = await sourceFingerprint();
-  for (const task of ['check', 'test:integration', 'test:browser']) run('npm', ['run', task]);
+  const checks = ['check', 'test:integration', 'test:browser', 'test:presentation'];
+  for (const task of checks) run('npm', ['run', task]);
   if (await sourceFingerprint() !== source) throw new Error('El código cambió durante las pruebas. Hay que verificarlas de nuevo.');
-  await save(path.join(release, 'verification.json'), { source, assets_hash: await treeFingerprint(path.join(root, 'frontend/dist')), verified_at: new Date().toISOString(), checks: ['check', 'test:integration', 'test:browser'] });
+  await save(path.join(release, 'verification.json'), { source, assets_hash: await treeFingerprint(path.join(root, 'frontend/dist')), verified_at: new Date().toISOString(), checks });
   console.log('Verificación completa. No se ha publicado ni modificado Git.');
 }
 async function prepare() {
@@ -111,13 +112,13 @@ function frozenCommand(manifest, args, capture = false) {
   });
 }
 async function smoke() {
-  for (const [pathname, status] of [['/', 200], ['/health', 200], ['/auth/session', 401], ['/api/vault', 401]]) {
+  for (const [pathname, status] of [['/', 200], ['/app/', 200], ['/presentacion/', 200], ['/health', 200], ['/auth/session', 401], ['/api/vault', 401]]) {
     const response = await fetch(target.origin + pathname, { redirect: 'error', signal: AbortSignal.timeout(15000) });
     if (response.status !== status) throw new Error(`Comprobación remota fallida: ${pathname}.`);
     if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
       if (response.headers.get('cache-control') !== 'no-store') throw new Error('Falta no-store en una ruta privada.');
     }
-    if (pathname === '/' && !response.headers.get('content-security-policy')) throw new Error('Falta CSP en la aplicación.');
+    if (['/', '/app/', '/presentacion/'].includes(pathname) && !response.headers.get('content-security-policy')) throw new Error('Falta CSP en una página pública.');
     await response.arrayBuffer();
   }
   const settings = await (await fetch(target.origin + '/auth/config', { signal: AbortSignal.timeout(15000) })).json();

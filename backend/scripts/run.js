@@ -40,6 +40,7 @@ if (mode === 'migrate') {
   console.log('Activity Hub: http://127.0.0.1:8787 — Ctrl+C para detener.');
   wrangler(['dev', '--env', 'local', '--local', '--ip', '127.0.0.1', '--port', '8787', '--persist-to', '.state/local']);
 } else if (mode === 'browser-ui') {
+  run(process.execPath, ['../frontend/tests/public-pages.mjs']);
   run(process.execPath, ['../frontend/tests/browser-check.mjs']);
   run(process.execPath, ['../frontend/tests/browser-passwords.mjs']);
 } else if (mode === 'browser' || mode === 'measure') {

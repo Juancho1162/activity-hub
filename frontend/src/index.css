@@ -126,6 +126,7 @@ a { color: var(--link); }
 [data-slot="button-decorations"] > [class~="bg-foreground"] { background: var(--ring); }
 [data-slot="bit-card"] { box-shadow: 3px 3px 0 color-mix(in srgb, var(--foreground) 9%, transparent); }
 .muted { color: var(--muted-foreground); }
+.auth-landing-link { display: inline-block; align-self: start; margin-top: 8px; text-underline-offset: 4px; }
 
 .app-controls { display: flex; align-items: center; justify-content: flex-end; gap: 20px; padding: 10px var(--gutter); }
 .theme-picker { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; font-size: 12px; color: var(--muted-foreground); }
