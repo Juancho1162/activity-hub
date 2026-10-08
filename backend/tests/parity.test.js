@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, account, request } from './fixture.js';
-import { pythonReference } from './reference.js';
+import { recordedReference } from './reference.js';
 import { frontInput, checkInput, uuidHex, canonicalPayload } from '../src/contracts.js';
 
-test('input normalization and canonical replay payload match the installed Python contracts', () => {
+test('input normalization and canonical replay payload match recorded contract examples', () => {
   const cases = [
     ...[' \u001cCafé 🎸\u0085 ', '\ufeffName\ufeff', '🎸'.repeat(200), '🎸'.repeat(201), '', '  ', 'bad\0name', 3]
       .map(name => ({ kind: 'create', value: { name } })),
@@ -19,7 +19,7 @@ test('input normalization and canonical replay payload match the installed Pytho
     ...['a'.repeat(32), 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA', '{aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}',
       'urn:uuid:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'invalid', null].map(value => ({ kind: 'uuid', value })),
   ];
-  const expected = pythonReference('validate', { cases });
+  const expected = recordedReference('validate', { cases });
   for (const [index, example] of cases.entries()) {
     let actual;
     try {
@@ -27,14 +27,14 @@ test('input normalization and canonical replay payload match the installed Pytho
         : example.kind === 'check' ? checkInput(example.value) : frontInput(example.value, example.kind === 'patch');
       actual = { valid: true, value, ...(example.kind === 'uuid' ? {} : { payload: canonicalPayload(value) }) };
     } catch { actual = { valid: false }; }
-    assert.deepEqual(actual, expected[index], `Python normalization case ${index}`);
+    assert.deepEqual(actual, expected[index], `Recorded normalization case ${index}`);
   }
 });
 
-test('fictitious Python Unicode replays retain their response/date and never undo later edits after import', async t => {
+test('recorded Unicode replays retain their response/date and never undo later edits after import', async t => {
   const { DB, fetcher } = await fixture(t);
   const a = await account(fetcher);
-  const data = pythonReference('replays', { account_id: a.login.value.account_id });
+  const data = recordedReference('replays', { account_id: a.login.value.account_id });
   for (const [table, rows] of [['fronts', data.fronts], ['idempotency_requests', data.records]]) {
     for (const row of rows) {
       const columns = Object.keys(row);

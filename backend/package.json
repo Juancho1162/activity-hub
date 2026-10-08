@@ -10,11 +10,11 @@
     "test": "node scripts/run.js test",
     "check": "node scripts/run.js check",
     "test:browser": "node scripts/run.js browser",
-    "measure": "node scripts/run.js measure",
     "dev": "node scripts/run.js dev",
     "migrate": "node scripts/run.js migrate"
   },
   "devDependencies": {
     "wrangler": "4.147.0"
-  }
+  },
+  "license": "MIT"
 }

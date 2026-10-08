@@ -15,11 +15,6 @@ htmlcov/
 /frontend/dist/
 /frontend/coverage/
 /frontend/test-results/
-/experiments/cyberpunk-ui/test-results/
-/experiments/art-ui/test-results/
-/experiments/8bit-twist/dist/
-/experiments/8bit-twist/test-results/
-/experiments/8bit-twist/.cache/
 
 /node_modules/
 .DS_Store

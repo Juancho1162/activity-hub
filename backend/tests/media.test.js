@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { fixture, request, origin, account } from './fixture.js';
-import { pythonReference } from './reference.js';
+import { recordedReference } from './reference.js';
 
 async function snapshot(DB) {
   const tables = ['accounts', 'web_sessions', 'fronts', 'activity_checks', 'idempotency_requests', 'worker_batch_context'];
@@ -48,7 +48,7 @@ test('API text/plain JSON is 422 with no mutation after authentication', async t
   }
 });
 
-test('Content-Type JSON/+json/absent and quoted parameters match temporary FastAPI HTTP and persisted changes', async t => {
+test('Content-Type JSON/+json/absent and quoted parameters match recorded HTTP contracts and persisted changes', async t => {
   const cases = [
     ...[[], ['text/plain'], ['application/json'], ['application/json; charset=utf-8'],
       ['APPLICATION/JSON'], ['application/problem+json'], ['application/vnd.example+json'], ['text/json'],
@@ -61,7 +61,7 @@ test('Content-Type JSON/+json/absent and quoted parameters match temporary FastA
     ...[[], ['text/plain'], ['application/json; charset=utf-8', 'text/plain'], ['application/json']]
       .map(types => ({ route: '/auth/login', body: { code: 'B'.repeat(32) }, types })),
   ];
-  const expected = pythonReference('media', { cases });
+  const expected = recordedReference('media', { cases });
   const { DB, fetcher } = await fixture(t);
   const a = await account(fetcher);
   for (const [index, example] of cases.entries()) {
@@ -80,7 +80,7 @@ test('Content-Type JSON/+json/absent and quoted parameters match temporary FastA
       status: response.status, changes: after.slice(0, 5).map((n, i) => n - before[i]),
       attempts: Object.fromEntries(attempts.results.map(row => [row.action, row.attempts])),
       no_store: response.headers.get('cache-control') === 'no-store',
-    }, expected[index], `HTTP/media/state differential case ${index}`);
+    }, expected[index], `Recorded HTTP/media/state case ${index}`);
     assert.equal(after.at(-1), 0);
   }
 });

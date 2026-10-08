@@ -27,12 +27,12 @@ function jsFiles(directory) {
     entry.isDirectory() ? jsFiles(`${directory}/${entry.name}`) : entry.name.endsWith('.js') ? [`${directory}/${entry.name}`] : []);
 }
 const mode = process.argv[2];
-if (!['test', 'check', 'browser', 'browser-ui', 'measure', 'dev', 'migrate'].includes(mode)) throw new Error('Use test, check, browser, browser-ui, measure, dev or migrate');
+if (!['test', 'check', 'browser', 'browser-ui', 'dev', 'migrate'].includes(mode)) throw new Error('Use test, check, browser, browser-ui, dev or migrate');
 if (Number(process.versions.node.split('.')[0]) !== 26) throw new Error('Activity Hub requires Node 26. Run npm from the workspace root.');
 if (mode === 'check') {
   for (const file of ['src', 'tests', 'scripts'].flatMap(jsFiles)) run(process.execPath, ['--check', file]);
 }
-if (mode !== 'measure') run('npm', ['--prefix', '../frontend', 'run', 'build']);
+run('npm', ['--prefix', '../frontend', 'run', 'build']);
 const wrangler = args => run(process.execPath, ['node_modules/wrangler/bin/wrangler.js', ...args, '--env-file', 'scripts/no-secrets.txt']);
 if (mode === 'migrate') {
   wrangler(['d1', 'migrations', 'apply', 'DB', '--env', 'local', '--local', '--persist-to', '.state/local']);
@@ -43,8 +43,8 @@ if (mode === 'migrate') {
   run(process.execPath, ['../frontend/tests/public-pages.mjs']);
   run(process.execPath, ['../frontend/tests/browser-check.mjs']);
   run(process.execPath, ['../frontend/tests/browser-passwords.mjs']);
-} else if (mode === 'browser' || mode === 'measure') {
-  run(process.execPath, [`scripts/${mode === 'browser' ? 'browser-check' : 'measure'}.js`]);
+} else if (mode === 'browser') {
+  run(process.execPath, ['scripts/browser-check.js']);
 } else {
   run(process.execPath, ['--test', '--test-concurrency=1', ...process.argv.slice(3), ...jsFiles('tests').filter(file => file.endsWith('.test.js'))]);
 }
