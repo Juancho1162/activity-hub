@@ -4,6 +4,9 @@ Registra cambios completados, publicaciones y su evidencia. El estado vigente es
 
 ## 2026-10-08 — Landing pública y presentación integrada
 
+**Publicado:** código `9bb1bf0`, [PR #10](https://github.com/Juancho1162/activity-hub/pull/10),
+versión `bfbbb0bd-a208-4139-9e24-4efb0d68b5ea`.
+
 Landing siempre pública en `/`, con propuesta de valor, ejemplo ilustrativo,
 tres pasos, privacidad y enlaces al acceso en `/app/`. Mantiene la identidad 8-bit,
 plantita, castellano/inglés y temas claro/oscuro. La demo aprobada se conserva en
@@ -15,7 +18,19 @@ Verificación local: `npm run verify` y `npm run release:prepare` correctos,
 37 pruebas backend, 264 frontend, Firefox/Brave y 10 beats de la presentación.
 Recorrido público sin auth/API/escrituras; temas/idiomas/recarga a 1366/390/320 px,
 navegación a acceso y slides bajo CSP. Capturas y contact sheet revisados;
-revisión independiente PASS, sin hallazgos accionables. Publicación pendiente.
+revisión independiente PASS, sin hallazgos accionables.
+
+`npm run release:deploy` desde main limpio y smoke remotos correctos: tres páginas
+con CSP, salud, rutas privadas 401/no-store y alta sin CAPTCHA rechazada. Los 33
+archivos publicados coinciden byte por byte con el artefacto. Brave en producción
+verifica ES/EN, claro/oscuro a 1366/390/320 px, preferencias/recarga, cero solicitudes
+privadas en landing/slides y recorrido hasta la presentación, sus beats, acceso y
+vuelta a portada. Capturas revisadas; no se crearon cuentas ni actividad.
+Huella ejecutable `2a68935641a84752d9c944c79767662eaf8a08b2b0f3437ac7f5014805997eaa`,
+hash de artefacto `340e8b56cd7c538e09626694e0133b9e713664975a734d71256b36b004828512`.
+Sin CI o revisión remota configurada; revisión independiente realizada por el
+agente local. Safari/iPhone físico no probado. Registro posterior de documentación
+sin otro despliegue.
 
 ## 2026-10-08 — Oscuro cálido y marca ampliada
 
