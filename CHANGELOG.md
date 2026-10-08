@@ -2,6 +2,20 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-08 — Chakra Petch en la landing y la aplicación
+
+Chakra Petch para lectura, navegación, controles, formularios y porcentajes;
+Press Start 2P queda en marca y títulos principales. Tamaños de lectura
+ajustados y cuatro capturas de ejemplo actualizadas. Fuentes servidas localmente
+con sus licencias. Se conserva el enlace a GitHub integrado en main; no se
+modifican API, datos, migraciones o paquetes ni se recuperan las presentaciones.
+
+Prueba visual aceptada. `npm run verify`: 37 pruebas backend, 264 frontend,
+tipos/build/dry-run e integración/UI Firefox/Brave; `release:prepare` correcto.
+Revisión independiente sin hallazgos. Integración y publicación autorizadas;
+commit de producción, build, versión activa y smoke se registran en la
+[PR #18](https://github.com/Juancho1162/activity-hub/pull/18).
+
 ## 2026-10-08 — README centrado en el producto e icono GitHub
 
 El README elimina las menciones a futuras funciones, conservadas en APP.md. El
