@@ -33,7 +33,7 @@ body { background-image: radial-gradient(var(--border) .65px, transparent .65px)
 .activity-check[data-state="checked"] { box-shadow: inset 0 3px 0 color-mix(in srgb, var(--primary-foreground) 20%, transparent); }
 .state-badge { border-style: dashed; }
 .dashboard-meta, .calendar-details { border-top-style: dashed; }
-.coverage-value { color: var(--primary); text-shadow: 2px 2px 0 var(--border); }
+.coverage-value { color: var(--primary); }
 .calendar-tile { box-shadow: 1px 1px 0 var(--border); }
 .calendar-tile.is-marked { box-shadow: inset 0 2px 0 color-mix(in srgb, var(--primary-foreground) 18%, transparent), 1px 1px 0 var(--frame); }
 .editor-card { border-color: var(--frame); box-shadow: 5px 5px 0 var(--border); }
@@ -48,7 +48,7 @@ body { background-image: radial-gradient(var(--border) .65px, transparent .65px)
   .sidebar { top: 68px; gap: 32px; padding: 28px 16px 24px; }
   .brand-name { font-size: 9px; }
   .view-nav { gap: 14px; }
-  [data-slot="button"].nav-button { gap: 12px; min-height: 52px; padding: 12px; font-size: 11px; }
+  [data-slot="button"].nav-button { gap: 12px; min-height: 52px; padding: 12px; font-size: 17px; }
   .nav-button > svg { width: 20px; height: 20px; }
   .sidebar-note { font-size: 13px; }
 }

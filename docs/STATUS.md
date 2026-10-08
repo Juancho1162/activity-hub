@@ -18,12 +18,23 @@ público. `/presentacion` y sus subrutas redirigen a la landing.
 
 ## Trabajo
 
+- [ ] Revisar visualmente la prueba local de tipografía en landing y aplicación: Chakra Petch para lectura/controles y Press Start 2P para marca/títulos principales. Capturas de la landing actualizadas; `presentations/` sin cambios. Pendiente de aceptación antes de integrar/publicar.
 - [ ] MCP de Activity Hub: concretar autenticación antes de implementar el conector de pi; distinto del MCP de administración de Cloudflare disponible para desarrollo.
 - [ ] Capacidad/coste bajo carga, copia externa y restauración: pendientes de validar.
 - [ ] Safari/iPhone físico: pendiente.
 - [ ] Información/LLM y notificaciones: diseño conservado en [APP.md](APP.md#6-ampliación-de-información-y-aprendizaje--diseño-aplazado), desarrollo aplazado. Modelos mentales siguen separados.
 
 ## Verificación vigente
+
+**Prueba local de tipografía, 2026-10-08 (sin publicar).** Build/tipos y 264
+pruebas frontend pasan. `npm run test:browser` comprueba landing y aplicación
+en Firefox/Brave, temas claro/oscuro, ES/EN y tamaños de móvil/escritorio.
+Capturas de landing y aplicación revisadas en la sesión principal; las cuatro
+imágenes de ejemplo se regeneran con cuentas locales desechables. Chakra Petch
+se sirve localmente con su licencia, sin peticiones a Google Fonts en ejecución.
+Preview disponible durante esta sesión en `http://127.0.0.1:8788/` y `/app/`, con
+D1 local separada en `backend/.state/typography-preview`. El puerto 8787 ya estaba
+ocupado. La aceptación visual sigue pendiente; no se ha hecho merge ni despliegue.
 
 **Landing simplificada y capturas reales verificadas, 2026-10-08.**
 `npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build y dry-run,
@@ -43,5 +54,7 @@ físico, coste bajo carga y restauración de D1 siguen pendientes.
 
 ## Siguiente paso
 
-Para la siguiente mejora, verificar y revisar antes de integrar la PR: el merge
-en `main` activa producción. Comprobar el build remoto y ejecutar el smoke después.
+Revisar la prueba tipográfica local. Antes de preparar su integración, conciliar
+los cambios posteriores de `origin/main` (esta prueba parte de `1d44d13`) y
+completar la verificación de publicación. El merge en `main` activa producción;
+requiere la aceptación de la prueba y autorización de integración.

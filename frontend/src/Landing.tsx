@@ -10,14 +10,14 @@ export default function Landing() {
   return <div className="landing">
     <a className="skip-link" href="#contenido">{t("Ir al contenido")}</a>
     <header className="landing-header">
-      <div className="landing-brand"><PlantLogo /><span>Activity Hub</span></div>
+      <div className="landing-brand"><PlantLogo /><span className="retro">Activity Hub</span></div>
       <div className="app-controls landing-controls"><LanguageSelect /><ThemeToggle /></div>
     </header>
     <main id="contenido">
       <section className="landing-hero" aria-labelledby="landing-title">
         <div className="landing-intro">
           <p className="landing-eyebrow">{t("UN ESPACIO PARA TUS FRENTES")}</p>
-          <h1 id="landing-title">{t("Tus proyectos, estudios y aficiones,")} <span>{t("en un mismo lugar.")}</span></h1>
+          <h1 id="landing-title" className="retro">{t("Tus proyectos, estudios y aficiones,")} <span>{t("en un mismo lugar.")}</span></h1>
           <p className="landing-lead">{t("Organiza lo que te importa. Marca los días que le dedicas tiempo y observa tu actividad.")}</p>
           <div className="landing-actions"><Button asChild><a href="/app/">{t("Empezar")}<ArrowRight aria-hidden="true" size={16} /></a></Button><a className="landing-secondary" href="/app/">{t("Ya tengo cuenta")}</a></div>
         </div>
@@ -40,6 +40,6 @@ export default function Landing() {
         <div className="landing-privacy-copy"><p>{t("Tu contenido se cifra en el navegador. Accedes con un único código privado, sin usuario ni correo.")}</p><p className="landing-code-warning">{t("Guarda tu código: no hay recuperación.")}</p></div>
       </section>
     </main>
-    <footer className="landing-footer"><span>Activity Hub</span><span>{t("Tu registro de actividad, sencillo y privado.")}</span></footer>
+    <footer className="landing-footer"><span className="retro">Activity Hub</span><span>{t("Tu registro de actividad, sencillo y privado.")}</span></footer>
   </div>
 }
