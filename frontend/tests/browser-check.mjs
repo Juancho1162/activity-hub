@@ -55,6 +55,7 @@ try {
     'user_pref("browser.shell.checkDefaultBrowser", false);',
     'user_pref("browser.startup.homepage_override.mstone", "ignore");',
     'user_pref("browser.startup.homepage", "about:blank");',
+    'user_pref("intl.accept_languages", "es-ES, es");',
     'user_pref("datareporting.policy.dataSubmissionEnabled", false);',
     'user_pref("datareporting.healthreport.uploadEnabled", false);',
     'user_pref("toolkit.telemetry.enabled", false);',
@@ -1072,6 +1073,75 @@ try {
   assert.equal(await evaluate("fetch('/api/fronts').then(r=>r.status)"), 401)
   await navigate()
   await waitFor(() => evaluate("document.querySelector('#access-code') !== null"), "logout survives reload")
+
+  // Exercise the second language against the same real encrypted account,
+  // after legacy Spanish/storage contracts have been checked above.
+  async function chooseLanguage(language, ctx = context) {
+    await evaluate(`(() => {const select=document.querySelector('.language-picker select');select.value=${JSON.stringify(language)};select.dispatchEvent(new Event('change',{bubbles:true}));return true})()`, ctx)
+    await waitFor(() => evaluate(`document.documentElement.lang===${JSON.stringify(language)}`, ctx), `language ${language}`)
+  }
+  await evaluate(`(() => {window.__languageInput=document.getElementById('access-code');window.__languageInput.value=${JSON.stringify(codeA)};window.__languageInput.focus();return true})()`)
+  await chooseLanguage("en")
+  assert.equal(await evaluate(`document.getElementById('access-code')===window.__languageInput && document.activeElement===window.__languageInput && window.__languageInput.value===${JSON.stringify(codeA)}`), true, "Language preserves an autofilled password and its focus without React input events")
+  assert.equal(await evaluate("document.title==='Activity Hub · Your activity log' && document.querySelector('#login-form [type=submit]').textContent==='Sign in' && localStorage.getItem('activity-hub.language')==='en'"), true, "English document and sign-in affordances")
+  for (const theme of ["light", "dark"]) {
+    await chooseTheme(theme)
+    await screenshot(`login-english-${theme}-320`, 320, 780)
+    await assertTextContrast([[".language-picker select"], ["#access-code"], [".auth-form [type=submit]"]])
+  }
+  await navigate()
+  await waitFor(() => evaluate("document.documentElement.lang==='en' && document.getElementById('access-code')!==null"), "English selection survives reload")
+  assert.equal(await evaluate("document.getElementById('access-code').value===''"), true, "Reload requires the key; language storage never saves credentials")
+  await inputValue("access-code", codeA)
+  await click("Sign in")
+  await waitFor(() => evaluate("document.querySelector('.daily-list .front-card')!==null"), "English authenticated log")
+  await click("New focus area")
+  await waitFor(() => evaluate("document.activeElement?.id==='front-name'"), "English editor initial focus")
+  await inputValue("front-name", "Borrador sin traducir — {name}")
+  await inputValue("front-reference", "https://example.org/doc?q=castellano")
+  await evaluate("window.__languageDraft=document.getElementById('front-name');window.__languageDraft.focus();performance.clearResourceTimings();true")
+  for (const language of ["es", "en"]) {
+    await chooseLanguage(language, otherTab)
+    await waitFor(() => evaluate(`document.documentElement.lang===${JSON.stringify(language)}`), "real cross-tab language event")
+    assert.equal(await evaluate("document.getElementById('front-name')===window.__languageDraft && document.activeElement===window.__languageDraft && window.__languageDraft.value==='Borrador sin traducir — {name}' && document.getElementById('front-reference').value==='https://example.org/doc?q=castellano'"), true, "Real storage events retain editor values, DOM and focus")
+  }
+  assert.equal(await evaluate("performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname.startsWith('/api/')).length"), 0, "Language never reads/writes activity")
+  for (const theme of ["light", "dark"]) {
+    await chooseTheme(theme, otherTab)
+    await waitFor(() => evaluate(`document.documentElement.dataset.theme===${JSON.stringify(theme)}`), "cross-tab editor theme")
+    await screenshot(`editor-english-${theme}-320`, 320, 780)
+  }
+  await click("Cancel")
+  await click("Dashboard")
+  await waitFor(() => evaluate("document.querySelector('.coverage-value')!==null && !document.querySelector('main').inert"), "English dashboard with real history")
+  await inputValue("period-start", offsetDay(periodEnd, 6))
+  await inputValue("period-end", periodEnd)
+  await waitFor(() => evaluate("!document.querySelector('main').inert && document.querySelector('.coverage-value')!==null"), "English seven-day period")
+  assert.equal(await evaluate("[...document.querySelectorAll('.period-count')].every(el=>el.textContent.includes('of 7 days recorded'))"), true, "English inclusive day count")
+  assert.equal(await evaluate("[...document.querySelectorAll('.coverage-value')].every(el=>el.getAttribute('aria-label').includes('% of selected days'))"), true, "English accessible percentages")
+  await evaluate("document.querySelector('.calendar-details summary').click();window.__languageCard=document.querySelector('.front-card');performance.clearResourceTimings();true")
+  const englishDates = Array.from({length: 7}, (_, index) => offsetDay(periodEnd, 6-index)).map(day => ({day, label: new Intl.DateTimeFormat("en-GB", {timeZone: "UTC", day: "numeric", month: "short"}).format(new Date(`${day}T12:00:00Z`))}))
+  assert.equal(await evaluate(`(() => {const expected=${JSON.stringify(englishDates)};return [...document.querySelectorAll('.calendar-tile time')].every(el=>expected.some(date=>date.day===el.getAttribute('datetime') && date.label===el.textContent))})()`), true, "Calendar tiles use English dates while retaining ISO calendar days")
+  for (const theme of ["light", "dark"]) {
+    await chooseTheme(theme)
+    for (const width of [1366, 768, 390, 320]) {
+      await command("browsingContext.setViewport", { context, viewport: {width, height: 900}, devicePixelRatio: 1 })
+      // Open the current visual row at each width, as the user's action does.
+      // An earlier mobile disclosure is intentionally retained on resize.
+      await evaluate("(() => {for(const details of document.querySelectorAll('.calendar-details'))details.open=false;document.querySelector('.calendar-details summary').click();return true})()")
+      await evaluate("window.scrollTo(0,0);true")
+      await screenshot(`dashboard-english-${theme}-${width}`, width, 900)
+      await assertDashboardRowGeometry(`english/${theme}/${width}`)
+    }
+    await assertTextContrast([[".language-picker select"], [".session-controls p", ".app-controls"], [".period-count", ".front-card [data-slot=card]"], [".calendar-tile:not(.is-marked)"]])
+  }
+  assert.equal(await evaluate("document.querySelector('.front-card')===window.__languageCard && performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname.startsWith('/api/')).length===0"), true, "Theme and English layout retain history without activity requests")
+  await click("Trash")
+  await waitFor(() => evaluate("document.body.textContent.includes('The trash is empty')"), "English trash empty state")
+  await screenshot("trash-english-dark-320", 320, 780)
+  assert.equal(await evaluate("sessionStorage.length===0 && localStorage.length===2 && localStorage.getItem('activity-hub.language')==='en' && localStorage.getItem('activity-hub.theme')==='dark'"), true, "Only whitelisted language/theme preferences persist")
+  await click("Sign out")
+  await waitFor(() => evaluate("document.body.textContent.includes('Signed out on this device.')"), "English logout notice")
   await writeFile(join(output, "row-geometry.json"), JSON.stringify(rowGeometryChecks, null, 2))
   await writeFile(join(output, "daily-geometry.json"), JSON.stringify(dailyGeometryChecks, null, 2))
   console.log("Primary JavaScript/workerd/D1. Real signup: two empty private accounts, code ACK before login, permanent-code reuse, no recovery; local assets and responsive 1366/390px")
@@ -1083,6 +1153,7 @@ try {
   console.log("Calendars: inclusive percentages, native Enter/Space and visible focus, opening/closing the current responsive row while preserving other rows; visible full period/year and all tile dates, no activity requests for themes/layout/disclosure")
   console.log(`Palettes: ${contrastChecks} checked text/icon/surface pairs at least 4.5:1; no horizontal overflow or card-frame overflow in captured views`)
   console.log("Themes: one-click light/dark, system default, reload persistence, login/signup/editor/pending intent retained; preference-only storage")
+  console.log("Languages: English/Spanish access and account controls, persisted preference, real cross-tab draft/focus retention, native autofill, English seven-day dates/counts/percentages and trash; no extra activity requests or credential storage")
   console.log("Native autofill: no React events; preserved through real focus/pageshow/visibility session checks and themes, same input/focus, explicit login/decryption and credential cleared on submit")
   console.log("Mobile layout: 15 daily widths including 361/375/600/601/640px in both themes; controls do not overlap, primary labels remain visible, filters disclose correctly, landscape and short scrolling editors pass")
   console.log("Password forms: native signup password/account identifier, reveal/copy/ACK retained; successful SPA sign-in signals completion after removing the form")

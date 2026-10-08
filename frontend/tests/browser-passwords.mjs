@@ -74,6 +74,12 @@ try {
   })()` }, sessionId)
   await command("Page.navigate", { url: url.origin }, sessionId)
   await until(() => evaluate("!!document.getElementById('access-code')"), "private entry form")
+  // Choose through the UI in this disposable profile; never assume the Mac's language.
+  const chooseLanguage = async language => {
+    await evaluate(`(() => {const select=document.querySelector('.language-picker select');select.value=${JSON.stringify(language)};select.dispatchEvent(new Event('change',{bubbles:true}));return true})()`)
+    await until(() => evaluate(`document.documentElement.lang===${JSON.stringify(language)}`), `apply ${language}`)
+  }
+  await chooseLanguage("es")
   assert.equal(await evaluate("isSecureContext && typeof PasswordCredential==='function' && typeof navigator.credentials.store==='function'"), true, "real Chromium password API is available")
   await evaluate("document.querySelector('.auth-signup').click();true")
   await until(() => evaluate("!!document.getElementById('signup-code')"), "native signup password")
@@ -94,7 +100,10 @@ try {
   await evaluate("document.getElementById('access-code').value='wrong-test-code';document.querySelector('#login-form [type=submit]').click();true")
   await until(() => evaluate("!!document.getElementById('auth-error')"), "rejected code")
   assert.equal(await evaluate("window.__offers.length===1"), true, "rejected codes are never offered")
-  await evaluate("document.getElementById('access-code').value=window.__fixtureCode;document.querySelector('#login-form [type=submit]').click();true")
+  await evaluate("window.__autofilled=document.getElementById('access-code');window.__autofilled.value=window.__fixtureCode;window.__autofilled.focus();true")
+  await chooseLanguage("en")
+  assert.equal(await evaluate("document.getElementById('access-code')===window.__autofilled && document.activeElement===window.__autofilled && window.__autofilled.value===window.__fixtureCode && document.getElementById('auth-error').textContent.includes('Incorrect code. Check your private code and try again.')"), true, "language changes retain native autofill, input identity and focus while translating errors")
+  await evaluate("document.querySelector('#login-form [type=submit]').click();true")
   await until(() => evaluate("!!document.querySelector('.app-shell')"), "native autofill without React events")
   assert.equal(await evaluate("window.__offers.length===2 && window.__offers.every(c=>c.native && c.correct && c.id===window.__offers[0].id) && window.__credentialReads===0 && !window.__rawCodeSent"), true, "explicit sign-in offers the original code without automatic retrieval or plaintext requests")
   for (const view of ["daily", "dashboard"]) {
@@ -102,7 +111,10 @@ try {
       await evaluate("document.querySelectorAll('.view-nav button')[1].click();true")
       await until(() => evaluate("document.querySelector('h1')?.textContent==='Dashboard' && document.querySelector('main').getAttribute('aria-busy')==='false'"), "dashboard layout")
     }
-    for (const width of [320, 361, 375, 390, 428, 600, 601, 640, 768, 960, 1366]) {
+    for (const language of ["es", "en"]) for (const theme of ["light", "dark"]) {
+      await chooseLanguage(language)
+      await evaluate(`(() => {if(document.documentElement.dataset.theme!==${JSON.stringify(theme)})document.querySelector('.theme-toggle').click();return true})()`)
+      for (const width of [320, 361, 375, 390, 428, 600, 601, 640, 768, 960, 1366]) {
       await command("Emulation.setDeviceMetricsOverride", { width, height: 844, deviceScaleFactor: 1, mobile: width <= 600 }, sessionId)
       await evaluate("document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>resolve(true))))")
       assert.equal(await evaluate(`(() => {
@@ -113,11 +125,12 @@ try {
           return controls.every((a,i)=>a.height>=43.5 && a.left>=bounds.left-.5 && a.right<=bounds.right+.5
             && controls.slice(i+1).every(b=>Math.min(a.right,b.right)-Math.max(a.left,b.left)<1 || Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)<1));
         });
-      })()`), true, `Chromium ${view}/${width}: controls fit without overlap and keep touch height`)
+      })()`), true, `Chromium ${view}/${language}/${theme}/${width}: controls fit without overlap and keep touch height`)
+      }
     }
   }
   console.log("Chromium/Brave: real PasswordCredential and native store invoked after verified signup/login; rejected code, native autofill, no automatic credential retrieval or plaintext code requests pass")
-  console.log("Chromium layout: registration/dashboard pass at 11 widths from 320 to 1366 px; actual save-dialog visibility/acceptance remains browser controlled and is not asserted in headless mode")
+  console.log("Chromium layout: both languages/themes, registration/dashboard pass at 11 widths from 320 to 1366 px; actual save-dialog visibility/acceptance remains browser controlled and is not asserted in headless mode")
 } finally {
   socket?.close()
   if (browser && browser.exitCode === null && browser.signalCode === null) {

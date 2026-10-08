@@ -34,6 +34,7 @@ try {
     'user_pref("browser.shell.checkDefaultBrowser", false);',
     'user_pref("browser.startup.homepage_override.mstone", "ignore");',
     'user_pref("browser.startup.homepage", "about:blank");',
+    'user_pref("intl.accept_languages", "es-ES, es");',
     'user_pref("datareporting.policy.dataSubmissionEnabled", false);',
     'user_pref("datareporting.healthreport.uploadEnabled", false);',
     'user_pref("toolkit.telemetry.enabled", false);',

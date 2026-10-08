@@ -3,8 +3,13 @@
    Dots stay in the outer gutter; reading surfaces remain opaque. */
 /* Decorative frames can be quieter than interactive control boundaries. */
 :root { --frame: var(--ring); }
-:root[data-theme="dark"] { --frame: #50534e; }
+:root[data-theme="dark"] { --frame: #485260; }
 body { background-image: radial-gradient(var(--border) .65px, transparent .65px); background-size: 12px 12px; }
+:root[data-theme="dark"] body { background-image: none; }
+:root[data-theme="dark"] .sidebar,
+:root[data-theme="dark"] [data-slot="bit-card"].front-card,
+:root[data-theme="dark"] .editor-card { box-shadow: 0 4px 12px #0000001f; }
+:root[data-theme="dark"] .coverage-value { text-shadow: none; }
 .app-controls { background: var(--background); }
 .sidebar { border: 2px solid var(--frame); box-shadow: 4px 4px 0 var(--border); }
 .sidebar::before { content: ""; position: absolute; top: -2px; left: 20px; width: 34px; height: 4px; background: var(--link); }
