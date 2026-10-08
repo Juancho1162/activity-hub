@@ -14,7 +14,8 @@ Para documentación: diff, enlaces y coherencia; no afirmar pruebas funcionales 
 
 ## Publicación
 
-<!-- Indicar si necesita migración/despliegue o solo documentación.
-La integración en main no publica en Cloudflare. Tras publicar, registrar commit,
+<!-- Indicar si necesita migración o solo documentación.
+Cada push a main activa Cloudflare Builds, incluso para documentación. Integrar
+requiere autorización para publicar. Tras publicar, registrar commit,
 versión y comprobaciones en docs/STATUS.md y CHANGELOG.md; mantener el README como
 presentación y guía de uso. No incluir códigos, tokens ni datos personales. -->

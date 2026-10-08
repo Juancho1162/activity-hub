@@ -51,29 +51,43 @@ Cada cambio sigue estos pasos desde la raíz con **Node 26**:
 
 Repositorio: **[Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub)**, actualmente público. `origin` apunta a ese repositorio; `main` conserva el trabajo integrado y `feature/information-agent` mantiene la ampliación aplazada. `docs/APP.md` mantiene las reglas, `docs/STATUS.md` el estado actual y `CHANGELOG.md` los cambios completados y su evidencia. El README raíz permanece como presentación y guía de uso: no añadirle registros de cambios ni versiones de despliegue. Las PR describen cada cambio y su verificación.
 
-1. Comprobar `git status`, rama y remoto; ejecutar `git fetch origin` y actualizar `main` con `git pull --ff-only origin main` cuando esté limpio y sea posible. Crear una rama `feature/...`, `fix/...` o `chore/...` desde ese `main`. Inspeccionar divergencias o cambios ajenos antes de actuar. Reutilizar la especificación, añadir regresiones significativas y aplicar cambios. `npm run migrate` aplica solo el esquema local; `npm run dev` arranca la aplicación sin migrar por su cuenta.
-2. Para cambios ejecutables, ejecutar `npm run verify`: sintaxis, tests backend/frontend, tipos/build, los dos recorridos Firefox, los recorridos Brave/Chromium privados y de la landing. Las pruebas usan datos temporales. Si falla algo, corregir y repetir las comprobaciones afectadas; la publicación exige finalmente el conjunto completo. Para cambios solo de documentación, revisar el diff, enlaces y coherencia de las instrucciones; no reconstruir ni publicar la app.
-3. Revisar el cambio y sus pruebas, incluyendo revisión independiente para seguridad, datos y reglas de negocio. Actualizar `docs/APP.md` si cambian las reglas y `docs/STATUS.md` al alcanzar un hito. No editar código mientras el revisor inspecciona la instantánea.
-4. Si procede publicar código, ejecutar `npm run release:prepare`. Reutiliza una verificación coincidente o ejecuta `verify`; valida el destino y los bindings, empaqueta con Wrangler dry-run y copia Worker, assets, configuración y migraciones en `.release/build-…/`. Guarda hashes del código y artefacto. No publica ni modifica Git.
-5. Registrar únicamente los archivos del cambio, subir la rama y abrir una PR con base explícita `main` y la [plantilla del repositorio](../.github/PULL_REQUEST_TEMPLATE.md). Indicar resultados reales y comprobaciones pendientes; dejarla como borrador si está incompleta. Antes de integrar, comprobar el último commit, la revisión y los checks configurados. Integrar la PR con merge commit y sin saltarse protecciones; actualizar el `main` local mediante fast-forward desde `origin/main`. Los comandos remotos de publicación exigen `main` y árbol limpio; no hacen commits, merges ni push por su cuenta. Subir o integrar código en GitHub y publicarlo en Cloudflare son pasos separados.
-6. Si hay migraciones pendientes, revisarlas para que sean compatibles con la versión aún activa y ejecutar **`npm run release:migrate`**. Registra antes versiones del Worker y punto de Time Travel en `.release/before-migration.json`; aplica las migraciones congeladas a la D1 remota. No es un ensayo: modifica producción.
-7. Ejecutar **`npm run release:deploy`**. Revalida código/artefacto, destino, árbol limpio, nombre del secreto Turnstile y presencia del esquema. Publica el bundle congelado con `--no-bundle` y comprueba web, CSP, salud, 401/no-store en rutas privadas y rechazo de alta sin CAPTCHA. Registra commit/hash/fecha localmente. Si falla la comprobación posterior, el despliegue puede haber ocurrido: inspeccionar antes de repetir.
-8. Completar el recorrido remoto proporcional al cambio, registrar PR, commit desplegado, versión y resultado en `docs/STATUS.md` y añadir al `CHANGELOG.md` la evidencia útil; incorporar ese registro a GitHub. No duplicar el historial en el README ni acumular en el estado publicaciones anteriores. Para Turnstile: un alta con token real y fresco y rechazo de ese mismo token al reutilizarlo. Los tokens ficticios y mocks no acreditan esta integración real.
+Cloudflare Builds está conectado a GitHub: los pushes a `main`, incluidos cambios
+solo de documentación, compilan y publican en producción. Integrar una PR en esa
+rama implica publicar; comprobar la autorización y las pruebas antes del merge.
 
-Comandos habituales:
+Configuración del trigger de producción:
+
+- Directorio raíz: `backend`; variable de build `NODE_VERSION=26`.
+- Build: `npm ci && npm --prefix ../frontend ci && npm --prefix ../frontend run build`.
+- Deploy: `npx wrangler deploy --env production` (Wrangler fijado en el lockfile del backend).
+- Rama: `main`; rutas incluidas: `*`; previews desactivadas.
+
+1. Comprobar rama, remoto y cambios locales; actualizar `main` mediante fast-forward y trabajar en una rama acotada. Mantener las reglas en `docs/APP.md` y el estado en `docs/STATUS.md`.
+2. Para cambios ejecutables, ejecutar `npm run verify` y revisar los resultados antes de integrar. Incluye tests backend/frontend, tipos/build y recorridos Firefox/Brave. Cloudflare solo instala dependencias, comprueba tipos, compila y despliega: no sustituye estas pruebas. Para documentación, revisar diff, enlaces y coherencia.
+3. Revisar el cambio, con revisión independiente para seguridad, datos y reglas de negocio. Abrir una PR a `main` con la plantilla y evidencia real; comprobar su último commit y checks antes de integrar.
+4. Si hay migraciones, planificar su orden y compatibilidad antes del merge. El build automático no aplica migraciones ni comprueba el esquema. No integrar cambios que dependan de un esquema todavía ausente; las migraciones remotas siguen siendo explícitas y requieren su revisión/autorización.
+5. Integrar mediante merge commit sin saltarse protecciones. Cloudflare obtiene ese commit de GitHub y publica Worker y assets. Seguir el build hasta su resultado; un merge por sí solo no demuestra un despliegue correcto.
+6. Ejecutar `npm run release:smoke` y el recorrido remoto proporcional al cambio. Registrar evidencia en el estado/historial. Si el build o smoke falla, inspeccionar la versión activa antes de repetir. El registro posterior de documentación también activa un build.
+
+Los comandos manuales siguen disponibles cuando se necesita publicar un artefacto
+local verificado. No ejecutarlos además del build automático para el mismo cambio:
 
 ```sh
 npm run verify
 npm run release:prepare
-# Después de revisión y de incorporar explícitamente el cambio a main:
-npm run release:migrate   # solo si procede aplicar migraciones revisadas
-npm run release:deploy
-npm run release:smoke     # se puede repetir; no crea cuentas
+npm run release:migrate   # solo migraciones revisadas y autorizadas
+npm run release:deploy    # publicación manual explícita desde main limpio
+npm run release:smoke     # también sirve tras Cloudflare Builds; no crea cuentas
 ```
+
+`release:prepare` congela Worker, assets, configuración y migraciones con hashes;
+`release:deploy` revalida el artefacto y publica con `--no-bundle`. El build remoto
+compila desde GitHub y no utiliza ese artefacto local ni actualiza
+`.release/last-deployment.json`: consultar sus logs y las versiones de Cloudflare.
 
 `.release/` contiene evidencia y artefactos locales ignorados por Git; no es una copia de D1. Si cambia código/configuración/tests, o se modifica el artefacto, hay que volver a prepararlo. Editar solo Markdown no cambia el artefacto ejecutable; el árbol debe quedar limpio igualmente. No añadir secretos a argumentos, repositorio, configuración versionada ni assets. Los builds locales aíslan configuración y credenciales de Wrangler; los comandos remotos usan la autenticación del operador y el archivo vacío `scripts/no-secrets.txt`.
 
-Wrangler puede sobrescribir configuración del panel: reconciliar cambios operativos con `wrangler.jsonc`. No pasar `--name activity-hub` junto a `--env production`; en esta versión de Wrangler se puede interpretar como nombre base y añadir un sufijo. El nombre del destino ya está fijado dentro del entorno. Observabilidad y URL de versiones permanecen deshabilitadas por la decisión de privacidad del proyecto. No se han configurado CI, despliegues automáticos ni recursos de staging.
+Wrangler puede sobrescribir configuración del panel: reconciliar cambios operativos con `wrangler.jsonc`. No pasar `--name activity-hub` junto a `--env production`; en esta versión de Wrangler se puede interpretar como nombre base y añadir un sufijo. El nombre del destino ya está fijado dentro del entorno. Observabilidad y URL de versiones permanecen deshabilitadas por la decisión de privacidad del proyecto. Cloudflare Builds realiza el despliegue automático; no hay GitHub Actions ni recursos de staging.
 
 Para subir una rama y preparar su PR, con la sesión existente de GitHub CLI:
 

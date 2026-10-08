@@ -65,7 +65,7 @@ Abre **http://127.0.0.1:8787** para la landing, **http://127.0.0.1:8787/app/** p
 
 React/TypeScript y Vite en el frontend; JavaScript, Cloudflare Workers y D1 en el backend. La plantita 8-bit es un SVG local, con animación que puedes pausar y respeto por movimiento reducido.
 
-Antes de publicar código, el [workflow de desarrollo](backend/README.md#flujo-de-cambio-pruebas-y-publicación) exige rama, pruebas y revisión, PR, integración en `main` y despliegue del artefacto verificado. `npm run release:prepare` reúne las comprobaciones; los recorridos de navegador usan Firefox/Brave y perfiles temporales en macOS, y las pruebas diferenciales requieren la [referencia Python](experiments/python-sqlite/README.md). Para trabajar con las slides conservadas, sigue su README; sus dependencias y verificaciones son independientes.
+Antes de publicar código, el [workflow de desarrollo](backend/README.md#flujo-de-cambio-pruebas-y-publicación) exige rama, pruebas y revisión antes de integrar la PR en `main`: Cloudflare Builds compila y despliega automáticamente cada push a esa rama. El build remoto no ejecuta la batería de pruebas. `npm run verify` reúne las comprobaciones locales; los recorridos de navegador usan Firefox/Brave y perfiles temporales en macOS, y las pruebas diferenciales requieren la [referencia Python](experiments/python-sqlite/README.md). Para trabajar con las slides conservadas, sigue su README; sus dependencias y verificaciones son independientes.
 
 ## Documentación
 

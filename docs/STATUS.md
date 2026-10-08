@@ -6,7 +6,7 @@
 
 La [web](https://activity-hub.software-juancho-prego-gundin.workers.dev) permite registrar actividad por frente y día, consultar porcentajes/calendarios por período y gestionar una Papelera recuperable con borrado permanente confirmado. Interfaz 8-bit con plantita humanoide animada y pausa accesible, adaptable a móvil, castellano/inglés con detección del navegador, tema claro y oscuro cálido con verde hoja y terracota. Código fijo por cuenta y contenido cifrado en el navegador, CAPTCHA, máximo inicial de 100 cuentas y límites de uso.
 
-Último código publicado: `63df8df`, [PR #12](https://github.com/Juancho1162/activity-hub/pull/12), versión `0b3dcfe3-1b1a-47f4-b353-24935ebf68b2`. El código y la documentación están en [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub), que GitHub muestra actualmente como público. Sin GitHub Actions, protección de main ni despliegue automático. La referencia Python y los laboratorios visuales siguen en `experiments/`; no sirven la aplicación publicada.
+Código funcional publicado: `63df8df`, [PR #12](https://github.com/Juancho1162/activity-hub/pull/12). Cloudflare Builds está conectado a [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub): cada push a `main`, incluso de documentación, compila y publica. Configuración: raíz `backend`, Node 26, entorno `production`, sin previews. El build remoto no ejecuta la batería de pruebas ni migraciones. Sin GitHub Actions ni protección de main. La referencia Python y los laboratorios siguen en `experiments/`; no sirven la aplicación publicada.
 
 La portada `/` presenta el producto y permanece pública siempre; `/app/` abre el
 acceso privado. La landing reutiliza identidad, temas e idiomas de la app. Sus
@@ -23,37 +23,25 @@ público. `/presentacion` y sus subrutas redirigen a la landing.
 
 ## Verificación vigente
 
-**Retirada de la presentación verificada y publicada, 2026-10-08.**
-`npm run release:prepare` pasa con 37 pruebas backend y 264 frontend, tipos/build,
-recorridos de cifrado y UI en Firefox, autocompletado y geometría en Brave, y dry-run.
-La regresión HTTP falló antes del cambio y pasa después. El recorrido público
-comprueba ausencia de enlaces a slides, redirección de URL antigua con beat,
-ES/EN, claro/oscuro, preferencias tras recarga y anchos 1366/390/320. Conserva
-plantita, pausa, movimiento reducido y CTA al acceso. Capturas revisadas.
-Revisión en la sesión principal, sin revisión independiente para este ajuste acotado.
+**Cloudflare Builds verificado contra GitHub, 2026-10-08.**
+Build `a9d2db7c-4bbb-4709-a485-e10efecc96b9`, iniciado mediante API para
+`main` en `7c631db`, terminado con `success`. Instalación con Node 26.11.1,
+tipos/build y publicación correctos; versión `f3172b15-3b2b-4a30-a75b-1ee7f788c82d`
+activa al 100 %. No hubo cambios ejecutables frente a `63df8df` ni migraciones.
 
-Artefacto `build-126c58c8-13e6-4d37-af2e-375c61b8db19`, huella ejecutable
-`51aea5eaa7417b1db8a8ce64caec4b826f644fa82e72e54950ce8c4a78b6740b`, hash
-`6981eae84d1cf451cdbaeda014cf4b98a60406de72f81e806998f88f71d6c36a`.
-No hay cambios de API, autenticación, cifrado, migraciones o dependencias.
-La presentación conserva su código y verificación independiente, fuera de la
-publicación web; no se modificó su diseño ni motor.
+`npm run release:smoke` pasa contra producción: landing, acceso/CSP,
+redirecciones antiguas, salud, rutas privadas con 401/no-store y rechazo de alta
+sin CAPTCHA. No se crearon cuentas ni actividad. Revisión de documentación en la
+sesión principal, sin revisión independiente. La PR de configuración registra
+además el resultado del build por push al integrar esta documentación.
 
-`npm run release:deploy` publicó desde main limpio. El smoke comprueba landing,
-acceso/CSP, redirecciones antiguas, salud, 401/no-store y rechazo de alta sin CAPTCHA.
-Los 12 archivos públicos coinciden byte por byte con el artefacto. Brave contra
-producción pasa ES/EN, claro/oscuro a 1366/390/320 px, preferencias tras recarga,
-ausencia de peticiones privadas en la landing y recorrido acceso → landing.
-Las URLs antiguas, incluidos recursos y enlace con beat, vuelven a la portada.
-Captura remota revisada. No se crearon cuentas ni actividad; el recorrido de
-navegador bloqueó todas las escrituras.
-
-GitHub confirma PR #12 integrada, sin checks de CI ni revisiones remotas.
-La evidencia anterior se conserva en [CHANGELOG](../CHANGELOG.md). Las pruebas no
-acreditan Safari/iPhone físico, comodidad durante uso prolongado, coste alojado
-ni recuperación de D1. Registro posterior de documentación sin otro despliegue.
+La verificación funcional anterior (37 pruebas backend, 264 frontend y recorridos
+Firefox/Brave) se conserva en [CHANGELOG](../CHANGELOG.md); no se repitió para este
+cambio solo documental. Cloudflare recompila desde GitHub y no actualiza el
+registro local `.release/last-deployment.json`. Safari/iPhone físico, coste bajo
+carga y restauración de D1 siguen pendientes.
 
 ## Siguiente paso
 
-El incremento solicitado está terminado. Para la siguiente mejora, mantener el
-workflow de rama, pruebas, revisión, PR y despliegue verificado.
+Para la siguiente mejora, verificar y revisar antes de integrar la PR: el merge
+en `main` activa producción. Comprobar el build remoto y ejecutar el smoke después.
