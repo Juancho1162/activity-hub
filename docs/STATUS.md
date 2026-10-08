@@ -1,6 +1,6 @@
 # Estado de Activity Hub
 
-Última actualización: 2026-10-08. [Producto y reglas](APP.md) · [Historial de cambios](../CHANGELOG.md) · [Operación y publicación](../backend/README.md#flujo-de-cambio-pruebas-y-publicación).
+Última actualización: 2026-10-09. [Producto y reglas](APP.md) · [Historial de cambios](../CHANGELOG.md) · [Operación y publicación](../backend/README.md#flujo-de-cambio-pruebas-y-publicación).
 
 ## Ahora
 
@@ -37,8 +37,14 @@ con los cambios actuales de `main` está verificada y revisada en la
 [PR #18](https://github.com/Juancho1162/activity-hub/pull/18). Merge y publicación
 autorizados; la evidencia del despliegue automático se registra en esa PR.
 
-## Trabajo
+Fondo liso y brotes botánicos en los bordes de la captura de portada y la barra
+lateral de escritorio, aceptados tras la prueba local. Las cuatro capturas públicas
+se han regenerado sin barras de scroll; el generador las oculta solo en su navegador
+de captura y comprueba que no ocupen espacio. La aplicación conserva su desplazamiento.
+Integración y publicación autorizadas; la PR de este cambio recoge el resultado
+del build automático y las comprobaciones remotas.
 
+## Trabajo
 
 - [ ] MCP de Activity Hub: concretar autenticación antes de implementar el conector de pi; distinto del MCP de administración de Cloudflare disponible para desarrollo.
 - [ ] Capacidad/coste bajo carga, copia externa y restauración: pendientes de validar.
@@ -46,6 +52,15 @@ autorizados; la evidencia del despliegue automático se registra en esa PR.
 - [ ] Información/LLM y notificaciones: diseño conservado en [APP.md](APP.md#6-ampliación-de-información-y-aprendizaje--diseño-aplazado), desarrollo aplazado. Modelos mentales siguen separados.
 
 ## Verificación vigente
+
+**Fondo y detalles botánicos verificados, 2026-10-09.** `npm run verify` pasa:
+37 pruebas backend, 264 frontend, tipos/build/dry-run, integración cifrada Firefox
+y UI Firefox/Brave en ES/EN, ambos temas y móvil/escritorio. `npm run release:prepare`
+valida el artefacto y el destino con dry-run. Cuatro capturas regeneradas con datos
+ficticios y comprobación de ausencia de barras. Revisión del diff y capturas en
+la sesión principal, sin hallazgos ni revisión independiente adicional. Sin cambios
+en API, datos, migraciones o dependencias. La evidencia de publicación se registra
+en la PR para evitar otro despliegue provocado solo por documentación.
 
 **Tipografía de landing y aplicación verificada, 2026-10-08.** Prueba local
 aceptada por el usuario. `npm run verify` pasa sobre el cambio conciliado con

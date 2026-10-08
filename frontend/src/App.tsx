@@ -10,6 +10,7 @@ import { createApi, safeReference, type ActivityApi, type DashboardItem, type Da
 import { daysInWindow, formatDay, isDay, shiftDay, todayInMadrid } from "@/lib/dates"
 import { useLanguage } from "@/components/Language"
 import { PlantLogo } from "@/components/PlantLogo"
+import { BotanicalAccent } from "@/components/BotanicalAccent"
 import type { MessageKey } from "@/lib/i18n"
 
 const defaultApi = createApi()
@@ -264,6 +265,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   return <div className="app-shell">
     <a className="skip-link" href="#contenido">{t("Ir al contenido")}</a>
     <aside className="sidebar">
+      <BotanicalAccent />
       <div className="brand"><PlantLogo /><span className="brand-name retro">Activity Hub</span></div>
       <nav className="view-nav" aria-label={t("Vistas")}>
         <Button type="button" variant="ghost" className="nav-button" aria-label={t("Registro diario")} aria-current={requestedView === "daily" ? "page" : undefined} aria-busy={navigating && requestedView === "daily"} onClick={() => chooseView("daily")}><CalendarDays aria-hidden="true" /><span className="nav-label">{t("Registro")}</span></Button>

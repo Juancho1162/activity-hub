@@ -3,6 +3,7 @@ import { LanguageSelect, useLanguage } from "@/components/Language"
 import { ThemeToggle } from "@/components/Theme"
 import { GitHubMark } from "@/components/GitHubMark"
 import { PlantLogo } from "@/components/PlantLogo"
+import { BotanicalAccent } from "@/components/BotanicalAccent"
 import { Button } from "@/components/ui/8bit/button"
 
 /** Public, illustrative product page. No auth client, account state or API. */
@@ -26,6 +27,7 @@ export default function Landing() {
           <div className="landing-actions"><Button asChild><a href="/app/">{t("Empezar")}<ArrowRight aria-hidden="true" size={16} /></a></Button><a className="landing-secondary" href="/app/">{t("Ya tengo cuenta")}</a></div>
         </div>
         <figure className="landing-preview">
+          <BotanicalAccent />
           <img className="landing-preview-light" src={`/previews/registro-${language}-light.webp`} width="1100" height="740" alt={t("Registro diario real: fecha, filtros y tarjetas de frentes con sus checks de actividad.")} />
           <img className="landing-preview-dark" src={`/previews/registro-${language}-dark.webp`} width="1100" height="740" alt={t("Registro diario real: fecha, filtros y tarjetas de frentes con sus checks de actividad.")} />
           <figcaption>{t("Captura de la aplicación con datos de ejemplo.")}</figcaption>

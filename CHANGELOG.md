@@ -2,6 +2,20 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-09 — Fondo liso y detalles botánicos
+
+Retirado el patrón de puntos que cambiaba de visibilidad con el zoom. Brotes
+decorativos en píxel nacen del marco de la captura de portada y de la barra
+lateral de escritorio, con colores adaptados al tema. Las cuatro capturas de la
+app real se han regenerado sin barras de scroll; el generador lo comprueba sin
+alterar el desplazamiento de la aplicación.
+
+Prueba visual aceptada. `npm run verify`: 37 pruebas backend, 264 frontend,
+tipos/build/dry-run e integración/UI Firefox/Brave; `release:prepare` correcto.
+Revisión del diff y capturas en la sesión principal, sin hallazgos. Sin cambios
+de API, datos, migraciones o dependencias. Integración y publicación autorizadas;
+la PR de este cambio registra el commit, build, versión activa y smoke remoto.
+
 ## 2026-10-08 — Chakra Petch en la landing y la aplicación
 
 Chakra Petch para lectura, navegación, controles, formularios y porcentajes;
@@ -392,4 +406,3 @@ Artefacto congelado en `.release/build-bcf292e5-747b-49b8-89ed-c63873026ae2`. Re
 `npm run release:prepare` pasa con **36 pruebas backend y 261 frontend**, tipos/build, dry-run de producción, ambos recorridos Firefox contra Worker/D1 temporal y Brave/Chromium. El primer intento dentro del sandbox falló por la prohibición de abrir puertos locales; la ejecución autorizada fuera del sandbox pasa. Se comprueban **108 pares de texto/icono/superficie de al menos 4,5:1**, y **4 bordes de controles de al menos 3:1** entre ambos temas, siguiendo los criterios de [texto de W3C](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html) y [contraste no textual](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html). La revisión visual incluye el acceso claro y dashboard oscuro a 1366/320 px, con el selector y cierre de sesión compartiendo marco. La revisión del cambio se hizo en la sesión principal, sin revisión independiente. Safari/iPhone físico y comodidad durante uso prolongado siguen sin comprobar.
 
 Artefacto congelado `build-e1671f19-5b7e-4388-8ab7-e6a9a23323a5`, huella ejecutable `064e8b02430e2fd701ac2d21722f39270e51dbe9d4479763ee2c64ee36b9623d`, hash del artefacto `aaba1e32dfc80b91ba54462d72cd1decfa20161b0566d93fcafde2c8699c0ec7`. `npm run release:deploy` publicó desde `main` limpio y pasan las comprobaciones remotas de web/CSP, salud, rechazo sin sesión/no-store y alta sin CAPTCHA. Los seis archivos públicos coinciden byte por byte con el artefacto; `_headers` es configuración interpretada por Cloudflare. Brave contra producción, con un perfil temporal, confirma textos castellano/inglés, conservación del autocompletado y foco, paleta Nord, marco pixelado de idioma, layout a 320/390/1366 px y preferencias tras recargar. No se han creado cuentas ni actividad en producción. GitHub confirma cero workflows de Actions, ninguna revisión ni comprobación CI en la PR y `main` sin protección; el cambio fue revisado y probado localmente. Incremento terminado; este registro se integra mediante una PR de documentación, sin repetir las suites ni desplegar otra vez.
-

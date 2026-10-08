@@ -69,6 +69,11 @@ con sus licencias, sin solicitudes a Google Fonts durante el uso. Se mantienen
 la plantita, paleta y marcos 8-bit. La elección se aprobó tras revisión local;
 no se extiende al material de presentación histórico.
 
+**Detalles botánicos (2026-10-09):** fondo liso en ambos temas y brotes en píxel
+que nacen del borde superior de la captura de portada y de la barra lateral de
+escritorio. Son decorativos, estáticos y ajenos al progreso registrado; se adaptan
+a la paleta del tema. La navegación compacta oculta su brote para conservar espacio.
+
 ### Entrada pública
 
 Decisión del 2026-10-08: `/` muestra siempre una landing pública, también para
@@ -81,7 +86,8 @@ llevan al acceso existente: visitar la landing o seguir un enlace nunca crea una
 cuenta ni registra actividad. Ambos enlaces aparecen una sola vez, junto al texto
 principal; la cabecera no repite el acceso y no hay un bloque final de llamada
 a la acción. La vista del producto usa capturas de la app real con datos
-ficticios, en ambos idiomas y temas, sin consultas a actividad ni datos de cuentas. No hay redirección automática desde `/` según
+ficticios, en ambos idiomas y temas, sin barras de scroll dentro de la imagen ni
+consultas a actividad o datos de cuentas. No hay redirección automática desde `/` según
 sesiones o visitas anteriores ni promesas de funcionalidades futuras disponibles.
 
 Por decisión del usuario, las slides se eliminan del repositorio junto con los

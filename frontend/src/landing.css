@@ -62,7 +62,7 @@
 }
 
 /* Real app captures; display preferences select the matching language and theme. */
-.landing-preview { min-width: 0; margin: 0; }
+.landing-preview { position: relative; min-width: 0; margin: 0; }
 .landing-preview img { width: 100%; height: auto; border: 2px solid var(--frame); box-shadow: 6px 6px 0 var(--border); }
 .landing-preview-dark { display: none; }
 .dark .landing-preview-light { display: none; }
