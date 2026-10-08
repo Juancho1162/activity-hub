@@ -1,57 +1,49 @@
 <p align="center">
-  <img src="frontend/public/plant-logo.svg" width="96" height="96" alt="Plantita humanoide 8-bit de Activity Hub" />
+  <img src="frontend/public/plant-logo.svg" width="96" height="96" alt="Activity Hub's 8-bit plant mascot" />
 </p>
 
 <h1 align="center">Activity Hub</h1>
 
-<p align="center">Tu registro de actividad, sencillo y privado.</p>
+<p align="center">Your activity log, simple and private. Open source under the MIT license.</p>
 
 <p align="center">
-  <a href="https://activity-hub.software-juancho-prego-gundin.workers.dev">Conocer Activity Hub</a> ·
-  <a href="https://activity-hub.software-juancho-prego-gundin.workers.dev/app/">Abrir la aplicación</a> ·
-  <a href="docs/STATUS.md">Estado del proyecto</a> ·
-  <a href="CHANGELOG.md">Historial de cambios</a>
+  <a href="https://activity-hub.software-juancho-prego-gundin.workers.dev">Discover Activity Hub</a> ·
+  <a href="https://activity-hub.software-juancho-prego-gundin.workers.dev/app/">Open the app</a> ·
+  <a href="docs/STATUS.md">Project status</a> ·
+  <a href="LICENSE">MIT license</a>
 </p>
 
-Activity Hub te ayuda a ver en qué estás trabajando y cómo evoluciona tu actividad. Organiza tus proyectos, estudios o aficiones en **frentes** y marca los días en los que trabajas en cada uno.
+Activity Hub helps you see what you are working on and how your activity evolves. Organise your projects, studies and hobbies into **focus areas**, then mark the days you spend time on each one.
 
-## Qué puedes hacer
+## Features
 
-- Crear frentes con nombre, enlace opcional y estado: abierto, standby o archivado.
-- Registrar actividad de hoy o corregir días pasados con un check por frente y día.
-- Consultar porcentajes y calendarios de cualquier período, con fechas visibles.
-- Mover frentes a la Papelera, recuperarlos o eliminarlos para siempre con confirmación.
-- Usar la misma web en móvil y ordenador, en castellano o inglés y con tema claro u oscuro.
+- Create focus areas with a name, an optional link and a status: open, standby or archived.
+- Record today's activity or correct past days with one check per focus area and day.
+- View percentages and calendars for any period, with explicit dates.
+- Move focus areas to Trash, restore them or permanently delete them after confirmation.
+- Use the same app on mobile and desktop, in English or Spanish, with light and dark themes.
 
-Los porcentajes describen los días registrados dentro del período; no son una puntuación ni un objetivo. Un día vacío solo significa que no se ha registrado actividad.
+Percentages describe the days recorded within the selected period; they are not a score or a target. An empty day simply means no activity has been recorded.
 
-## Empezar a usarla
+## Getting started
 
-1. Abre la [web](https://activity-hub.software-juancho-prego-gundin.workers.dev), pulsa **Empezar** y después **Crear cuenta**.
-2. Completa la verificación y guarda el código privado en tu gestor de contraseñas. Confirma que lo has guardado para entrar.
-3. Crea tu primer frente y marca su actividad desde **Registro**. Consulta su evolución en **Dashboard**.
+1. Visit the [website](https://activity-hub.software-juancho-prego-gundin.workers.dev), select **Get started**, then **Create account**.
+2. Complete the verification and save your private code in your password manager. Confirm that you have saved it to continue.
+3. Create your first focus area and mark its activity in **Log**. View its history in **Dashboard**.
 
-Para volver a entrar, utiliza ese mismo código. **No hay recuperación: perder el código supone perder el acceso a los datos.** Cada cuenta empieza vacía y es independiente. Las fechas del registro se interpretan en `Europe/Madrid`.
+Use the same code to sign in again. **There is no account recovery: losing your code means losing access to your data.** Each account starts empty and is independent. Activity dates use the `Europe/Madrid` time zone.
 
-## Privacidad
+## Privacy
 
-El contenido de tus frentes y tu actividad se cifra en el navegador antes de enviarse a Cloudflare D1. La clave de descifrado permanece en memoria de la pestaña; recargar exige introducir de nuevo el código. El servidor conserva metadatos de cuenta y sesión y bloques cifrados.
+Your focus areas and activity are encrypted in your browser before being sent to Cloudflare D1. The decryption key stays in the tab's memory; reloading requires entering your code again. The server stores account and session metadata alongside encrypted data.
 
-Esta protección impide leer el contenido directamente desde D1 o sus copias. Una web modificada deliberadamente para capturar el código podría comprometerlo. El navegador puede guardar tu código en su gestor de contraseñas si lo autorizas. [Detalles y límites](docs/APP.md#privacidad-y-acceso).
+This prevents reading your content directly from D1 or its backups. A website deliberately modified to capture your code could compromise it. Your browser can save the code in its password manager if you allow it. See [details and limitations](docs/APP.md#privacidad-y-acceso) (in Spanish).
 
-## Web y material de presentación
+The public landing page is always available at `/`. Bookmark `/app/` for direct access to the app.
 
-La portada `/` explica la aplicación y permanece pública aunque ya tengas cuenta.
-Guarda `/app/` para acceder directamente. La web se centra en explicar el producto
-y empezar a usarlo; no incluye una presentación adicional.
+## Local development
 
-Las slides se conservan como material independiente en
-[presentations/product-demo/](presentations/product-demo/README.md), fuera del
-build y despliegue de la web. Su README explica cómo abrirlas o editarlas localmente.
-
-## Desarrollo local
-
-Necesitas **Node 26** y npm. Desde la raíz:
+Requires **Node 26** and npm. From the repository root:
 
 ```sh
 npm ci
@@ -61,19 +53,36 @@ npm run migrate
 npm run dev
 ```
 
-Abre **http://127.0.0.1:8787** para la landing, **http://127.0.0.1:8787/app/** para el acceso. La D1 local está separada de producción; las migraciones son explícitas y no importan cuentas ni historial. Tras modificar el frontend, reinicia `npm run dev` para recompilarlo.
+Open **http://127.0.0.1:8787** for the landing page or **http://127.0.0.1:8787/app/** to sign in. Local D1 is separate from production; migrations are explicit and do not import accounts or history. After changing the frontend, restart `npm run dev` to rebuild it.
 
-React/TypeScript y Vite en el frontend; JavaScript, Cloudflare Workers y D1 en el backend. La plantita 8-bit es un SVG local, con animación que puedes pausar y respeto por movimiento reducido.
+The frontend uses React, TypeScript and Vite. The backend uses JavaScript, Cloudflare Workers and D1. The 8-bit plant is a local SVG with a pause control and support for reduced motion. Development and verification do not require Python.
 
-Antes de publicar código, el [workflow de desarrollo](backend/README.md#flujo-de-cambio-pruebas-y-publicación) exige rama, pruebas y revisión antes de integrar la PR en `main`: Cloudflare Builds compila y despliega automáticamente cada push a esa rama. El build remoto no ejecuta la batería de pruebas. `npm run verify` reúne las comprobaciones locales; los recorridos de navegador usan Firefox/Brave y perfiles temporales en macOS, y las pruebas diferenciales requieren la [referencia Python](experiments/python-sqlite/README.md). Para trabajar con las slides conservadas, sigue su README; sus dependencias y verificaciones son independientes.
+## Verification and deployment
 
-## Documentación
+```sh
+npm test                  # Backend and frontend tests
+npm run build             # Type checking and frontend build
+npm run verify            # Full local verification, including browser checks
+```
 
-- [Producto y reglas](docs/APP.md): comportamiento, privacidad, contratos y diseño futuro de Información/LLM y modelos mentales.
-- [Estado del proyecto](docs/STATUS.md): capacidades publicadas, verificación vigente y trabajo pendiente.
-- [Historial de cambios](CHANGELOG.md): cambios y publicaciones anteriores.
-- [Backend y publicación](backend/README.md): comandos, entornos, migraciones y workflow de GitHub/Cloudflare.
-- [Referencia Python](experiments/python-sqlite/README.md) y laboratorios [cyberpunk](experiments/cyberpunk-ui/README.md), [artístico](experiments/art-ui/README.md) y [8-bit](experiments/8bit-twist/README.md): implementaciones y pruebas conservadas en `experiments/`.
-- [Créditos y licencias de terceros](frontend/THIRD_PARTY_NOTICES.md).
+Browser checks use locally installed Firefox and Brave on macOS with temporary profiles. See the [backend guide](backend/README.md) for commands and environment details.
 
-Correo, wiki mantenida por IA, chat, resúmenes y modelos mentales forman parte del diseño futuro. El producto disponible hoy es el registro de actividad; el [estado](docs/STATUS.md) distingue lo publicado de lo pendiente.
+Before publishing code, follow the [development workflow](backend/README.md#flujo-de-cambio-pruebas-y-publicación): use a branch, run verification and review the pull request before merging into `main`. Every push to `main`, including documentation changes, triggers a production build and deployment through Cloudflare Builds. The remote build does not run the test suite or apply database migrations.
+
+## Documentation
+
+The detailed project documentation is currently in Spanish:
+
+- [Product and rules](docs/APP.md): behaviour, privacy, contracts and future plans.
+- [Project status](docs/STATUS.md): published capabilities, verification and remaining work.
+- [Changelog](CHANGELOG.md): previous changes and releases.
+- [Backend and deployment](backend/README.md): commands, environments, migrations and the GitHub/Cloudflare workflow.
+- [Third-party notices](frontend/THIRD_PARTY_NOTICES.md): credits and licenses for bundled components and assets.
+
+Email, an AI-maintained wiki, chat, summaries and mental models are future ideas. The available product is the activity log; the project status distinguishes shipped features from planned work.
+
+## License
+
+Activity Hub is licensed under the [MIT License](LICENSE). You may use, modify and redistribute it, including commercially, provided you retain the copyright and license notice. The software is provided without warranty.
+
+Third-party components and assets retain their own licenses; see [third-party notices](frontend/THIRD_PARTY_NOTICES.md) and the bundled font's [SIL Open Font License](frontend/public/fonts/OFL.txt).

@@ -14,12 +14,11 @@
     "check": "npm --prefix backend run check && npm --prefix frontend test",
     "test:browser": "node backend/scripts/run.js browser-ui",
     "test:integration": "node backend/scripts/run.js browser",
-    "test:presentation": "npm --prefix presentations/product-demo run verify",
-    "measure": "node backend/scripts/run.js measure",
     "verify": "node backend/scripts/release.js verify",
     "release:prepare": "node backend/scripts/release.js prepare",
     "release:migrate": "node backend/scripts/release.js migrate",
     "release:deploy": "node backend/scripts/release.js deploy",
     "release:smoke": "node backend/scripts/release.js smoke"
-  }
+  },
+  "license": "MIT"
 }

@@ -2,7 +2,7 @@
 
 El backend principal reside en `backend/`, sirve el frontend oficial y es el destino del arranque principal. La [especificación](../docs/APP.md), el [estado y trabajo pendiente](../docs/STATUS.md) y el [historial de cambios](../CHANGELOG.md) tienen documentos separados; el [README raíz](../README.md) presenta la aplicación y explica su uso.
 
-La implementación [Python/SQLite](../experiments/python-sqlite/README.md) se conserva como referencia ejecutable para equivalencia y medición, con datos separados. El frontend no se duplica.
+El repositorio contiene la aplicación principal y sus pruebas. Las slides y los experimentos se han retirado; desarrollo y verificación no requieren Python.
 
 ## Entorno y comandos
 
@@ -16,12 +16,11 @@ npm run migrate
 npm run check
 npm run test:browser
 npm run test:integration
-npm run measure
 ```
 
 `dev` compila `frontend/` y sirve web/API en `http://127.0.0.1:8787`. `migrate` es la aplicación explícita del esquema **local**; dev nunca la ejecuta por su cuenta. Los comandos de verificación crean bases temporales y no reutilizan el estado manual. `check` empaqueta con `deploy --dry-run`, sin publicar. `test:browser` ejecuta el recorrido visual completo; `test:integration`, el recorrido funcional acotado de este backend.
 
-También existen `npm --prefix backend test` y `npm --prefix backend run check`. Las pruebas diferenciales y `measure` requieren la `.venv/` existente en la raíz; el servidor principal y los recorridos de navegador no ejecutan Python.
+También existen `npm --prefix backend test` y `npm --prefix backend run check`. Las antiguas comparaciones con Python usan ahora resultados fijos en `tests/fixtures/legacy/`, capturados y contrastados con la referencia del commit `942de0d` antes de retirarla. Cubren los mismos casos de normalización, reintentos, tipos de contenido y consultas sin ejecutar Python.
 
 `wrangler.jsonc` sirve `../frontend/dist` como Static Assets. `/api`, `/auth`, `/health` y sus rutas reservadas pasan por el Worker antes del fallback SPA. El entorno `local` usa un ID D1 ficticio estable, `remote: false`, `workers_dev: false`, `preview_urls: false` y observabilidad deshabilitada. `production` tiene su propia cuenta, ID D1 y Origin HTTPS; solo ese entorno habilita `workers_dev`. `scripts/run.js` aísla HOME/config/cache de Wrangler, deshabilita dotenv/variables personales y telemetría. Las dependencias instaladas se trasladaron con esta carpeta, sin reinstalar.
 
@@ -33,15 +32,14 @@ Las carpetas `.state/`, `.wrangler/`, `.cache/`, `node_modules/`, `dist/` y `tes
 
 ## Implementación y garantías
 
-El contrato de producto y sus límites están en [APP.md](../docs/APP.md#5-contratos-y-garantías); la publicación vigente está en [STATUS.md](../docs/STATUS.md). `src/worker.js` usa el protocolo cifrado; `tests/legacy-worker.js` mantiene únicamente la caracterización del protocolo anterior y la comparación con Python. No hay variable ni ruta HTTP que habilite ese handler en producción.
+El contrato de producto y sus límites están en [APP.md](../docs/APP.md#5-contratos-y-garantías); la publicación vigente está en [STATUS.md](../docs/STATUS.md). `src/worker.js` usa el protocolo cifrado; `tests/legacy-worker.js` mantiene únicamente la caracterización del protocolo anterior. No hay variable ni ruta HTTP que habilite ese handler en producción.
 
 `src/security.js` aplica límites antes de D1, Turnstile y cierres operativos. `src/auth.js` limita cuentas/sesiones y verifica credenciales derivadas. `src/vault.js` guarda un sobre opaco por cuenta. `src/sql.js` revalida reloj, sesión, cuenta, día y versión dentro de `DB.batch()`; cualquier fallo revierte todo el batch. No hay mutex en memoria, caché privada ni lecturas mediante réplicas D1.
 
 El frontend deriva claves en `privacy-crypto.ts`; `private-auth.ts` mantiene la clave en memoria y `private-vault.ts` descifra, aplica operaciones y guarda con comparación de versiones. La migración inicial exporta exclusivamente datos propios, los cifra y retira el original dentro de la transacción confirmada. La revisión del contenido antiguo y los triggers impiden perder escrituras en vuelo o volver a introducir texto legible después de migrar.
 
-Las pruebas de seguridad usan cuentas sintéticas y D1 temporal. Cubren límite concurrente de 100 cuentas, tamaño, aislamiento, CAPTCHA fallido sin tocar D1, sesiones revocadas/caducadas, conflictos, migración con rollback y manipulación del cifrado. Firefox recorre el cliente y Worker reales; un oráculo de cifrado independiente comprueba el contenido sintético y la ausencia de filas de dominio legibles. El recorrido completo comprueba siete anchos, dos temas, contraste, foco, scroll y solicitudes pendientes. Los resultados y pendientes vigentes están solo en el README raíz.
+Las pruebas de seguridad usan cuentas sintéticas y D1 temporal. Cubren límite concurrente de 100 cuentas, tamaño, aislamiento, CAPTCHA fallido sin tocar D1, sesiones revocadas/caducadas, conflictos, migración con rollback y manipulación del cifrado. Firefox recorre el cliente y Worker reales; un oráculo de cifrado independiente comprueba el contenido sintético y la ausencia de filas de dominio legibles. El recorrido completo comprueba siete anchos, dos temas, contraste, foco, scroll y solicitudes pendientes. Los resultados y pendientes vigentes están en [STATUS.md](../docs/STATUS.md).
 
-`npm run measure` conserva la comparación histórica del protocolo **sin cifrar** contra Python: no mide el rendimiento del nuevo almacenamiento. La medición del 2026-10-05 usó 107 frentes, 109 checks y 20 muestras calientes por operación; su JSON está en `test-results/measurement.json`. Ni esas cifras ni las filas leídas/escritas del emulador acreditan CPU, cuota, coste o latencia alojados. `measure` necesita `.venv/`; los recorridos del producto actual no ejecutan Python.
 
 ## Flujo de cambio, pruebas y publicación
 

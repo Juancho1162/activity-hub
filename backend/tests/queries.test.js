@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, account, request, localFetcher, afterBatch } from './fixture.js';
-import { pythonReference } from './reference.js';
+import { recordedReference } from './reference.js';
 import { uuidText } from '../src/contracts.js';
 import { sample, seed } from './sample.js';
 
 const hex = i => i.toString(16).padStart(32, '0');
 
 const window = 'start=2026-01-01&end=2026-01-04';
-test('list/history/dashboard HTTP and full ordered snapshots match Python, including long literal search and a 100-front page', async t => {
+test('list/history/dashboard HTTP and full ordered snapshots match recorded contracts, including long literal search and a 100-front page', async t => {
   const data = sample();
   const cases = [
     '/api/fronts', '/api/fronts?limit=100', '/api/fronts?limit=2&offset=104', '/api/fronts?offset=100000',
@@ -34,13 +34,13 @@ test('list/history/dashboard HTTP and full ordered snapshots match Python, inclu
     `/api/dashboard?${window}&order=bad`, '/api/dashboard?start=9999-12-30&end=9999-12-31',
     '/api/dashboard?start=2024-01-01&end=2024-12-31&limit=100',
   ];
-  const expected = pythonReference('queries', { ...data, cases });
+  const expected = recordedReference('queries', { ...data, cases });
   const { DB, fetcher } = await fixture(t);
   const a = await account(fetcher), b = await account(fetcher);
   await seed(DB, data, { A: a.login.value.account_id.replaceAll('-', ''), B: b.login.value.account_id.replaceAll('-', '') });
   for (const [i, route] of cases.entries()) {
     const result = await request(fetcher, 'GET', route, undefined, a.headers);
-    assert.deepEqual({ status: result.status, value: result.value }, expected[i], `Python query case ${i}: ${route}`);
+    assert.deepEqual({ status: result.status, value: result.value }, expected[i], `Recorded query case ${i}: ${route}`);
     assert.equal(result.headers.get('cache-control'), 'no-store');
   }
   let maximumBindings = 0;

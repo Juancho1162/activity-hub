@@ -1,4 +1,4 @@
-// Shared fictional dataset for differential tests and local measurements.
+// Fictional dataset for recorded query contracts and D1 regression tests.
 const hex = i => i.toString(16).padStart(32, '0');
 export function sample() {
   const fronts = Array.from({ length: 105 }, (_, i) => ({
