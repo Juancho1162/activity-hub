@@ -119,9 +119,11 @@ try {
     assert.equal(await evaluate(`(() => {
       const brand=document.querySelector('.brand');if(!brand)return true;
       const mark=brand.querySelector('.brand-mark').getBoundingClientRect(), title=brand.querySelector('.brand-name').getBoundingClientRect();
-      return Math.abs(mark.top+mark.height/2-title.top-title.height/2)<1 && title.left>=mark.right && title.right<=brand.getBoundingClientRect().right+.5
+      const bounds=brand.getBoundingClientRect();
+      const aligned=Math.abs(mark.top+mark.height/2-title.top-title.height/2)<1 && title.left>=mark.right;
+      return aligned && mark.width>=64 && mark.left>=bounds.left-.5 && mark.right<=bounds.right+.5 && title.left>=bounds.left-.5 && title.right<=bounds.right+.5
         && document.querySelector('.desk-decoration')===null && getComputedStyle(brand,'::after').backgroundImage==='none';
-    })()`), true, `${name}: brand title aligns with its mark, with no desk illustration`)
+    })()`), true, `${name}: larger plant and title stay aligned inside the brand`)
     assert.equal(await evaluate(`([...document.querySelectorAll('[data-slot="bit-card"]')].filter(el=>el.checkVisibility()).every(el=>{
       const outer=el.getBoundingClientRect(), inner=el.querySelector('[data-slot="card"]').getBoundingClientRect();
       return inner.top>=outer.top-.5 && inner.bottom<=outer.bottom+.5;

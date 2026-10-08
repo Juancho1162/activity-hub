@@ -28,7 +28,7 @@
   --radius-xl: 0px;
 }
 
-/* Warm light palette and accessible Nord dark palette. Root tokens also apply
+/* Shared warm earth/leaf palette. Root tokens also apply
    to dialogs portalled to <body>. */
 :root {
   color-scheme: light;
@@ -71,35 +71,33 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #2e3440;
-  --foreground: #e5e9f0;
-  --card: #3b4252;
-  --popover: #434c5e;
-  --primary: #88c0d0;
-  --primary-foreground: #2e3440;
-  --primary-hover: #9acddb;
-  --secondary: #434c5e;
-  --muted: #3b4252;
-  /* Brighter than Nord's comment gray: small labels must stay readable. */
-  --muted-foreground: #c1cad8;
-  --accent: #434c5e;
-  /* Nord red is too dim for small error text; retain hue, lift luminance. */
-  --destructive: #efa2aa;
-  --destructive-foreground: #342830;
-  --border: #4c566a;
-  --input: #2e3440;
-  --ring: #97a6bb;
-  --focus: #88c0d0;
-  --link: #88c0d0;
-  --amber: #ebcb8b;
-  --sidebar: #353d4b;
-  --sidebar-muted: #c1cad8;
-  --open-bg: #35443f;
-  --open-fg: #a3be8c;
-  --standby-bg: #454034;
-  --standby-fg: #ebcb8b;
-  --archived-bg: #434c5e;
-  --archived-fg: #d8dee9;
+  --background: #24271f;
+  --foreground: #eee7d8;
+  --card: #30352a;
+  --popover: #383e31;
+  --primary: #b4d58a;
+  --primary-foreground: #20271b;
+  --primary-hover: #c6e29d;
+  --secondary: #3b4032;
+  --muted: #30352a;
+  --muted-foreground: #b9bca6;
+  --accent: #414735;
+  --destructive: #eda486;
+  --destructive-foreground: #34251c;
+  --border: #4c5340;
+  --input: #282c22;
+  --ring: #929a7b;
+  --focus: #edb985;
+  --link: #edb985;
+  --amber: #edc48d;
+  --sidebar: #292e24;
+  --sidebar-muted: #b9bca6;
+  --open-bg: #35422b;
+  --open-fg: #b4d58a;
+  --standby-bg: #48392e;
+  --standby-fg: #edb985;
+  --archived-bg: #3b4032;
+  --archived-fg: #c5c9b5;
 }
 
 * { box-sizing: border-box; }
@@ -143,11 +141,11 @@ a { color: var(--link); }
 .skip-link:focus { transform: none; }
 .sidebar { position: sticky; top: 18px; display: flex; flex-direction: column; gap: 28px; align-self: start; height: calc(100dvh - 92px); min-height: 400px; padding: 24px 12px 20px; background: var(--sidebar); color: var(--foreground); border: 1px solid var(--border); }
 .brand { display: flex; gap: 10px; align-items: center; }
-.plant-toggle { display: grid; place-items: center; width: 44px; height: 44px; margin: -4px; padding: 0; border: 0; color: inherit; background: transparent; flex-shrink: 0; cursor: pointer; }
-.brand-mark { display: block; width: 36px; height: 36px; flex-shrink: 0; }
+.plant-toggle { display: grid; place-items: center; width: 72px; height: 72px; margin: -4px; padding: 0; border: 0; color: inherit; background: transparent; flex-shrink: 0; cursor: pointer; }
+.brand-mark { display: block; width: 64px; height: 64px; flex-shrink: 0; }
 .brand-mark img { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
-.plant-toggle--welcome { width: 72px; height: 72px; margin: 0; }
-.plant-toggle--welcome .brand-mark { width: 64px; height: 64px; }
+.plant-toggle--welcome { width: 104px; height: 104px; margin: 0; }
+.plant-toggle--welcome .brand-mark { width: 96px; height: 96px; }
 .brand-name { display: block; font-size: 10px; white-space: nowrap; }
 .brand-caption { display: block; margin-top: 6px; color: var(--sidebar-muted); font-size: 11px; }
 .view-nav { display: flex; flex-direction: column; gap: 12px; }
@@ -306,6 +304,8 @@ select:disabled { opacity: .5; cursor: not-allowed; }
 [data-slot="bit-card"].auth-card { box-shadow: 5px 5px 0 var(--border); }
 .auth-card [data-slot="card"] { padding: 32px; }
 .auth-card .card-body { align-items: stretch; }
+.auth-card .auth-brand { column-gap: 20px; }
+.auth-card .auth-brand .brand-name { font-size: clamp(10px, 2.4vw, 18px); }
 .auth-card h1 { line-height: 1.7; }
 .auth-form { display: grid; gap: 18px; min-width: 0; width: 100%; }
 .auth-card [data-slot="button"] { min-height: 44px; height: auto; max-width: 100%; white-space: normal; }
@@ -375,6 +375,7 @@ select:disabled { opacity: .5; cursor: not-allowed; }
   .editor-card [data-slot="card"] { padding: 18px; gap: 18px; }
   .editor-actions { justify-content: space-between; }
   .auth-shell { padding: 16px; }
+  .auth-card .auth-brand { column-gap: 12px; }
   .auth-card [data-slot="card"], .message-card [data-slot="card"] { padding: 22px; }
 }
 @media (max-width: 400px) {

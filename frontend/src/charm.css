@@ -3,12 +3,12 @@
    Dots stay in the outer gutter; reading surfaces remain opaque. */
 /* Decorative frames can be quieter than interactive control boundaries. */
 :root { --frame: var(--ring); }
-:root[data-theme="dark"] { --frame: #64738a; }
+:root[data-theme="dark"] { --frame: #70795d; }
 body { background-image: radial-gradient(var(--border) .65px, transparent .65px); background-size: 12px 12px; }
 :root[data-theme="dark"] body { background-image: none; }
 :root[data-theme="dark"] .sidebar,
 :root[data-theme="dark"] [data-slot="bit-card"].front-card,
-:root[data-theme="dark"] .editor-card { box-shadow: 0 4px 12px #0000001f; }
+:root[data-theme="dark"] .editor-card { box-shadow: 3px 3px 0 #1b1f17; }
 :root[data-theme="dark"] .coverage-value { text-shadow: none; }
 .app-controls { background: var(--background); }
 .sidebar { border: 2px solid var(--frame); box-shadow: 4px 4px 0 var(--border); }
@@ -46,8 +46,7 @@ body { background-image: radial-gradient(var(--border) .65px, transparent .65px)
 @media (min-width: 961px) {
   .app-shell { grid-template-columns: clamp(220px, 16vw, 232px) minmax(0, 1fr); }
   .sidebar { top: 68px; gap: 32px; padding: 28px 16px 24px; }
-  .brand { column-gap: 10px; }
-  .brand-name { font-size: 11px; }
+  .brand-name { font-size: 9px; }
   .view-nav { gap: 14px; }
   [data-slot="button"].nav-button { gap: 12px; min-height: 52px; padding: 12px; font-size: 11px; }
   .nav-button > svg { width: 20px; height: 20px; }

@@ -82,7 +82,7 @@ try {
   await chooseLanguage("es")
   await evaluate("window.__logoInput=document.getElementById('access-code');window.__logoInput.value='synthetic-autofill';window.__logoInput.focus();document.querySelector('.plant-toggle').click();true")
   await until(() => evaluate("document.querySelector('.plant-toggle').getAttribute('aria-pressed')==='false'"), "pause the plant")
-  assert.equal(await evaluate("document.getElementById('access-code')===window.__logoInput && window.__logoInput.value==='synthetic-autofill' && document.activeElement===window.__logoInput && new URL(document.querySelector('.brand-mark img').src).pathname==='/favicon.svg'"), true, "pausing switches to a static image without disturbing native autofill")
+  assert.equal(await evaluate("document.getElementById('access-code')===window.__logoInput && window.__logoInput.value==='synthetic-autofill' && document.activeElement===window.__logoInput && new URL(document.querySelector('.brand-mark img').src).pathname==='/plant-logo-static.svg'"), true, "pausing switches to a static image without disturbing native autofill")
   await evaluate("document.querySelector('.plant-toggle').click();true")
   await until(() => evaluate("document.querySelector('.plant-toggle').getAttribute('aria-pressed')==='true'"), "resume the plant")
   await evaluate("document.querySelector('.brand-mark img').decode().then(()=>true)")
