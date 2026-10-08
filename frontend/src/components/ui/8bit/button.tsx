@@ -48,7 +48,7 @@ interface ButtonDecorationsProps {
   variant: BitButtonProps["variant"];
 }
 
-function ButtonDecorations({ size, variant }: ButtonDecorationsProps) {
+export function ButtonDecorations({ size, variant }: ButtonDecorationsProps) {
   return (
     <span
       aria-hidden="true"
