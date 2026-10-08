@@ -4,6 +4,14 @@
 
 ## Ahora
 
+Workers Logs y trazas habilitados en la configuración de `production`, con logs
+de invocación y persistencia de ambos en el panel; observabilidad local deshabilitada.
+`npm run verify` pasa el 2026-10-09: 37 pruebas backend, 264 frontend,
+tipos/build/dry-run e integración/UI Firefox/Brave. Diff revisado en la sesión
+principal, sin hallazgos. Integración y publicación autorizadas; el resultado
+del build automático, la configuración activa y el smoke remoto se registran en
+la [PR #20](https://github.com/Juancho1162/activity-hub/pull/20) para evitar otro despliegue solo por documentación.
+
 La [web](https://activity-hub.software-juancho-prego-gundin.workers.dev) permite registrar actividad por frente y día, consultar porcentajes/calendarios por período y gestionar una Papelera recuperable con borrado permanente confirmado. Interfaz 8-bit con plantita humanoide animada y pausa accesible, adaptable a móvil, castellano/inglés con detección del navegador, tema claro y oscuro cálido con verde hoja y terracota. Código fijo por cuenta y contenido cifrado en el navegador, CAPTCHA, máximo inicial de 100 cuentas y límites de uso.
 
 Cloudflare Builds está conectado a [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub): cada push a `main`, incluso de documentación, compila y publica. Configuración: raíz `backend`, Node 26, entorno `production`, sin previews. El build remoto no ejecuta la batería de pruebas ni migraciones. Sin GitHub Actions ni protección de main.
