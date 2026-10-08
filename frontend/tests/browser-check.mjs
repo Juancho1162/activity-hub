@@ -398,7 +398,7 @@ try {
     const svg=new DOMParser().parseFromString(await response.text(),'image/svg+xml').documentElement;
     if(svg.localName!=='svg' || svg.getAttribute('viewBox')!=='0 0 32 32')return false;
     const image=new Image();image.src=icon.href;await image.decode();return image.naturalWidth===32 && image.naturalHeight===32;
-  })()`), true, "The local four-square brand favicon is linked, served and decodable")
+  })()`), true, "The local plant brand favicon is linked, served and decodable")
   assert.equal(await evaluate("document.querySelector('.lab-controls,.look-picker') === null && !document.body.textContent.includes('HOY SIMULADO')"), true, "No trial UI or clock was promoted")
   const accountA = await account()
   assert.equal(await evaluate("document.querySelector('.session-controls p').textContent.trim()"), `Cuenta ${accountA.slice(0, 8)}`, "Session caption only identifies the account")

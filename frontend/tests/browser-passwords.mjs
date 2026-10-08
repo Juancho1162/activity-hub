@@ -51,8 +51,8 @@ try {
   })
   const { targetId } = await command("Target.createTarget", { url: "about:blank" })
   const { sessionId } = await command("Target.attachToTarget", { targetId, flatten: true })
-  const evaluate = async expression => {
-    const result = await command("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, sessionId)
+  const evaluate = async (expression, targetSession = sessionId) => {
+    const result = await command("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, targetSession)
     if (result.exceptionDetails) throw new Error("Chromium assertion evaluation failed")
     return result.result.value
   }
@@ -80,6 +80,26 @@ try {
     await until(() => evaluate(`document.documentElement.lang===${JSON.stringify(language)}`), `apply ${language}`)
   }
   await chooseLanguage("es")
+  await evaluate("window.__logoInput=document.getElementById('access-code');window.__logoInput.value='synthetic-autofill';window.__logoInput.focus();document.querySelector('.plant-toggle').click();true")
+  await until(() => evaluate("document.querySelector('.plant-toggle').getAttribute('aria-pressed')==='false'"), "pause the plant")
+  assert.equal(await evaluate("document.getElementById('access-code')===window.__logoInput && window.__logoInput.value==='synthetic-autofill' && document.activeElement===window.__logoInput && new URL(document.querySelector('.brand-mark img').src).pathname==='/favicon.svg'"), true, "pausing switches to a static image without disturbing native autofill")
+  await evaluate("document.querySelector('.plant-toggle').click();true")
+  await until(() => evaluate("document.querySelector('.plant-toggle').getAttribute('aria-pressed')==='true'"), "resume the plant")
+  await evaluate("document.querySelector('.brand-mark img').decode().then(()=>true)")
+  const { targetId: plantTarget } = await command("Target.createTarget", { url: url.origin + '/plant-logo.svg' })
+  const { sessionId: plantSession } = await command("Target.attachToTarget", { targetId: plantTarget, flatten: true })
+  await command("Emulation.setEmulatedMedia", { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] }, plantSession)
+  await until(() => evaluate("!!document.querySelector('.plant') && document.getAnimations().length>0", plantSession), "the served SVG animates")
+  assert.equal(await evaluate(`(async()=>{
+    const animations=document.getAnimations();animations.forEach(animation=>{animation.pause();animation.currentTime=0});
+    await new Promise(resolve=>requestAnimationFrame(resolve));const resting=getComputedStyle(document.querySelector('.plant')).transform;
+    animations.forEach(animation=>animation.currentTime=1000);await new Promise(resolve=>requestAnimationFrame(resolve));
+    return getComputedStyle(document.querySelector('.plant')).transform!==resting;
+  })()`, plantSession), true, "the plant actually moves between animation frames")
+  await command("Emulation.setEmulatedMedia", { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] }, plantSession)
+  await until(() => evaluate("matchMedia('(prefers-reduced-motion: reduce)').matches && document.getAnimations().length===0", plantSession), "reduced motion stops movement and blinking")
+  await command("Target.closeTarget", { targetId: plantTarget })
+  await evaluate("window.__logoInput.value='';window.__logoInput.focus();true")
   assert.equal(await evaluate("isSecureContext && typeof PasswordCredential==='function' && typeof navigator.credentials.store==='function'"), true, "real Chromium password API is available")
   await evaluate("document.querySelector('.auth-signup').click();true")
   await until(() => evaluate("!!document.getElementById('signup-code')"), "native signup password")
@@ -130,6 +150,7 @@ try {
     }
   }
   console.log("Chromium/Brave: real PasswordCredential and native store invoked after verified signup/login; rejected code, native autofill, no automatic credential retrieval or plaintext code requests pass")
+  console.log("Plant logo: pause/resume retains the access field and autofill, local SVG decodes and changes animation frames, reduced motion disables all movement and blinking")
   console.log("Chromium layout: both languages/themes, registration/dashboard pass at 11 widths from 320 to 1366 px; actual save-dialog visibility/acceptance remains browser controlled and is not asserted in headless mode")
 } finally {
   socket?.close()

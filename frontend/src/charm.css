@@ -14,7 +14,6 @@ body { background-image: radial-gradient(var(--border) .65px, transparent .65px)
 .sidebar { border: 2px solid var(--frame); box-shadow: 4px 4px 0 var(--border); }
 .sidebar::before { content: ""; position: absolute; top: -2px; left: 20px; width: 34px; height: 4px; background: var(--link); }
 .sidebar::after { content: ""; position: absolute; top: 9px; right: 10px; width: 2px; height: 6px; background: var(--frame); box-shadow: -4px 0 var(--frame), -8px 0 var(--frame); }
-.brand-mark { gap: 4px; padding: 5px; border: 1px solid var(--frame); box-shadow: 2px 2px 0 var(--border); background: var(--card); }
 .brand-name { font-size: 9px; }
 .brand { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; }
 .nav-button { border: 1px solid transparent; }
@@ -48,8 +47,6 @@ body { background-image: radial-gradient(var(--border) .65px, transparent .65px)
   .app-shell { grid-template-columns: clamp(220px, 16vw, 232px) minmax(0, 1fr); }
   .sidebar { top: 68px; gap: 32px; padding: 28px 16px 24px; }
   .brand { column-gap: 10px; }
-  .brand-mark { grid-template-columns: repeat(2, 10px); }
-  .brand-mark span { width: 10px; height: 10px; }
   .brand-name { font-size: 11px; }
   .view-nav { gap: 14px; }
   [data-slot="button"].nav-button { gap: 12px; min-height: 52px; padding: 12px; font-size: 11px; }
@@ -71,7 +68,6 @@ body { background-image: radial-gradient(var(--border) .65px, transparent .65px)
 }
 @media (max-width: 760px) { .editor-header::before { top: -20px; } }
 @media (max-width: 600px) {
-  .brand-mark { padding: 3px; }
   .brand-name { font-size: 10px; }
   .sidebar { padding-block: 10px; }
 }

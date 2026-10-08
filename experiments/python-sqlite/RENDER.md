@@ -1,6 +1,6 @@
 # Render: investigación histórica de la alternativa Python
 
-**Investigación inicial: 2026-10-02. Última consulta de tarifas base: 2026-10-03.** Referencia de producto y estado vigente: [README principal](../../README.md).
+**Investigación inicial: 2026-10-02. Última consulta de tarifas base: 2026-10-03.** Referencias vigentes: [producto](../../docs/APP.md) y [estado](../../docs/STATUS.md). El resto de este documento conserva la investigación histórica.
 
 **Archivado el 2026-10-05 al promover JavaScript + Workers/D1.** Este documento conserva la investigación, decisiones y pasos propuestos para la anterior implementación Python. No es el plan de alojamiento vigente ni un listado activo de tareas; las tarifas y recetas no se han revalidado durante el traslado.
 

@@ -1,8 +1,8 @@
 # Backend principal: JavaScript + Workers + D1
 
-**Promovido el 2026-10-05 por petición del usuario.** Este código procede del experimento `experiments/javascript-workers-d1/`, que ya pasó su revisión funcional local. Ahora reside en `backend/`, sirve el frontend oficial y es el destino del arranque principal. La [especificación y el único estado/listado de trabajo](../README.md) permanecen en la raíz. El traslado está verificado y revisado en la sesión principal; el perfil de revisor independiente no estuvo disponible.
+El backend principal reside en `backend/`, sirve el frontend oficial y es el destino del arranque principal. La [especificación](../docs/APP.md), el [estado y trabajo pendiente](../docs/STATUS.md) y el [historial de cambios](../CHANGELOG.md) tienen documentos separados; el [README raíz](../README.md) presenta la aplicación y explica su uso.
 
-Python pasa a [experiments/python-sqlite/](../experiments/python-sqlite/README.md), conservado como referencia ejecutable para equivalencia y medición. El frontend no se duplica. En aquella promoción no se añadieron dependencias, recursos remotos, despliegues ni transferencia de datos personales. La publicación posterior, autorizada el 2026-10-06, se describe abajo.
+La implementación [Python/SQLite](../experiments/python-sqlite/README.md) se conserva como referencia ejecutable para equivalencia y medición, con datos separados. El frontend no se duplica.
 
 ## Entorno y comandos
 
@@ -33,7 +33,7 @@ Las carpetas `.state/`, `.wrangler/`, `.cache/`, `node_modules/`, `dist/` y `tes
 
 ## Implementación y garantías
 
-El contrato de producto, límites y estado de publicación están en la [sección 5 del README raíz](../README.md#5-contratos-y-garantías). `src/worker.js` usa el protocolo cifrado; `tests/legacy-worker.js` mantiene únicamente la caracterización del protocolo anterior y la comparación con Python. No hay variable ni ruta HTTP que habilite ese handler en producción.
+El contrato de producto y sus límites están en [APP.md](../docs/APP.md#5-contratos-y-garantías); la publicación vigente está en [STATUS.md](../docs/STATUS.md). `src/worker.js` usa el protocolo cifrado; `tests/legacy-worker.js` mantiene únicamente la caracterización del protocolo anterior y la comparación con Python. No hay variable ni ruta HTTP que habilite ese handler en producción.
 
 `src/security.js` aplica límites antes de D1, Turnstile y cierres operativos. `src/auth.js` limita cuentas/sesiones y verifica credenciales derivadas. `src/vault.js` guarda un sobre opaco por cuenta. `src/sql.js` revalida reloj, sesión, cuenta, día y versión dentro de `DB.batch()`; cualquier fallo revierte todo el batch. No hay mutex en memoria, caché privada ni lecturas mediante réplicas D1.
 
@@ -49,16 +49,16 @@ Destino explícito: Worker `activity-hub`, entorno `production`, cuenta `72734ad
 
 Cada cambio sigue estos pasos desde la raíz con **Node 26**:
 
-Repositorio privado: **[Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub)**. `origin` apunta a ese repositorio; `main` conserva el trabajo integrado y `feature/information-agent` mantiene la ampliación aplazada. El README raíz sigue siendo la especificación y el estado; las PR registran cada cambio y su evidencia.
+Repositorio: **[Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub)**, actualmente público. `origin` apunta a ese repositorio; `main` conserva el trabajo integrado y `feature/information-agent` mantiene la ampliación aplazada. `docs/APP.md` mantiene las reglas, `docs/STATUS.md` el estado actual y `CHANGELOG.md` los cambios completados y su evidencia. El README raíz permanece como presentación y guía de uso: no añadirle registros de cambios ni versiones de despliegue. Las PR describen cada cambio y su verificación.
 
 1. Comprobar `git status`, rama y remoto; ejecutar `git fetch origin` y actualizar `main` con `git pull --ff-only origin main` cuando esté limpio y sea posible. Crear una rama `feature/...`, `fix/...` o `chore/...` desde ese `main`. Inspeccionar divergencias o cambios ajenos antes de actuar. Reutilizar la especificación, añadir regresiones significativas y aplicar cambios. `npm run migrate` aplica solo el esquema local; `npm run dev` arranca la aplicación sin migrar por su cuenta.
 2. Para cambios ejecutables, ejecutar `npm run verify`: sintaxis, tests backend/frontend, tipos/build, los dos recorridos Firefox y el recorrido Brave/Chromium. Las pruebas usan datos temporales. Si falla algo, corregir y repetir las comprobaciones afectadas; la publicación exige finalmente el conjunto completo. Para cambios solo de documentación, revisar el diff, enlaces y coherencia de las instrucciones; no reconstruir ni publicar la app.
-3. Revisar el cambio y sus pruebas, incluyendo revisión independiente para seguridad, datos y reglas de negocio. Actualizar la especificación/estado raíz. No editar código mientras el revisor inspecciona la instantánea.
+3. Revisar el cambio y sus pruebas, incluyendo revisión independiente para seguridad, datos y reglas de negocio. Actualizar `docs/APP.md` si cambian las reglas y `docs/STATUS.md` al alcanzar un hito. No editar código mientras el revisor inspecciona la instantánea.
 4. Si procede publicar código, ejecutar `npm run release:prepare`. Reutiliza una verificación coincidente o ejecuta `verify`; valida el destino y los bindings, empaqueta con Wrangler dry-run y copia Worker, assets, configuración y migraciones en `.release/build-…/`. Guarda hashes del código y artefacto. No publica ni modifica Git.
 5. Registrar únicamente los archivos del cambio, subir la rama y abrir una PR con base explícita `main` y la [plantilla del repositorio](../.github/PULL_REQUEST_TEMPLATE.md). Indicar resultados reales y comprobaciones pendientes; dejarla como borrador si está incompleta. Antes de integrar, comprobar el último commit, la revisión y los checks configurados. Integrar la PR con merge commit y sin saltarse protecciones; actualizar el `main` local mediante fast-forward desde `origin/main`. Los comandos remotos de publicación exigen `main` y árbol limpio; no hacen commits, merges ni push por su cuenta. Subir o integrar código en GitHub y publicarlo en Cloudflare son pasos separados.
 6. Si hay migraciones pendientes, revisarlas para que sean compatibles con la versión aún activa y ejecutar **`npm run release:migrate`**. Registra antes versiones del Worker y punto de Time Travel en `.release/before-migration.json`; aplica las migraciones congeladas a la D1 remota. No es un ensayo: modifica producción.
 7. Ejecutar **`npm run release:deploy`**. Revalida código/artefacto, destino, árbol limpio, nombre del secreto Turnstile y presencia del esquema. Publica el bundle congelado con `--no-bundle` y comprueba web, CSP, salud, 401/no-store en rutas privadas y rechazo de alta sin CAPTCHA. Registra commit/hash/fecha localmente. Si falla la comprobación posterior, el despliegue puede haber ocurrido: inspeccionar antes de repetir.
-8. Completar el recorrido remoto proporcional al cambio, registrar PR, commit desplegado, versión y resultado en el README raíz; incorporar ese registro a GitHub. Para Turnstile: un alta con token real y fresco y rechazo de ese mismo token al reutilizarlo. Los tokens ficticios y mocks no acreditan esta integración real.
+8. Completar el recorrido remoto proporcional al cambio, registrar PR, commit desplegado, versión y resultado en `docs/STATUS.md` y añadir al `CHANGELOG.md` la evidencia útil; incorporar ese registro a GitHub. No duplicar el historial en el README ni acumular en el estado publicaciones anteriores. Para Turnstile: un alta con token real y fresco y rechazo de ese mismo token al reutilizarlo. Los tokens ficticios y mocks no acreditan esta integración real.
 
 Comandos habituales:
 
@@ -111,4 +111,4 @@ Las copias antiguas pueden contener datos sin cifrar. Las posteriores conservan 
 - [Wrangler Workers](https://developers.cloudflare.com/workers/wrangler/commands/workers/) y [Wrangler D1](https://developers.cloudflare.com/workers/wrangler/commands/d1/).
 - [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/), [import/export](https://developers.cloudflare.com/d1/best-practices/import-export-data/) y [rollback](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/).
 
-Revalidar comandos/cuotas con la versión fijada antes de nuevas operaciones. La evidencia ejecutada y las tareas pendientes permanecen en el README raíz.
+Revalidar comandos/cuotas con la versión fijada antes de nuevas operaciones. La verificación vigente y las tareas pendientes permanecen en [STATUS.md](../docs/STATUS.md); la evidencia histórica, en [CHANGELOG.md](../CHANGELOG.md).

@@ -1,6 +1,6 @@
 # Laboratorio visual cyberpunk
 
-Experimento autorizado y separado de la app. La [especificación y el estado común](../../README.md) siguen siendo la referencia del producto. **No es otra cuenta, otro backend ni un rediseño ya integrado.**
+Experimento autorizado y separado de la app. La [especificación](../../docs/APP.md) y el [estado común](../../docs/STATUS.md) siguen siendo la referencia del producto. **No es otra cuenta, otro backend ni un rediseño ya integrado.**
 
 ## Pregunta y alcance
 

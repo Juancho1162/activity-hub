@@ -16,4 +16,5 @@ Para documentación: diff, enlaces y coherencia; no afirmar pruebas funcionales 
 
 <!-- Indicar si necesita migración/despliegue o solo documentación.
 La integración en main no publica en Cloudflare. Tras publicar, registrar commit,
-versión y comprobaciones en el README raíz. No incluir códigos, tokens ni datos personales. -->
+versión y comprobaciones en docs/STATUS.md y CHANGELOG.md; mantener el README como
+presentación y guía de uso. No incluir códigos, tokens ni datos personales. -->

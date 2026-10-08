@@ -481,7 +481,7 @@ describe("Vistas de registro y dashboard", () => {
     })
     render(<App api={client} clock={clock} />)
     expect(await screen.findByRole("heading", { name })).toBeTruthy()
-    expect(document.querySelector("img")).toBeNull()
+    expect([...document.querySelectorAll("img")].map(image => image.getAttribute("src"))).toEqual(["/plant-logo.svg"])
     expect(screen.queryByRole("link", { name: /Referencia/ })).toBeNull()
   })
   it.each(["daily", "dashboard"])("mantiene referencia y edición independientes del check en %s", async (view) => {
