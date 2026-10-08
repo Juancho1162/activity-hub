@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useState, type ReactNode } from "react"
 import { Globe } from "lucide-react"
+import { ButtonDecorations } from "@/components/ui/8bit/button"
 import { errorText, isLanguage, LANGUAGE_STORAGE_KEY, locales, text, type Language } from "@/lib/i18n"
 
 function browserLanguage(): Language {
@@ -53,7 +54,7 @@ export function LanguageSelect() {
   const id = useId()
   if (!context) return null
   const label = context.t("Idioma")
-  return <label className="language-picker" htmlFor={id} title={label}><Globe aria-hidden="true" size={18} /><span className="sr-only">{label}</span><select id={id} value={context.language} onChange={event => context.choose(event.target.value as Language)}>
+  return <label className="language-picker" htmlFor={id} title={label}><Globe aria-hidden="true" size={18} /><span className="sr-only">{label}</span><span className="language-control"><select id={id} value={context.language} onChange={event => context.choose(event.target.value as Language)}>
     <option value="es" lang="es">Español</option><option value="en" lang="en">English</option>
-  </select></label>
+  </select><ButtonDecorations variant="outline" size="default" /></span></label>
 }

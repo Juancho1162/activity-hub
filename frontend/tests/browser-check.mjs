@@ -164,9 +164,10 @@ try {
     }
   }
   let contrastChecks = 0
+  let controlContrastChecks = 0
   const rowGeometryChecks = []
   const dailyGeometryChecks = []
-  async function assertTextContrast(pairs) {
+  async function assertTextContrast(pairs, minimum = 4.5) {
     const ratios = JSON.parse(await evaluate(`(() => {
       const luminance = color => {
         if (!/^rgba?\\(/.test(color)) throw new Error('Expected resolved RGB color');
@@ -175,14 +176,15 @@ try {
         const linear=channels.slice(0,3).map(n=>{const c=n/255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4});
         return linear[0]*.2126+linear[1]*.7152+linear[2]*.0722;
       };
-      return JSON.stringify(${JSON.stringify(pairs)}.map(([text,surface])=>{
-        const fg=luminance(getComputedStyle(document.querySelector(text)).color);
+      return JSON.stringify(${JSON.stringify(pairs)}.map(([text,surface,property='color'])=>{
+        const fg=luminance(getComputedStyle(document.querySelector(text))[property]);
         const bg=luminance(getComputedStyle(document.querySelector(surface??text)).backgroundColor);
         return {text,ratio:(Math.max(fg,bg)+.05)/(Math.min(fg,bg)+.05)};
       }));
     })()`))
-    for (const { text, ratio } of ratios) assert.ok(ratio >= 4.5, `${text}: text contrast ${ratio.toFixed(2)}:1 below 4.5:1`)
-    contrastChecks += ratios.length
+    for (const { text, ratio } of ratios) assert.ok(ratio >= minimum, `${text}: contrast ${ratio.toFixed(2)}:1 below ${minimum}:1`)
+    if (minimum === 3) controlContrastChecks += ratios.length
+    else contrastChecks += ratios.length
   }
   async function chooseTheme(value, ctx = context) {
     assert.ok(value === "light" || value === "dark")
@@ -352,6 +354,8 @@ try {
     await screenshot(`login-${theme}-desktop`, 1366, 1000)
     await screenshot(`login-${theme}-mobile`, 390, 844)
     await assertTextContrast([[".auth-card .muted", ".auth-card [data-slot=card]"], [".auth-form [type=submit]"], ["#access-code"], [".field-help", ".auth-card [data-slot=card]"], [".theme-toggle"]])
+    await assertTextContrast([[".language-picker select"]])
+    await assertTextContrast([[".language-control [data-slot=button-decorations] > span", ".app-controls", "backgroundColor"], [".auth-form .field-input", ".auth-card [data-slot=card]", "borderTopColor"]], 3)
   }
   await navigate()
   await waitFor(() => evaluate("document.querySelector('#access-code') !== null"), "reload access after visual preference")
@@ -1152,6 +1156,7 @@ try {
   console.log("Daily cards: responsive columns, bounded desktop widths even for one result, single-column mobile, equal row heights, complete names, 44px controls, stable reading order and keyboard focus after real writes")
   console.log("Calendars: inclusive percentages, native Enter/Space and visible focus, opening/closing the current responsive row while preserving other rows; visible full period/year and all tile dates, no activity requests for themes/layout/disclosure")
   console.log(`Palettes: ${contrastChecks} checked text/icon/surface pairs at least 4.5:1; no horizontal overflow or card-frame overflow in captured views`)
+  console.log(`Control boundaries: ${controlContrastChecks} checked pixel frames/input outlines at least 3:1 in both themes; language selector reuses the button's 8-bit frame`)
   console.log("Themes: one-click light/dark, system default, reload persistence, login/signup/editor/pending intent retained; preference-only storage")
   console.log("Languages: English/Spanish access and account controls, persisted preference, real cross-tab draft/focus retention, native autofill, English seven-day dates/counts/percentages and trash; no extra activity requests or credential storage")
   console.log("Native autofill: no React events; preserved through real focus/pageshow/visibility session checks and themes, same input/focus, explicit login/decryption and credential cleared on submit")

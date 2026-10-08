@@ -28,7 +28,7 @@
   --radius-xl: 0px;
 }
 
-/* Warm light palette and neutral charcoal dark palette. Root tokens also apply
+/* Warm light palette and accessible Nord dark palette. Root tokens also apply
    to dialogs portalled to <body>. */
 :root {
   color-scheme: light;
@@ -71,33 +71,35 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #181b20;
-  --foreground: #dde1e7;
-  --card: #22262d;
-  --popover: #282d35;
-  --primary: #a8bdd9;
-  --primary-foreground: #17212e;
-  --primary-hover: #b8cce5;
-  --secondary: #2c323c;
-  --muted: #292f38;
-  --muted-foreground: #a5afbc;
-  --accent: #333d4b;
-  --destructive: #dfa3a0;
-  --destructive-foreground: #2b1c20;
-  --border: #383f4b;
-  --input: #1c2027;
-  --ring: #748196;
-  --focus: #bdd2ee;
-  --link: #a8c3e4;
-  --amber: #d7ba82;
-  --sidebar: #1e2229;
-  --sidebar-muted: #a5afbc;
-  --open-bg: #283a35;
-  --open-fg: #b4cfbf;
-  --standby-bg: #3c3327;
-  --standby-fg: #dac19a;
-  --archived-bg: #2c323c;
-  --archived-fg: #b7c0cd;
+  --background: #2e3440;
+  --foreground: #e5e9f0;
+  --card: #3b4252;
+  --popover: #434c5e;
+  --primary: #88c0d0;
+  --primary-foreground: #2e3440;
+  --primary-hover: #9acddb;
+  --secondary: #434c5e;
+  --muted: #3b4252;
+  /* Brighter than Nord's comment gray: small labels must stay readable. */
+  --muted-foreground: #c1cad8;
+  --accent: #434c5e;
+  /* Nord red is too dim for small error text; retain hue, lift luminance. */
+  --destructive: #efa2aa;
+  --destructive-foreground: #342830;
+  --border: #4c566a;
+  --input: #2e3440;
+  --ring: #97a6bb;
+  --focus: #88c0d0;
+  --link: #88c0d0;
+  --amber: #ebcb8b;
+  --sidebar: #353d4b;
+  --sidebar-muted: #c1cad8;
+  --open-bg: #35443f;
+  --open-fg: #a3be8c;
+  --standby-bg: #454034;
+  --standby-fg: #ebcb8b;
+  --archived-bg: #434c5e;
+  --archived-fg: #d8dee9;
 }
 
 * { box-sizing: border-box; }
@@ -131,7 +133,8 @@ a { color: var(--link); }
 .theme-picker { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; font-size: 12px; color: var(--muted-foreground); }
 .theme-picker select { width: 110px; min-height: 44px; font-size: 14px; border: 1px solid var(--ring); }
 .language-picker { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.language-picker select { width: 100px; min-height: 44px; padding-inline: 8px; font-size: 14px; border: 1px solid var(--ring); }
+.language-control { position: relative; display: inline-flex; margin-inline: 3px; }
+.language-picker select { width: 100px; min-height: 44px; padding-inline: 8px; font-size: 14px; border: 0; background: var(--card); }
 .session-controls { display: flex; justify-content: flex-end; align-items: center; gap: 18px; min-width: 0; font-size: 11px; }
 .session-controls p { overflow-wrap: anywhere; }
 .session-controls [data-slot="button"] { padding: 8px 12px; font-size: 12px; }
