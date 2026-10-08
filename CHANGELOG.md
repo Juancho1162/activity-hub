@@ -2,6 +2,18 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-08 — README centrado en el producto e icono GitHub
+
+El README elimina las menciones a futuras funciones, conservadas en APP.md. El
+acceso al código fuente de la landing utiliza el logotipo oficial de GitHub
+(Octicons), con el texto ES/EN y la licencia correspondiente. SVG local con color
+heredado y semántica decorativa, sin dependencias nuevas.
+
+`npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build/dry-run y
+recorridos Firefox/Brave. Revisión del diff, enlaces y captura móvil en la sesión
+principal. Integración/publicación autorizadas; build y smoke registrados en la
+[PR #17](https://github.com/Juancho1162/activity-hub/pull/17).
+
 ## 2026-10-08 — Código fuente visible, licencia MIT y limpieza del repositorio
 
 **Verificado; integración y publicación autorizadas en la [PR #16](https://github.com/Juancho1162/activity-hub/pull/16).** El resultado del build automático y del smoke se registra en esa PR. La cabecera de

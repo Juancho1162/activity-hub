@@ -1,6 +1,7 @@
-import { ArrowRight, CodeXml, LockKeyhole } from "lucide-react"
+import { ArrowRight, LockKeyhole } from "lucide-react"
 import { LanguageSelect, useLanguage } from "@/components/Language"
 import { ThemeToggle } from "@/components/Theme"
+import { GitHubMark } from "@/components/GitHubMark"
 import { PlantLogo } from "@/components/PlantLogo"
 import { Button } from "@/components/ui/8bit/button"
 
@@ -12,7 +13,7 @@ export default function Landing() {
     <header className="landing-header">
       <div className="landing-brand"><PlantLogo /><span>Activity Hub</span></div>
       <div className="app-controls landing-controls">
-        <a className="landing-source" href="https://github.com/Juancho1162/activity-hub"><CodeXml aria-hidden="true" size={18} />{t("Código fuente")}</a>
+        <a className="landing-source" href="https://github.com/Juancho1162/activity-hub"><GitHubMark />{t("Código fuente")}</a>
         <LanguageSelect /><ThemeToggle />
       </div>
     </header>

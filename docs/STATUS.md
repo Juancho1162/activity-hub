@@ -25,6 +25,11 @@ Las pruebas de contratos usan resultados fijos capturados de Python antes de
 retirarlo; ya no requieren ese runtime. La comparación histórica `measure` y
 el comando de verificación de slides se han retirado.
 
+El README presenta solo funcionalidades actuales; las ideas futuras siguen en
+APP.md. El enlace al código fuente usa el logotipo oficial de GitHub, con licencia
+Octicons conservada. Cambio verificado en la [PR #17](https://github.com/Juancho1162/activity-hub/pull/17),
+con integración/publicación autorizadas y evidencia remota en esa PR.
+
 ## Trabajo
 
 - [ ] MCP de Activity Hub: concretar autenticación antes de implementar el conector de pi; distinto del MCP de administración de Cloudflare disponible para desarrollo.
@@ -34,7 +39,7 @@ el comando de verificación de slides se han retirado.
 
 ## Verificación vigente
 
-**Enlace al código fuente, limpieza y licencia MIT verificados, 2026-10-08.**
+**README centrado en el producto e icono GitHub verificados, 2026-10-08.**
 `npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build y dry-run,
 recorridos de cifrado y UI en Firefox, autocompletado y geometría en Brave.
 La landing pasa a 1366/390/320 px, en ES/EN y ambos temas. Los siete tests que
@@ -43,7 +48,9 @@ resultados fijos capturados de la referencia del commit `942de0d`.
 Enlaces locales y coherencia de manifiestos/lockfiles comprobados. Revisión
 independiente de la limpieza, fixtures, README y licencia sin hallazgos;
 actualización final de estado/historial revisada en la sesión principal.
-La evidencia de integración y despliegue se mantiene en la PR #16 enlazada arriba.
+El cambio de icono y README se revisó en la sesión principal, sin revisión
+independiente adicional; capturas móviles y enlaces comprobados. La verificación
+completa se repitió para la PR #17; su integración y despliegue se registran allí.
 
 `node frontend/scripts/capture-landing.mjs` genera las cuatro imágenes desde la
 app real con cuentas locales desechables, cuatro frentes y dos checks; no usa
