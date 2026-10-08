@@ -6,19 +6,39 @@
 
 La [web](https://activity-hub.software-juancho-prego-gundin.workers.dev) permite registrar actividad por frente y día, consultar porcentajes/calendarios por período y gestionar una Papelera recuperable con borrado permanente confirmado. Interfaz 8-bit con plantita humanoide animada y pausa accesible, adaptable a móvil, castellano/inglés con detección del navegador, tema claro y oscuro cálido con verde hoja y terracota. Código fijo por cuenta y contenido cifrado en el navegador, CAPTCHA, máximo inicial de 100 cuentas y límites de uso.
 
-Cloudflare Builds está conectado a [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub): cada push a `main`, incluso de documentación, compila y publica. Configuración: raíz `backend`, Node 26, entorno `production`, sin previews. El build remoto no ejecuta la batería de pruebas ni migraciones. Sin GitHub Actions ni protección de main. La referencia Python y los laboratorios siguen en `experiments/`; no sirven la aplicación publicada.
+Cloudflare Builds está conectado a [Juancho1162/activity-hub](https://github.com/Juancho1162/activity-hub): cada push a `main`, incluso de documentación, compila y publica. Configuración: raíz `backend`, Node 26, entorno `production`, sin previews. El build remoto no ejecuta la batería de pruebas ni migraciones. Sin GitHub Actions ni protección de main.
 
 La portada `/` presenta el producto y permanece pública siempre; `/app/` abre el
 acceso privado. La landing reutiliza identidad, temas e idiomas de la app. Sus
 capturas muestran la app real con datos ficticios, en ES/EN y claro/oscuro; no
 consulta cuentas ni actividad. Hay un único «Empezar» y «Ya tengo cuenta» junto al
-texto principal, sin acceso duplicado en cabecera ni bloque final de llamada a la acción. Las slides quedan
-como material independiente en `presentations/product-demo/`, sin enlaces ni build
-público. `/presentacion` y sus subrutas redirigen a la landing.
+texto principal, sin acceso duplicado en cabecera ni bloque final de llamada a la acción. Las slides y los experimentos se han retirado del repositorio; permanecen en el
+historial de Git. `/presentacion` y sus subrutas redirigen a la landing.
+
+El enlace «Código fuente»/«Source code» de la cabecera, la limpieza de
+slides/experimentos, el README en inglés y la licencia MIT están verificados en
+la [PR #16](https://github.com/Juancho1162/activity-hub/pull/16). Integración y
+publicación autorizadas; el resultado del build y del smoke se registra en esa
+PR para evitar publicaciones adicionales solo por actualizar esta evidencia.
+Se conservan los avisos de terceros.
+Las pruebas de contratos usan resultados fijos capturados de Python antes de
+retirarlo; ya no requieren ese runtime. La comparación histórica `measure` y
+el comando de verificación de slides se han retirado.
+
+El README presenta solo funcionalidades actuales; las ideas futuras siguen en
+APP.md. El enlace al código fuente usa el logotipo oficial de GitHub, con licencia
+Octicons conservada. Cambio verificado en la [PR #17](https://github.com/Juancho1162/activity-hub/pull/17),
+con integración/publicación autorizadas y evidencia remota en esa PR.
+
+La tipografía de landing y aplicación ha sido aceptada tras la prueba local:
+Chakra Petch en textos/controles y Press Start 2P en marca/títulos principales.
+Fuentes locales con licencia y capturas de ejemplo actualizadas. La integración
+con los cambios actuales de `main` está en verificación antes de publicar.
 
 ## Trabajo
 
-- [ ] Revisar visualmente la prueba local de tipografía en landing y aplicación: Chakra Petch para lectura/controles y Press Start 2P para marca/títulos principales. Capturas de la landing actualizadas; `presentations/` sin cambios. Pendiente de aceptación antes de integrar/publicar.
+- [ ] Completar verificación/revisión de tipografía, integrar la PR autorizada y comprobar el despliegue automático.
+
 - [ ] MCP de Activity Hub: concretar autenticación antes de implementar el conector de pi; distinto del MCP de administración de Cloudflare disponible para desarrollo.
 - [ ] Capacidad/coste bajo carga, copia externa y restauración: pendientes de validar.
 - [ ] Safari/iPhone físico: pendiente.
@@ -26,35 +46,28 @@ público. `/presentacion` y sus subrutas redirigen a la landing.
 
 ## Verificación vigente
 
-**Prueba local de tipografía, 2026-10-08 (sin publicar).** Build/tipos y 264
-pruebas frontend pasan. `npm run test:browser` comprueba landing y aplicación
-en Firefox/Brave, temas claro/oscuro, ES/EN y tamaños de móvil/escritorio.
-Capturas de landing y aplicación revisadas en la sesión principal; las cuatro
-imágenes de ejemplo se regeneran con cuentas locales desechables. Chakra Petch
-se sirve localmente con su licencia, sin peticiones a Google Fonts en ejecución.
-Preview disponible durante esta sesión en `http://127.0.0.1:8788/` y `/app/`, con
-D1 local separada en `backend/.state/typography-preview`. El puerto 8787 ya estaba
-ocupado. La aceptación visual sigue pendiente; no se ha hecho merge ni despliegue.
-
-**Landing simplificada y capturas reales verificadas, 2026-10-08.**
+**README centrado en el producto e icono GitHub verificados, 2026-10-08.**
 `npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build y dry-run,
 recorridos de cifrado y UI en Firefox, autocompletado y geometría en Brave.
-El recorrido público comprueba los dos enlaces de acceso sin duplicados, captura
-real según tema/idioma, 1366/390/320 px, preferencias, plantita/movimiento reducido,
-redirecciones y ausencia de consultas privadas. Capturas de escritorio y móvil
-revisadas; revisión en la sesión principal, sin revisor independiente.
+La landing pasa a 1366/390/320 px, en ES/EN y ambos temas. Los siete tests que
+usaban Python pasaron antes de retirarlo y después con los mismos casos contra
+resultados fijos capturados de la referencia del commit `942de0d`.
+Enlaces locales y coherencia de manifiestos/lockfiles comprobados. Revisión
+independiente de la limpieza, fixtures, README y licencia sin hallazgos;
+actualización final de estado/historial revisada en la sesión principal.
+El cambio de icono y README se revisó en la sesión principal, sin revisión
+independiente adicional; capturas móviles y enlaces comprobados. La verificación
+completa se repitió para la PR #17; su integración y despliegue se registran allí.
 
 `node frontend/scripts/capture-landing.mjs` genera las cuatro imágenes desde la
 app real con cuentas locales desechables, cuatro frentes y dos checks; no usa
 cuentas de producción. No cambian API, autenticación, datos ni dependencias.
-La publicación automática y su comprobación remota se registran en la [PR #15](https://github.com/Juancho1162/activity-hub/pull/15) para no encadenar builds solo al actualizar el commit documentado.
+La última publicación anterior y su comprobación remota se registran en la [PR #15](https://github.com/Juancho1162/activity-hub/pull/15) para no encadenar builds solo al actualizar el commit documentado.
 
 La evidencia anterior se conserva en [CHANGELOG](../CHANGELOG.md). Safari/iPhone
 físico, coste bajo carga y restauración de D1 siguen pendientes.
 
 ## Siguiente paso
 
-Revisar la prueba tipográfica local. Antes de preparar su integración, conciliar
-los cambios posteriores de `origin/main` (esta prueba parte de `1d44d13`) y
-completar la verificación de publicación. El merge en `main` activa producción;
-requiere la aceptación de la prueba y autorización de integración.
+Para la siguiente mejora, verificar y revisar antes de integrar la PR: el merge
+en `main` activa producción. Comprobar el build remoto y ejecutar el smoke después.

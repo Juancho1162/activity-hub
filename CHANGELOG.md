@@ -2,6 +2,38 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-08 — README centrado en el producto e icono GitHub
+
+El README elimina las menciones a futuras funciones, conservadas en APP.md. El
+acceso al código fuente de la landing utiliza el logotipo oficial de GitHub
+(Octicons), con el texto ES/EN y la licencia correspondiente. SVG local con color
+heredado y semántica decorativa, sin dependencias nuevas.
+
+`npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build/dry-run y
+recorridos Firefox/Brave. Revisión del diff, enlaces y captura móvil en la sesión
+principal. Integración/publicación autorizadas; build y smoke registrados en la
+[PR #17](https://github.com/Juancho1162/activity-hub/pull/17).
+
+## 2026-10-08 — Código fuente visible, licencia MIT y limpieza del repositorio
+
+**Verificado; integración y publicación autorizadas en la [PR #16](https://github.com/Juancho1162/activity-hub/pull/16).** El resultado del build automático y del smoke se registra en esa PR. La cabecera de
+la landing enlaza al repositorio público en ES/EN. README raíz en inglés y
+licencia MIT para Activity Hub, también declarada en los manifiestos. Se
+conservan los avisos y licencias de terceros utilizados por la aplicación.
+
+Eliminados slides y experimentos, junto con sus comandos y las mediciones del
+protocolo antiguo. Los contratos conservan los mismos casos de pruebas mediante
+resultados capturados de Python antes de retirarlo: siete pruebas pasan tanto
+contra la referencia original como contra los fixtures. El proyecto ya no
+requiere Python para desarrollar o verificar. El material retirado permanece
+en el historial; las rutas y comandos de entradas anteriores son históricos.
+
+`npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build, dry-run y
+recorridos Firefox/Brave. Enlaces locales y manifiestos/lockfiles comprobados.
+Revisión independiente sin hallazgos; evidencia final de estado/historial
+revisada en la sesión principal. Sin cambios en API, autenticación, esquema o
+datos de producción, ni dependencias nuevas.
+
 ## 2026-10-08 — Landing sin accesos repetidos y con la app real
 
 Retirados el «Ya tengo cuenta» de cabecera y el bloque final «Empieza por un

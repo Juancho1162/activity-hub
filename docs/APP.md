@@ -62,6 +62,13 @@ Quedan fuera de este primer módulo las notificaciones, correo, Teams, el dashbo
 
 **Temas:** se conserva la paleta clara cálida. El oscuro comparte su familia de colores y los de la plantita: fondo carbón oliva, superficies diferenciadas, texto crema, verde hoja y acentos terracota. El fondo es liso y las sombras cortas mantienen la geometría pixelada. Las etiquetas secundarias y los errores mantienen contraste en texto pequeño. Ambos conservan la presentación 8-bit y controles accesibles; el selector nativo de idioma comparte el marco pixelado de los botones.
 
+**Tipografía de landing y aplicación (2026-10-08):** Chakra Petch para textos,
+controles, formularios, títulos secundarios y porcentajes; Press Start 2P para
+la marca y los títulos principales. Las fuentes se sirven desde el propio sitio
+con sus licencias, sin solicitudes a Google Fonts durante el uso. Se mantienen
+la plantita, paleta y marcos 8-bit. La elección se aprobó tras revisión local;
+no se extiende al material de presentación histórico.
+
 ### Entrada pública
 
 Decisión del 2026-10-08: `/` muestra siempre una landing pública, también para
@@ -77,9 +84,9 @@ a la acción. La vista del producto usa capturas de la app real con datos
 ficticios, en ambos idiomas y temas, sin consultas a actividad ni datos de cuentas. No hay redirección automática desde `/` según
 sesiones o visitas anteriores ni promesas de funcionalidades futuras disponibles.
 
-Por decisión posterior del usuario, las slides no forman parte de la web ni de
-su build. Se conservan en `presentations/product-demo/` para uso independiente;
-no se enlazan desde la landing. Las direcciones antiguas `/presentacion` y
+Por decisión del usuario, las slides se eliminan del repositorio junto con los
+experimentos. La cabecera enlaza al repositorio público mediante «Código fuente»
+(traducido al inglés). Activity Hub se distribuye bajo la licencia MIT. Las direcciones antiguas `/presentacion` y
 `/presentacion/*` redirigen a la portada.
 
 ### Acceso privado acordado
@@ -125,7 +132,7 @@ La integración común será **pi mediante MCP**: una interfaz conversacional pu
 
 ## 4. Implementación principal
 
-**Decisión del 2026-10-05:** JavaScript moderno + Cloudflare Workers + D1 pasa a ser la implementación principal, por petición expresa del usuario. React conserva su código, aspecto y comportamiento. El backend anterior de Python se conserva como [referencia secundaria](../experiments/python-sqlite/README.md).
+**Decisión del 2026-10-05:** JavaScript moderno + Cloudflare Workers + D1 pasa a ser la implementación principal, por petición expresa del usuario. React conserva su código, aspecto y comportamiento. La implementación anterior de Python y los laboratorios se han retirado por decisión del usuario el 2026-10-08.
 
 | Pieza | Implementación actual |
 | --- | --- |
@@ -133,16 +140,15 @@ La integración común será **pi mediante MCP**: una interfaz conversacional pu
 | Datos | D1 local mediante Wrangler y D1 de producción separada; esquema SQL en `backend/migrations/`. |
 | Frontend | React + TypeScript + Vite en `frontend/`, con shadcn/ui + 8bitcn y el aspecto «8-bit con encanto». |
 | Web y API | [Web publicada](https://activity-hub.software-juancho-prego-gundin.workers.dev) y entorno local en `http://127.0.0.1:8787`; el Worker sirve el build oficial y la API. |
-| Referencia anterior | FastAPI + SQLAlchemy + Alembic + SQLite en `experiments/python-sqlite/`; se usa en las comparaciones automáticas. |
 | MCP de Activity Hub | Previsto, aún sin implementar ni configurar; su autenticación queda por decidir. Es distinto del MCP de administración de Cloudflare instalado en Codex. |
 
-Node 26.0.0, npm 11.12.1 y Wrangler 4.147.0 fijado en `backend/package-lock.json`; dependencias de React fijadas en su propio lock. Python 3.14 de `.venv/` solo es necesario para la referencia, sus pruebas y las comparaciones. **Arrancar y usar la app principal no requiere Python.** No se instalaron dependencias nuevas durante la promoción.
+Node 26.0.0, npm 11.12.1 y Wrangler 4.147.0 fijado en `backend/package-lock.json`; dependencias de React fijadas en su propio lock. Desarrollo, pruebas y uso de la app no requieren Python. Las pruebas de contratos conservan resultados fijos capturados de la implementación anterior antes de retirarla.
 
-El código, configuración y dependencias de JavaScript se trasladaron desde `experiments/javascript-workers-d1/` a `backend/`. Su carpeta de estado también se trasladó, conservando los mismos archivos y el identificador D1 local. La configuración local no utiliza recursos de Cloudflare remotos.
+El código, configuración y dependencias de JavaScript residen en `backend/`. Su carpeta de estado también se trasladó, conservando los mismos archivos y el identificador D1 local. La configuración local no utiliza recursos de Cloudflare remotos.
 
-La [guía del backend principal](../backend/README.md) conserva detalles de transacciones, pruebas, medición y publicación en Cloudflare, autorizada el 2026-10-06 con una base remota vacía. La [investigación de Render](../experiments/python-sqlite/RENDER.md) queda asociada a la alternativa Python; sus precios y recetas son históricos. La capacidad/coste bajo carga y la recuperación de copias siguen sin validarse.
+La [guía del backend principal](../backend/README.md) conserva detalles de transacciones, pruebas y publicación en Cloudflare, autorizada el 2026-10-06 con una base remota vacía. La capacidad/coste bajo carga y la recuperación de copias siguen sin validarse.
 
-Los laboratorios [cyberpunk](../experiments/cyberpunk-ui/README.md), [artístico](../experiments/art-ui/README.md) y [8-bit](../experiments/8bit-twist/README.md) se conservan como referencias visuales. Solo la presentación 8-bit elegida se integró en React; los datos y controles de sus maquetas permanecen aislados. La identidad utiliza una [plantita humanoide 8-bit animada](../frontend/public/plant-logo.svg), de 96 px en acceso y 64 px en navegación, siempre junto al nombre «Activity Hub». Puede pausarse por clic/teclado usando la [misma figura estática](../frontend/public/plant-logo-static.svg), y respeta movimiento reducido. El [favicon](../frontend/public/favicon.svg) simplifica la cara y las hojas para tamaños de pestaña; el [ordenador](../frontend/src/assets/pixel-desk.svg) se conserva como alternativa fuera de la interfaz.
+La identidad utiliza una [plantita humanoide 8-bit animada](../frontend/public/plant-logo.svg), de 96 px en acceso y 64 px en navegación, siempre junto al nombre «Activity Hub». Puede pausarse por clic/teclado usando la [misma figura estática](../frontend/public/plant-logo-static.svg), y respeta movimiento reducido. El [favicon](../frontend/public/favicon.svg) simplifica la cara y las hojas para tamaños de pestaña; el [ordenador](../frontend/src/assets/pixel-desk.svg) se conserva como alternativa fuera de la interfaz.
 
 ## 5. Contratos y garantías
 

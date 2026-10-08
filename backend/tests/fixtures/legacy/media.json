@@ -1,0 +1,26 @@
+{
+"input":{"cases":[{"route":"/api/fronts","body":{"name":"Media"},"types":[]},{"route":"/api/fronts","body":{"name":"Media"},"types":["text/plain"]},{"route":"/api/fronts","body":{"name":"Media"},"types":["application/json"]},{"route":"/api/fronts","body":{"name":"Media"},"types":["application/json; charset=utf-8"]},{"route":"/api/fronts","body":{"name":"Media"},"types":["APPLICATION/JSON"]},{"route":"/api/fronts","body":{"name":"Media"},"types":["application/problem+json"]},{"route":"/api/fronts","body":{"name":"Media"},"types":["application/vnd.example+json"]},{"route":"/api/fronts","body":{"name":"Media"},"types":["text/json"]},{"route":"/api/fronts","body":{"name":"Media"},"types":["application/json, text/plain"]},{"route":"/api/fronts","body":{"name":"Media"},"types":["application/json,text/plain"]},{"route":"/auth/signup","body":{},"types":[]},{"route":"/auth/signup","body":{},"types":["text/plain"]},{"route":"/auth/signup","body":{},"types":["application/json; charset=utf-8","text/plain"]},{"route":"/auth/signup","body":{},"types":["application/json","application/json"]},{"route":"/auth/signup","body":{},"types":["application/problem+json"]},{"route":"/auth/signup","body":{},"types":["application/json; charset=\"utf-8,utf-8\""]},{"route":"/auth/signup","body":{},"types":["application/json; charset=utf-8"]},{"route":"/auth/login","body":{"code":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"},"types":[]},{"route":"/auth/login","body":{"code":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"},"types":["text/plain"]},{"route":"/auth/login","body":{"code":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"},"types":["application/json; charset=utf-8","text/plain"]},{"route":"/auth/login","body":{"code":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"},"types":["application/json"]}]},
+"result":[
+{"status":422,"changes":[0,0,0,0,0],"attempts":{},"no_store":true},
+{"status":422,"changes":[0,0,0,0,0],"attempts":{},"no_store":true},
+{"status":201,"changes":[0,0,1,0,1],"attempts":{},"no_store":true},
+{"status":201,"changes":[0,0,0,0,0],"attempts":{},"no_store":true},
+{"status":201,"changes":[0,0,0,0,0],"attempts":{},"no_store":true},
+{"status":201,"changes":[0,0,0,0,0],"attempts":{},"no_store":true},
+{"status":201,"changes":[0,0,0,0,0],"attempts":{},"no_store":true},
+{"status":422,"changes":[0,0,0,0,0],"attempts":{},"no_store":true},
+{"status":422,"changes":[0,0,0,0,0],"attempts":{},"no_store":true},
+{"status":422,"changes":[0,0,0,0,0],"attempts":{},"no_store":true},
+{"status":415,"changes":[0,0,0,0,0],"attempts":{"signup":1},"no_store":true},
+{"status":415,"changes":[0,0,0,0,0],"attempts":{"signup":1},"no_store":true},
+{"status":415,"changes":[0,0,0,0,0],"attempts":{"signup":1},"no_store":true},
+{"status":415,"changes":[0,0,0,0,0],"attempts":{"signup":1},"no_store":true},
+{"status":415,"changes":[0,0,0,0,0],"attempts":{"signup":1},"no_store":true},
+{"status":201,"changes":[1,0,0,0,0],"attempts":{"signup":1},"no_store":true},
+{"status":201,"changes":[1,0,0,0,0],"attempts":{"signup":1},"no_store":true},
+{"status":415,"changes":[0,0,0,0,0],"attempts":{"login":1},"no_store":true},
+{"status":415,"changes":[0,0,0,0,0],"attempts":{"login":1},"no_store":true},
+{"status":415,"changes":[0,0,0,0,0],"attempts":{"login":1},"no_store":true},
+{"status":401,"changes":[0,0,0,0,0],"attempts":{"login":1},"no_store":true}
+]
+}

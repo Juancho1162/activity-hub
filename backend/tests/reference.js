@@ -1,11 +1,15 @@
-import { spawnSync } from 'node:child_process';
-import path from 'node:path';
-import { root } from './fixture.js';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
-export function pythonReference(action, args) {
-  const result = spawnSync(path.resolve(root, '../.venv/bin/python'), ['-B', path.join(root, 'tests/python_reference.py')], {
-    cwd: root, env: process.env, input: JSON.stringify({ action, ...args }), encoding: 'utf8', maxBuffer: 1024 * 1024,
-  });
-  if (result.error || result.status !== 0) throw new Error('Temporary Python differential fixture failed');
-  return JSON.parse(result.stdout);
+// Frozen outputs from the retired Python implementation, recorded and checked
+// against the Worker before removing the experiments. No Python runtime needed.
+export function recordedReference(action, args) {
+  let source = readFileSync(new URL(`./fixtures/legacy/${action}.json`, import.meta.url), 'utf8');
+  if (action === 'replays') {
+    source = source.replaceAll('11111111-1111-1111-1111-111111111111', args.account_id)
+      .replaceAll('11111111111111111111111111111111', args.account_id.replaceAll('-', ''));
+  }
+  const recorded = JSON.parse(source);
+  assert.deepEqual(args, recorded.input, 'Recorded contract inputs must match the test cases');
+  return recorded.result;
 }
