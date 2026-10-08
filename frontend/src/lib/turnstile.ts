@@ -39,7 +39,7 @@ export async function signupToken(fetcher: typeof fetch): Promise<string | undef
       }
       // Compact remains usable if the screen narrows while verification runs.
       try {
-        id = widget.render(container, { sitekey: config.sitekey, action: 'signup', size: 'compact', callback: (token: string) => finish(token), 'error-callback': () => finish(), 'expired-callback': () => finish(), 'response-field': false })
+        id = widget.render(container, { sitekey: config.sitekey, action: 'signup', size: 'compact', language: document.documentElement.lang === 'en' ? 'en' : 'es', callback: (token: string) => finish(token), 'error-callback': () => finish(), 'expired-callback': () => finish(), 'response-field': false })
       } catch { finish() }
     })
   } catch (error) {

@@ -65,6 +65,10 @@ Se conservan las reglas acordadas para este módulo:
 
 Quedan fuera de este primer módulo las notificaciones, correo, Teams, el dashboard agregador y el agente coordinador. No se convierte el registro en un gestor de tareas ni en un detector automático de actividad.
 
+**Idiomas de la web:** castellano e inglés, con selector tanto en acceso como dentro de la cuenta. Primera selección según los idiomas del navegador, con castellano como fallback; la elección explícita se recuerda en este navegador y se sincroniza entre sus pestañas. Textos, estados, avisos, etiquetas accesibles, fechas y porcentajes siguen el idioma. Nombres y enlaces escritos por el usuario se conservan; la fecha del registro sigue referida a `Europe/Madrid`. Cambiar idioma conserva sesión, autocompletado, borradores y solicitudes pendientes sin recargar ni consultar/escribir actividad.
+
+**Temas:** se conserva la paleta clara cálida. El oscuro usa grises antracita, superficies diferenciadas, texto suave y acentos azules discretos, con fondo liso y sombras más ligeras. Ambos conservan la presentación 8-bit y controles accesibles.
+
 ### Acceso privado acordado
 
 - **Alta abierta integrada en la app:** sin invitaciones, Google, correo ni nombre de usuario; con CAPTCHA y máximo inicial de 100 cuentas. Sustituye el diseño anterior de propietario único y alta por terminal.
@@ -297,6 +301,7 @@ Riesgos considerados en esta primera publicación: apuntar por error a datos loc
 
 | Bloque | Estado |
 | --- | --- |
+| Castellano e inglés y tema oscuro | Implementados y verificados en `feature/bilingual-interface`: 261 pruebas frontend, dos recorridos Firefox y Brave/Chromium, con ambos idiomas/temas. Artefacto preparado; integración y publicación pendientes. El claro conserva su paleta. |
 | Promoción JavaScript + Workers/D1 | Completada en local: estructura, comandos, suites, medición, ambos recorridos Firefox y arranque/reinicio verificados. Revisión en la sesión principal; perfil independiente no disponible. |
 | Referencia Python | Secundaria en `experiments/python-sqlite/`; 102 pruebas pasan, sin modificación de reglas ni de la SQLite existente. |
 | Frontend oficial | React con presentación 8-bit, cifrado local, autocompletado y guardado mediante gestor nativo, interfaz adaptable a móvil, navegación estable, marcado/desmarcado inmediato sin animación, calendarios por fila con fechas visibles y Papelera con restauración y borrado permanente confirmado. 242 pruebas, tipos/build, ambos recorridos Firefox y el recorrido Brave contra Worker/D1 pasan; publicado y comprobado. |
@@ -423,6 +428,16 @@ Repositorio privado **[Juancho1162/activity-hub](https://github.com/Juancho1162/
 Actualizados también `AGENTS.md`, la skill `engineering-workflow`, el README y el estado de **codexdev** en su perfil local, fuera de este repositorio. `python3 scripts/check_profile.py` pasa los cinco grupos, incluida la carga nativa de las tres skills. `quick_validate.py` sigue indisponible por falta de PyYAML; no se añadieron dependencias. Revisión local del diff, enlaces e instrucciones; `git diff --check` correcto. Inspeccionados 252 blobs del historial con patrones de credenciales y rutas privadas, sin coincidencias detectadas; no equivale a una auditoría exhaustiva.
 
 La API de GitHub confirma repositorio privado, `main` sin protección y cero workflows de Actions. Las pruebas siguen siendo locales; no hay CI ni despliegue automático. Este incremento modifica solo Markdown: no se repiten las suites funcionales ni se publica el Worker. La comprobación del artefacto confirma la misma huella de código ejecutable y los mismos hashes preparados de la última publicación. La revisión se hizo en la sesión principal, sin atribuir revisión independiente. Bases D1, credenciales y artefactos locales permanecen fuera de Git.
+
+### Castellano, inglés y tema oscuro — 2026-10-08
+
+**Implementado y verificado; publicación pendiente.** Rama `feature/bilingual-interface`. Selector en el acceso y la sesión activa; preferencia explícita en `activity-hub.language`, sincronizada entre pestañas. Sin elección previa se usa el primer castellano/inglés de los idiomas del navegador, o castellano si no hay coincidencia. Se traducen navegación, formularios, estados, avisos, validaciones, errores conocidos, textos accesibles, título y oferta al gestor nativo. Fechas y porcentajes usan `es-ES`/`en-GB`; los días ISO y `Europe/Madrid` se mantienen. El CAPTCHA toma el idioma al iniciar su verificación; cambiar después no reinicia un desafío pendiente. Nombres, referencias y credenciales se conservan literalmente.
+
+El oscuro pasa de verdes/grises cálidos a una paleta antracita con acentos azules suaves, fondo liso y sombras ligeras. La paleta y decoración del claro no cambian. En móvil, cuenta/cierre y preferencias usan dos filas para mantener visibles los controles a 320 px. Cambiar idioma o tema conserva código autocompletado, ACK del alta, editor, fecha/filtros, foco, sesión e identidad de las solicitudes pendientes; no crea clientes, consultas de actividad ni reintentos.
+
+Diez regresiones de idioma fallaron antes de traducir la UI; pasan con la implementación. Las 17 pruebas nuevas cubren detección, persistencia, almacenamiento bloqueado, sincronización, acceso/alta, límites, fechas, borradores, checks y reintentos, y confirmación del borrado. Dos pruebas adicionales comprueban el idioma del widget de CAPTCHA. `npm run release:prepare` pasa con **36 pruebas backend y 261 frontend**, tipos/build, dry-run de producción, ambos recorridos Firefox contra Worker/D1 temporal y Brave/Chromium. Firefox conserva las regresiones de seguridad, historial, calendarios, Papelera y marcado inmediato; añade acceso inglés, recarga, autocompletado sin eventos, cambio real entre pestañas con editor abierto, fechas/porcentajes y capturas de ambos temas a 1366/768/390/320 px. Se comprueban **106 pares de contraste de al menos 4,5:1**. Brave comprueba ambos idiomas/temas y registro/dashboard a 11 anchos de 320 a 1366 px, además de PasswordCredential/store reales y ausencia de tráfico del código original. Los checks se dibujaron en el primer frame, a 4/5/7 ms en esta ejecución local; no es una medición de dispositivos reales.
+
+Artefacto congelado en `.release/build-bcf292e5-747b-49b8-89ed-c63873026ae2`. Revisados diff, archivos nuevos y capturas de acceso, dashboard y editor en la sesión principal, sin hallazgos pendientes. El primer recorrido inglés exigía alineación tras conservar solo un calendario móvil abierto y ampliar la ventana; se corrigió la preparación de la prueba para abrir la fila del ancho actual, sin cambiar ni debilitar la regla de la aplicación. No se atribuye revisión independiente: este entorno no permite seleccionar el perfil `reviewer` de codexdev. Sin dependencias nuevas, migraciones ni cambios de datos. Safari/iPhone físico y visibilidad/aceptación del aviso nativo siguen pendientes como comprobaciones de dispositivos.
 
 ## 8. Ampliación de información y aprendizaje — diseño conservado, 2026-10-06
 

@@ -28,7 +28,7 @@ export function daysInWindow(start: string, end: string): string[] {
   return Array.from({ length: count }, (_, i) => shiftDay(start, i))
 }
 
-export function formatDay(day: string, short = false): string {
+export function formatDay(day: string, short = false, locale = "es-ES"): string {
   if (!isDay(day)) return "—"
-  return new Intl.DateTimeFormat("es-ES", { timeZone: "UTC", day: "numeric", month: short ? "short" : "long", ...(short ? {} : { year: "numeric" }) }).format(new Date(`${day}T12:00:00Z`))
+  return new Intl.DateTimeFormat(locale, { timeZone: "UTC", day: "numeric", month: short ? "short" : "long", ...(short ? {} : { year: "numeric" }) }).format(new Date(`${day}T12:00:00Z`))
 }

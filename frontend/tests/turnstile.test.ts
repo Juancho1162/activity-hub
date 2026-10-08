@@ -2,7 +2,20 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { signupToken } from '../src/lib/turnstile'
 
 const config = () => vi.fn<typeof fetch>(async () => Response.json({ local: false, registration_enabled: true, sitekey: 'synthetic-public-sitekey' }))
-afterEach(() => { delete window.turnstile; document.body.innerHTML = '' })
+afterEach(() => { delete window.turnstile; document.body.innerHTML = ''; document.documentElement.lang = 'es' })
+
+it.each(['es', 'en'])('a new challenge uses the selected interface language (%s)', async language => {
+  document.documentElement.lang = language
+  document.body.innerHTML = '<div id="signup-challenge"></div>'
+  const remove = vi.fn()
+  window.turnstile = { remove, render(_container, options) {
+    expect(options.language).toBe(language)
+    queueMicrotask(() => (options.callback as (token: string) => void)('synthetic-language-token'))
+    return 'synthetic-language-widget'
+  } }
+  expect(await signupToken(config())).toBe('synthetic-language-token')
+  expect(remove).toHaveBeenCalledExactlyOnceWith('synthetic-language-widget')
+})
 
 it('a challenge fits the narrow signup card and each attempt obtains its own token', async () => {
   document.body.innerHTML = '<div id="signup-challenge"></div>'

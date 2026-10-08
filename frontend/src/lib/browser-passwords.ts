@@ -1,3 +1,5 @@
+import { isLanguage, text } from "./i18n"
+
 type PasswordConstructor = new (data: { id: string; password: string; name: string }) => Credential
 
 /** Offer the verified code to the browser's own password manager, never app storage. */
@@ -9,7 +11,7 @@ export function offerBrowserPassword(accountId: string, code: string) {
     const credential = new browser.PasswordCredential({
       id: accountId,
       password: code,
-      name: `Activity Hub · Cuenta ${accountId.slice(0, 8)}`,
+      name: `Activity Hub · ${text(isLanguage(document.documentElement.lang) ? document.documentElement.lang : "es", "Cuenta {account}", { account: accountId.slice(0, 8) })}`,
     })
     // Browser policy, dismissal or an unavailable manager cannot block sign-in.
     void navigator.credentials.store(credential).catch(() => {})

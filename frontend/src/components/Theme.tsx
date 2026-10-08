@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useState, type ReactNode } from "react"
 import { Moon, Sun } from "lucide-react"
 import { Button } from "@/components/ui/8bit/button"
+import { useLanguage } from "./Language"
 
 export type ThemePreference = "system" | "light" | "dark"
 export const THEME_STORAGE_KEY = "activity-hub.theme"
@@ -31,7 +32,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = resolved
     document.documentElement.classList.toggle("dark", resolved === "dark")
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "dark" ? "#252624" : "#F2ECE2")
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "dark" ? "#181B20" : "#F2ECE2")
   }, [resolved])
   useEffect(() => {
     const changed = (event: StorageEvent) => {
@@ -51,20 +52,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 }
 
 export function ThemeToggle() {
+  const { t } = useLanguage()
   const theme = useContext(ThemeContext)
   if (!theme) return null
   const dark = theme.resolved === "dark"
-  const label = dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"
+  const label = t(dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro")
   return <Button type="button" variant="outline" size="icon" className="theme-toggle" aria-label={label} title={label} onClick={() => theme.choose(dark ? "light" : "dark")}>
     {dark ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
   </Button>
 }
 
 export function ThemeSelect() {
+  const { t } = useLanguage()
   const theme = useContext(ThemeContext)
   const id = useId()
   if (!theme) return null
-  return <label className="theme-picker" htmlFor={id}><span>Tema</span><select id={id} value={theme.preference} onChange={(event) => theme.choose(event.target.value as ThemePreference)}>
-    <option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Oscuro</option>
+  return <label className="theme-picker" htmlFor={id}><span>{t("Tema")}</span><select id={id} value={theme.preference} onChange={(event) => theme.choose(event.target.value as ThemePreference)}>
+    <option value="system">{t("Sistema")}</option><option value="light">{t("Claro")}</option><option value="dark">{t("Oscuro")}</option>
   </select></label>
 }
