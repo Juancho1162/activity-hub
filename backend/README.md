@@ -126,3 +126,12 @@ Las copias antiguas pueden contener datos sin cifrar. Las posteriores conservan 
 - [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/), [import/export](https://developers.cloudflare.com/d1/best-practices/import-export-data/) y [rollback](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/).
 
 Revalidar comandos/cuotas con la versión fijada antes de nuevas operaciones. La verificación vigente y las tareas pendientes permanecen en [STATUS.md](../docs/STATUS.md); la evidencia histórica, en [CHANGELOG.md](../CHANGELOG.md).
+
+### Capturas públicas de la app
+
+La landing usa capturas reales con datos ficticios, generadas localmente con
+`npm run build && node frontend/scripts/capture-landing.mjs` desde la raíz.
+El script usa Brave y D1 temporales, crea cuatro frentes y dos checks mediante la
+UI real y exporta ES/EN y claro/oscuro a `frontend/public/previews/`. No utiliza
+cuentas de producción. Ejecutar después `npm run build` para incluir las capturas
+nuevas; revisar las imágenes y `frontend/tests/public-pages.mjs` antes de publicar.

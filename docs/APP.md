@@ -71,8 +71,10 @@ consultar actividad, y el acceso privado con código sin recuperación. Reutiliz
 la identidad 8-bit, plantita, temas claro/oscuro e idiomas castellano/inglés de la
 app, con composición adaptable a móvil y ordenador. «Empezar» y «Ya tengo cuenta»
 llevan al acceso existente: visitar la landing o seguir un enlace nunca crea una
-cuenta ni registra actividad. Los ejemplos son ilustrativos, sin consultas a
-actividad ni datos de cuentas. No hay redirección automática desde `/` según
+cuenta ni registra actividad. Ambos enlaces aparecen una sola vez, junto al texto
+principal; la cabecera no repite el acceso y no hay un bloque final de llamada
+a la acción. La vista del producto usa capturas de la app real con datos
+ficticios, en ambos idiomas y temas, sin consultas a actividad ni datos de cuentas. No hay redirección automática desde `/` según
 sesiones o visitas anteriores ni promesas de funcionalidades futuras disponibles.
 
 Por decisión posterior del usuario, las slides no forman parte de la web ni de

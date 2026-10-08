@@ -5,7 +5,8 @@ export const locales: Record<Language, string> = { es: "es-ES", en: "en-GB" }
 // Spanish is the source language. Typed message IDs keep UI copy and its English
 // translation together; user-authored names/references never go through this map.
 const english = {
-  "Navegación pública": "Public navigation",
+  "Registro diario real: fecha, filtros y tarjetas de frentes con sus checks de actividad.": "Actual daily log: date, filters and focus area cards with activity checks.",
+  "Captura de la aplicación con datos de ejemplo.": "Screenshot of the app with sample data.",
   "Ya tengo cuenta": "I have an account",
   "Empezar": "Get started",
   "Conoce Activity Hub": "Discover Activity Hub",
@@ -13,13 +14,6 @@ const english = {
   "Tus proyectos, estudios y aficiones,": "Your projects, studies and hobbies,",
   "en un mismo lugar.": "all in one place.",
   "Organiza lo que te importa. Marca los días que le dedicas tiempo y observa tu actividad.": "Organise what matters to you. Mark the days you spend time on it and see your activity.",
-  "Ejemplo ilustrativo de un registro de actividad": "Illustrative example of an activity log",
-  "Tu registro": "Your log",
-  "Ejemplo": "Example",
-  "Guitarra": "Guitar",
-  "Un curso": "A course",
-  "Un proyecto": "A project",
-  "Cada marca, un día de actividad.": "Each check, a day of activity.",
   "ASÍ DE SENCILLO": "THAT SIMPLE",
   "Del día a día a una vista clara.": "From day to day to a clear view.",
   "Organiza tus frentes": "Organise your focus areas",
@@ -32,8 +26,6 @@ const english = {
   "Tu espacio. Tu código.": "Your space. Your code.",
   "Tu contenido se cifra en el navegador. Accedes con un único código privado, sin usuario ni correo.": "Your content is encrypted in your browser. You sign in with one private code, without a username or email.",
   "Guarda tu código: no hay recuperación.": "Keep your code safe: there is no recovery.",
-  "Empieza por un frente.": "Start with one focus area.",
-  "Un pequeño registro para lo que te importa.": "A small log for what matters to you.",
   "Tu registro de actividad, sencillo y privado.": "Your activity log, simple and private.",
   "Idioma": "Language",
   "Animación de la planta": "Plant animation",
