@@ -4,16 +4,14 @@ Presentación breve en castellano: **5 escenas, 10 beats (incluida la espera ini
 Problema, uso y valor, con la paleta clara, tipografía 8-bit y plantita de Activity Hub.
 Pensada para unos 2–3 minutos; el ritmo lo marca cada clic.
 
-Esta presentación pertenece a Activity Hub y vive en `presentations/product-demo/`.
-La landing pública enlaza a `/presentacion/`; el acceso privado está en `/app/`.
-El QR conduce directamente al acceso publicado. Se conserva el diseño aprobado
-del deck original (`285f7fc`) y el motor Beatdeck sin cambios.
+Estas slides se conservan en `presentations/product-demo/` como material
+independiente. No están enlazadas, compiladas ni publicadas por la web de Activity
+Hub. La landing explica el producto; el acceso privado está en `/app/`.
+El QR conduce al acceso publicado. Se conserva el diseño aprobado del deck
+original (`285f7fc`) y el motor Beatdeck sin cambios.
 
-Desde la raíz de Activity Hub, instala las dependencias ya fijadas del deck con
-`npm --prefix presentations/product-demo ci`. El build oficial del frontend
-compila también estas slides y copia únicamente su `dist/` a
-`frontend/dist/presentacion/`. No publica `reference/`, `docs/` ni archivos de notas.
-`npm run verify` y `npm run release:prepare` incluyen la verificación de sus 10 beats.
+Los comandos siguientes se ejecutan desde esta carpeta. Sus dependencias son
+opcionales para desarrollar o publicar la aplicación.
 
 ```sh
 npm ci                 # solo al instalar de nuevo; necesita internet

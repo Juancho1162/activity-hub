@@ -2,6 +2,21 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-08 — Landing sin presentación adicional
+
+Por petición del usuario, se retiran los enlaces y la publicación de las slides.
+La landing conserva su contenido y acceso a `/app/`; `/presentacion` y sus
+subrutas redirigen a `/`. El código del deck queda disponible para uso independiente
+en `presentations/product-demo/`, fuera del build y de las comprobaciones de
+publicación de la web. No hay cambios de autenticación, API o datos.
+
+`npm run release:prepare` pasa: 37 pruebas backend, 264 frontend, tipos/build,
+recorridos Firefox/Brave y dry-run. Regresión HTTP roja antes del cambio (seguía
+sirviéndose el deck), verde después. El recorrido público confirma ausencia de
+enlaces a slides, redirección de URL antigua con beat, temas/idiomas, tamaños
+1366/390/320 y CTA al acceso. Captura revisada y revisión en la sesión principal;
+sin revisión independiente para este ajuste acotado. Publicación pendiente.
+
 ## 2026-10-08 — Landing pública y presentación integrada
 
 **Publicado:** código `9bb1bf0`, [PR #10](https://github.com/Juancho1162/activity-hub/pull/10),

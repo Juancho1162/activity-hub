@@ -6,8 +6,6 @@ export const locales: Record<Language, string> = { es: "es-ES", en: "en-GB" }
 // translation together; user-authored names/references never go through this map.
 const english = {
   "Navegación pública": "Public navigation",
-  "Ver presentación": "View presentation",
-  "Ver presentación (en español)": "View presentation (in Spanish)",
   "Ya tengo cuenta": "I have an account",
   "Empezar": "Get started",
   "Conoce Activity Hub": "Discover Activity Hub",

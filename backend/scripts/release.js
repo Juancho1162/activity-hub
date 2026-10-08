@@ -66,7 +66,7 @@ function dryBundle(artifact) {
 }
 async function verify() {
   const source = await sourceFingerprint();
-  const checks = ['check', 'test:integration', 'test:browser', 'test:presentation'];
+  const checks = ['check', 'test:integration', 'test:browser'];
   for (const task of checks) run('npm', ['run', task]);
   if (await sourceFingerprint() !== source) throw new Error('El código cambió durante las pruebas. Hay que verificarlas de nuevo.');
   await save(path.join(release, 'verification.json'), { source, assets_hash: await treeFingerprint(path.join(root, 'frontend/dist')), verified_at: new Date().toISOString(), checks });
@@ -112,13 +112,18 @@ function frozenCommand(manifest, args, capture = false) {
   });
 }
 async function smoke() {
-  for (const [pathname, status] of [['/', 200], ['/app/', 200], ['/presentacion/', 200], ['/health', 200], ['/auth/session', 401], ['/api/vault', 401]]) {
+  for (const [pathname, status] of [['/', 200], ['/app/', 200], ['/health', 200], ['/auth/session', 401], ['/api/vault', 401]]) {
     const response = await fetch(target.origin + pathname, { redirect: 'error', signal: AbortSignal.timeout(15000) });
     if (response.status !== status) throw new Error(`Comprobación remota fallida: ${pathname}.`);
     if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
       if (response.headers.get('cache-control') !== 'no-store') throw new Error('Falta no-store en una ruta privada.');
     }
-    if (['/', '/app/', '/presentacion/'].includes(pathname) && !response.headers.get('content-security-policy')) throw new Error('Falta CSP en una página pública.');
+    if (['/', '/app/'].includes(pathname) && !response.headers.get('content-security-policy')) throw new Error('Falta CSP en una página pública.');
+    await response.arrayBuffer();
+  }
+  for (const pathname of ['/presentacion', '/presentacion/', '/presentacion/assets/old.js']) {
+    const response = await fetch(target.origin + pathname, { redirect: 'manual', signal: AbortSignal.timeout(15000) });
+    if (response.status !== 302 || new URL(response.headers.get('location'), target.origin).pathname !== '/') throw new Error('La presentación retirada no redirige a la portada.');
     await response.arrayBuffer();
   }
   const settings = await (await fetch(target.origin + '/auth/config', { signal: AbortSignal.timeout(15000) })).json();

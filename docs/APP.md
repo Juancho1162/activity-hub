@@ -62,23 +62,23 @@ Quedan fuera de este primer módulo las notificaciones, correo, Teams, el dashbo
 
 **Temas:** se conserva la paleta clara cálida. El oscuro comparte su familia de colores y los de la plantita: fondo carbón oliva, superficies diferenciadas, texto crema, verde hoja y acentos terracota. El fondo es liso y las sombras cortas mantienen la geometría pixelada. Las etiquetas secundarias y los errores mantienen contraste en texto pequeño. Ambos conservan la presentación 8-bit y controles accesibles; el selector nativo de idioma comparte el marco pixelado de los botones.
 
-### Entrada pública y presentación
+### Entrada pública
 
 Decisión del 2026-10-08: `/` muestra siempre una landing pública, también para
-quien ya haya usado la app. `/app/` mantiene el acceso y la aplicación privada;
-`/presentacion/` abre la demo de producto conservada en
-`presentations/product-demo/`, con compilación independiente.
-
+quien ya haya usado la app. `/app/` mantiene el acceso y la aplicación privada.
 La landing explica qué es Activity Hub, cómo organizar frentes, marcar días y
 consultar actividad, y el acceso privado con código sin recuperación. Reutiliza
 la identidad 8-bit, plantita, temas claro/oscuro e idiomas castellano/inglés de la
-app, con composición adaptable a móvil y ordenador. Incluye «Empezar», «Ya tengo
-cuenta» y «Ver presentación». Los dos primeros llevan al acceso existente: visitar
-la landing o seguir un enlace nunca crea una cuenta ni registra actividad.
-Los ejemplos son ilustrativos, sin consultas a actividad ni datos de cuentas.
-No hay redirección automática desde `/` según sesiones o visitas anteriores.
-La presentación conserva su estética y navegación aprobadas, y enlaza al acceso
-real de la aplicación. No se prometen funcionalidades futuras como disponibles.
+app, con composición adaptable a móvil y ordenador. «Empezar» y «Ya tengo cuenta»
+llevan al acceso existente: visitar la landing o seguir un enlace nunca crea una
+cuenta ni registra actividad. Los ejemplos son ilustrativos, sin consultas a
+actividad ni datos de cuentas. No hay redirección automática desde `/` según
+sesiones o visitas anteriores ni promesas de funcionalidades futuras disponibles.
+
+Por decisión posterior del usuario, las slides no forman parte de la web ni de
+su build. Se conservan en `presentations/product-demo/` para uso independiente;
+no se enlazan desde la landing. Las direcciones antiguas `/presentacion` y
+`/presentacion/*` redirigen a la portada.
 
 ### Acceso privado acordado
 

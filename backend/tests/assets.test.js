@@ -43,7 +43,7 @@ test('canonical API routing preserves Allow and authorized trailing-slash redire
   assert.equal((await fetcher('/api/fronts/', { redirect: 'manual' })).status, 401);
 });
 
-test('public landing, private app and offline presentation have independent canonical pages', async t => {
+test('public landing and private app stay separate; retired presentation redirects home', async t => {
   const { fetcher, DB } = await fixture(t, { assets: true, legacy: false });
   const home = await fetcher('/', { headers: { Accept: 'text/html', Cookie: 'activity_hub_session=synthetic-remembered-session' } });
   const html = await home.text();
@@ -52,18 +52,15 @@ test('public landing, private app and offline presentation have independent cano
   assert.equal(app.status, 200);
   const appHtml = await app.text();
   assert.notEqual(appHtml.match(/src="([^"]+\.js)"/)[1], html.match(/src="([^"]+\.js)"/)[1]);
-  for (const route of ['/app', '/presentacion']) {
+  for (const route of ['/app']) {
     const response = await fetcher(route, { redirect: 'manual' });
     assert.equal(response.status, 307, route);
     assert.equal(new URL(response.headers.get('location'), 'http://localhost').pathname, `${route}/`);
   }
-  const presentation = await fetcher('/presentacion/', { redirect: 'manual' });
-  assert.equal(presentation.status, 200);
-  const presentationHtml = await presentation.text();
-  assert.match(presentationHtml, /<title>Activity Hub/);
-  const script = presentationHtml.match(/src="([^"]+\.js)"/)[1];
-  const bundledScript = await fetcher(new URL(script, 'http://localhost/presentacion/').pathname);
-  assert.equal(bundledScript.status, 200);
-  assert.match(bundledScript.headers.get('content-type'), /javascript/);
+  for (const route of ['/presentacion', '/presentacion/', '/presentacion/index.html', '/presentacion/assets/old.js']) {
+    const response = await fetcher(route, { redirect: 'manual' });
+    assert.equal(response.status, 302, route);
+    assert.equal(new URL(response.headers.get('location'), 'http://localhost').pathname, '/');
+  }
   for (const table of ['accounts', 'encrypted_vaults']) assert.equal((await DB.prepare(`SELECT count(*) AS n FROM ${table}`).first()).n, 0);
 });
