@@ -15,7 +15,18 @@ recorridos Firefox/Brave y dry-run. Regresión HTTP roja antes del cambio (segu�
 sirviéndose el deck), verde después. El recorrido público confirma ausencia de
 enlaces a slides, redirección de URL antigua con beat, temas/idiomas, tamaños
 1366/390/320 y CTA al acceso. Captura revisada y revisión en la sesión principal;
-sin revisión independiente para este ajuste acotado. Publicación pendiente.
+sin revisión independiente para este ajuste acotado.
+
+**Publicado:** código `63df8df`, [PR #12](https://github.com/Juancho1162/activity-hub/pull/12),
+versión `0b3dcfe3-1b1a-47f4-b353-24935ebf68b2`. Despliegue desde main limpio,
+smoke correcto y 12 archivos públicos idénticos al artefacto. Brave en producción
+confirma idiomas/temas a 1366/390/320 px, preferencias tras recarga, cero enlaces
+a slides, URLs antiguas redirigidas y acceso → landing. Captura revisada; cero
+cuentas o actividad creadas. Huella ejecutable
+`51aea5eaa7417b1db8a8ce64caec4b826f644fa82e72e54950ce8c4a78b6740b`, hash
+`6981eae84d1cf451cdbaeda014cf4b98a60406de72f81e806998f88f71d6c36a`.
+Sin checks de CI ni revisiones remotas. Registro posterior de documentación sin
+otro despliegue.
 
 ## 2026-10-08 — Landing pública y presentación integrada
 
