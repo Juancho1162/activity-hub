@@ -32,7 +32,7 @@ activa al 100 %. No hubo cambios ejecutables frente a `63df8df` ni migraciones.
 `npm run release:smoke` pasa contra producción: landing, acceso/CSP,
 redirecciones antiguas, salud, rutas privadas con 401/no-store y rechazo de alta
 sin CAPTCHA. No se crearon cuentas ni actividad. Revisión de documentación en la
-sesión principal, sin revisión independiente. La PR de configuración registra
+sesión principal, sin revisión independiente. La [PR #14](https://github.com/Juancho1162/activity-hub/pull/14) registra
 además el resultado del build por push al integrar esta documentación.
 
 La verificación funcional anterior (37 pruebas backend, 264 frontend y recorridos

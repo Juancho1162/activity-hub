@@ -14,7 +14,7 @@ Primera prueba iniciada mediante API desde `main` (`7c631db`): build
 `a9d2db7c-4bbb-4709-a485-e10efecc96b9` correcto y versión
 `f3172b15-3b2b-4a30-a75b-1ee7f788c82d` activa al 100 %. Smoke remoto correcto,
 sin cuentas ni actividad creadas. Código funcional sin cambios respecto a
-`63df8df`. La PR de este registro recoge la comprobación adicional del disparo
+`63df8df`. La [PR #14](https://github.com/Juancho1162/activity-hub/pull/14) recoge la comprobación adicional del disparo
 por push al integrarla. Actualizados README, instrucciones de publicación,
 plantilla de PR y estado; revisión documental en la sesión principal.
 
