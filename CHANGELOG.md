@@ -2,6 +2,22 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-08 — Publicación desde GitHub con Cloudflare Builds
+
+Conectado el Worker existente a `Juancho1162/activity-hub`, rama `main`, raíz
+`backend`, Node 26 y `npx wrangler deploy --env production`; previews desactivadas.
+Cada push a main publica, incluidos cambios de documentación. Las pruebas
+funcionales y migraciones siguen siendo pasos explícitos; el build remoto solo
+instala dependencias, comprueba tipos, compila y despliega.
+
+Primera prueba iniciada mediante API desde `main` (`7c631db`): build
+`a9d2db7c-4bbb-4709-a485-e10efecc96b9` correcto y versión
+`f3172b15-3b2b-4a30-a75b-1ee7f788c82d` activa al 100 %. Smoke remoto correcto,
+sin cuentas ni actividad creadas. Código funcional sin cambios respecto a
+`63df8df`. La [PR #14](https://github.com/Juancho1162/activity-hub/pull/14) recoge la comprobación adicional del disparo
+por push al integrarla. Actualizados README, instrucciones de publicación,
+plantilla de PR y estado; revisión documental en la sesión principal.
+
 ## 2026-10-08 — Landing sin presentación adicional
 
 Por petición del usuario, se retiran los enlaces y la publicación de las slides.
