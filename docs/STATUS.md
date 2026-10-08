@@ -36,8 +36,7 @@ revisadas; revisión en la sesión principal, sin revisor independiente.
 `node frontend/scripts/capture-landing.mjs` genera las cuatro imágenes desde la
 app real con cuentas locales desechables, cuatro frentes y dos checks; no usa
 cuentas de producción. No cambian API, autenticación, datos ni dependencias.
-La publicación automática y su comprobación remota se registran en la PR de este
-cambio para no encadenar builds solo al actualizar el commit documentado.
+La publicación automática y su comprobación remota se registran en la [PR #15](https://github.com/Juancho1162/activity-hub/pull/15) para no encadenar builds solo al actualizar el commit documentado.
 
 La evidencia anterior se conserva en [CHANGELOG](../CHANGELOG.md). Safari/iPhone
 físico, coste bajo carga y restauración de D1 siguen pendientes.

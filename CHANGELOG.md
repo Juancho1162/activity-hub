@@ -16,7 +16,7 @@ recorridos Firefox/Brave. Verificación pública a 1366/390/320 px, ambos temas,
 cambio de idioma/captura, accesos sin duplicados y cero consultas privadas.
 Revisión visual de capturas y revisión en la sesión principal. Sin cambios de
 API, autenticación, migraciones o dependencias. Evidencia del build automático
-y smoke posterior en la PR de este cambio.
+y smoke posterior en la [PR #15](https://github.com/Juancho1162/activity-hub/pull/15).
 
 ## 2026-10-08 — Publicación desde GitHub con Cloudflare Builds
 
