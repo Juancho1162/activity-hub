@@ -24,6 +24,8 @@ try {
   const profile = join(temporary, "profile")
   browser = spawn("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser", [
     "--headless", "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-sync",
+    // Hide browser chrome only in the promotional captures; the app remains scrollable.
+    "--hide-scrollbars",
     "--password-store=basic", "--use-mock-keychain", `--user-data-dir=${profile}`, "--remote-debugging-port=0", "about:blank",
   ], { stdio: "ignore" })
   let launchFailed = false, portFile
@@ -116,6 +118,7 @@ try {
       await evaluate("document.fonts.ready.then(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true)))))")
       assert.equal(await evaluate("!document.querySelector('#access-code,#signup-code,[role=dialog]') && document.querySelectorAll('[role=checkbox].activity-check').length===4 && document.querySelectorAll('[role=checkbox].activity-check[aria-checked=true]').length===2"), true)
       assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth && [...document.querySelectorAll('.front-card')].every(el=>el.getBoundingClientRect().bottom<=innerHeight)"), true, 'all example cards fit in the real viewport')
+      assert.equal(await evaluate("document.documentElement.clientWidth===innerWidth && document.documentElement.clientHeight===innerHeight"), true, 'promotional capture has no scrollbar gutter')
       const shot = await command("Page.captureScreenshot", { format: 'webp', quality: 95 }, sessionId)
       await writeFile(new URL(`registro-${language}-${theme}.webp`, output), Buffer.from(shot.data, 'base64'))
     }
