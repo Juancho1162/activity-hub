@@ -4,6 +4,14 @@
 
 ## Ahora
 
+«Crear cuenta» tiene el mismo ancho, alto y tamaño de texto que «Entrar»,
+conservando su color. Prueba local aceptada; geometría/color comprobados en Brave
+a 320, 390 y 1366 px, ES/EN y ambos temas. `npm run verify` pasa: 37 pruebas
+backend, 264 frontend, tipos/build/dry-run e integración/UI Firefox/Brave.
+Diff revisado en la sesión principal, sin hallazgos. Integración y publicación
+autorizadas; la [PR #21](https://github.com/Juancho1162/activity-hub/pull/21)
+registra el build y la comprobación remota. Ajuste de CSS, sin cambios de comportamiento.
+
 Workers Logs y trazas habilitados en la configuración de `production`, con logs
 de invocación y persistencia de ambos en el panel; observabilidad local deshabilitada.
 `npm run verify` pasa el 2026-10-09: 37 pruebas backend, 264 frontend,

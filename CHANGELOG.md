@@ -2,6 +2,17 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-09 — Botón de crear cuenta más visible
+
+«Crear cuenta» iguala el ancho, alto y tamaño de texto de «Entrar», conservando
+su color. Prueba local aceptada y geometría/color comprobados en Brave a
+320, 390 y 1366 px, ES/EN y ambos temas. Cambio limitado al CSS del botón.
+
+`npm run verify` pasa: 37 pruebas backend, 264 frontend, tipos/build/dry-run e
+integración/UI Firefox/Brave. Diff revisado en la sesión principal, sin hallazgos.
+Integración/publicación autorizadas; la [PR #21](https://github.com/Juancho1162/activity-hub/pull/21)
+recoge el build, versión activa y comprobación remota.
+
 ## 2026-10-09 — Logs y trazas en producción
 
 Habilitados Workers Logs, logs de invocación y trazas en el entorno `production`,
