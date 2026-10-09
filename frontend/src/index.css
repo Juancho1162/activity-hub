@@ -313,7 +313,7 @@ select:disabled { opacity: .5; cursor: not-allowed; }
 .auth-card [data-slot="button"] { min-height: 44px; height: auto; max-width: 100%; white-space: normal; }
 .auth-form > [data-slot="button"] { justify-self: start; }
 .auth-form > [data-slot="button"][type="submit"] { justify-self: stretch; min-height: 52px; }
-.auth-card [data-slot="button"].auth-signup { align-self: flex-start; }
+.auth-card [data-slot="button"].auth-signup { align-self: stretch; min-height: 52px; font-size: 16px; }
 .permanent-code { font-family: monospace; }
 .code-actions { display: flex; flex-wrap: wrap; gap: 12px; padding: 3px; }
 .code-warning { border-left: 3px solid var(--link); padding: 12px; background: var(--input); }
