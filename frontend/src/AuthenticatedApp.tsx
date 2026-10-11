@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import App, { type Presentation } from "./App"
 import { Button } from "@/components/ui/8bit/button"
-import { AppearanceSelect } from "./components/Appearance"
 import { ThemeToggle } from "@/components/Theme"
 import { Card, CardContent } from "@/components/ui/8bit/card"
 import { Checkbox } from "@/components/ui/8bit/checkbox"
@@ -319,7 +318,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
     {(active || (mode === "login" && context !== null)) && <nav className="session-controls" aria-label={t("Sesión privada")}>
       <p className="muted">{t("Cuenta {account}", { account: context?.proof.account_id.slice(0, 8) ?? "" })}{writeLocked && <span className="sr-only">{t(" · Confirma la solicitud pendiente antes de cerrar.")}</span>}</p>
       <Button type="button" variant="outline" font="normal" className="text-button" disabled={writeLocked} onClick={() => { void logout() }}>{t("Cerrar sesión")}</Button>
-    </nav>}<AppearanceSelect /><LanguageSelect /><ThemeToggle /></div>
+    </nav>}<LanguageSelect /><ThemeToggle /></div>
     {!active && <main className="auth-shell">
       <Card font="normal" className="message-card auth-card"><CardContent font="normal" className="card-body">
         <div className="brand auth-brand"><PlantLogo welcome /><span className="brand-name retro">Activity Hub</span></div>

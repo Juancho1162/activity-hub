@@ -25,7 +25,7 @@ export async function fixture(t, { migrate = true, webOrigin = origin, assets = 
     // Freeze this test's public build: concurrent UI builds must not replace
     // hashed chunks while a long browser run is opening another tab.
     const assetSnapshot = path.join(directory, 'assets');
-    await cp(path.resolve(root, config.assets.directory), assetSnapshot, { recursive: true });
+    await cp(path.resolve(root, typeof assets === 'string' ? assets : config.assets.directory), assetSnapshot, { recursive: true });
     config.assets = { ...config.assets, directory: assetSnapshot };
   } else delete config.assets;
   if (main) config.main = main;

@@ -79,7 +79,7 @@ try {
     if (result.type !== 'success') throw new Error('Browser assertion evaluation failed');
     return result.result.value;
   }
-  const navigate = (ctx = context) => command('browsingContext.navigate', { context: ctx, url: `${origin}/app/?appearance=classic`, wait: 'complete' });
+  const navigate = (ctx = context) => command('browsingContext.navigate', { context: ctx, url: `${origin}/app/`, wait: 'complete' });
   const click = async (label, ctx = context) => {
     await waitFor(() => evaluate(`([...document.querySelectorAll('button')].some(b=>b.textContent.trim()===${JSON.stringify(label)} && !b.disabled))`, ctx), `enabled ${label}`);
     return evaluate(`([...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)}).click(), true)`, ctx);
@@ -127,6 +127,9 @@ try {
     codes.set(id, code);
     emptyFixture.remember(id, code);
     await emptyFixture.clearStarters(ctx);
+    await waitFor(() => evaluate("!!document.querySelector('.onboarding-skip') && !document.querySelector('.onboarding-skip').disabled", ctx), 'welcome ready');
+    await click('No volver a mostrar', ctx);
+    await waitFor(() => evaluate("!document.querySelector('.onboarding-panel')", ctx), 'welcome dismissed');
     await click('Dashboard', ctx);
     await waitFor(() => evaluate("document.querySelector('h1')?.textContent==='Dashboard'", ctx), 'fixture dashboard');
     await click('Registro', ctx);

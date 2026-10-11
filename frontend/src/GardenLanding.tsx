@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { ArrowRight, BookOpen, CalendarDays, Check, Leaf, LockKeyhole, Music, RotateCcw } from "lucide-react"
 import { LanguageSelect, useLanguage } from "@/components/Language"
-import { AppearanceSelect } from "./components/Appearance"
 import { GitHubMark } from "./components/GitHubMark"
 import { ThemeToggle } from "@/components/Theme"
 import { FrontIcon } from "@/components/FrontIcon"
@@ -50,7 +49,7 @@ export default function GardenLanding() {
     <header className="garden-landing-header">
       <a className="garden-landing-brand" href="/" aria-label="Activity Hub"><img src="/plant-logo-static.svg" width="35" height="42" alt="" /><span><strong>activity</strong>hub<span className="garden-brand-dot">.</span></span></a>
       <nav className="garden-landing-nav" aria-label={copy.how}><a href="#como-funciona">{copy.how}</a><a href="#privacidad">{copy.privacy}</a><a href="https://github.com/Juancho1162/activity-hub"><GitHubMark />{t("Código fuente")}</a></nav>
-      <div className="garden-landing-controls"><AppearanceSelect /><LanguageSelect /><ThemeToggle /></div>
+      <div className="garden-landing-controls"><LanguageSelect /><ThemeToggle /></div>
     </header>
     <main id="contenido">
       <section className="garden-landing-hero" aria-labelledby="garden-landing-title">

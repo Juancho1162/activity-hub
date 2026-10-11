@@ -23,7 +23,7 @@ async function until(check, label) {
 try {
   const f = await fixture({ after: callback => cleanup.push(callback) }, { webOrigin: null, legacy: false })
   const assets = join(f.directory, "assets")
-  await cp(process.env.GARDEN_TEST_ASSETS ?? fileURLToPath(new URL("../dist/", import.meta.url)), assets, { recursive: true })
+  await cp(fileURLToPath(new URL("../dist/", import.meta.url)), assets, { recursive: true })
   const base = JSON.parse(await readFile(new URL("../../backend/wrangler.jsonc", import.meta.url), "utf8"))
   f.config.assets = { ...base.assets, directory: assets }
   await f.server.update({ ...f.options, workers: [{ config: f.config }] })
@@ -46,6 +46,9 @@ try {
   socket.addEventListener("message", ({ data }) => {
     const message = JSON.parse(data)
     if (message.method === "Runtime.exceptionThrown") errors.push("Browser exception")
+    // Authentication denials and simulated failed requests are intentional
+    // below; security errors (including CSP violations) must still fail.
+    if (message.method === "Log.entryAdded" && message.params.entry.source === "security" && message.params.entry.level === "error") errors.push("Browser security error")
     if (message.method === "Page.javascriptDialogOpening" && message.params.type === "beforeunload" && acceptReloadWarning) {
       void command("Page.handleJavaScriptDialog", { accept: true }, message.sessionId).catch(() => errors.push("Reload warning could not be accepted"))
     }
@@ -68,6 +71,7 @@ try {
     return result.result.value
   }
   await command("Runtime.enable", {}, sessionId)
+  await command("Log.enable", {}, sessionId)
   await command("Page.enable", {}, sessionId)
   await command("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
     window.__signIns=0; window.__rawCodeSent=false; window.__plainNameSent=false; window.__vaultWrites=0; window.__privateRequests=0;
@@ -104,13 +108,14 @@ try {
     const shot = await command("Page.captureScreenshot", { format: "png", captureBeyondViewport: false }, sessionId)
     await writeFile(join(screenshots, name + ".png"), Buffer.from(shot.data, "base64"))
   }
-  await command("Page.navigate", { url: f.url.origin + "/" }, sessionId)
-  await until(() => evaluate("!!document.querySelector('.garden-landing')"), "Garden landing is the local home")
+  await command("Page.navigate", { url: f.url.origin + "/?appearance=classic" }, sessionId)
+  await until(() => evaluate("!!document.querySelector('.garden-landing')"), "Garden remains the public home even with a retired classic URL")
+  assert.equal(await evaluate("!!document.querySelector('.appearance-picker')"), false, "no design selector on the public landing")
   assert.equal(await evaluate("!!document.querySelector('.local-previewbar') || [...document.links].some(a=>a.href.includes('127.0.0.1:5174'))"), false, "production has no local preview controls");
   await choose(".language-picker select", "es")
   if (await evaluate("document.documentElement.dataset.theme==='dark'")) await click(".theme-toggle")
   assert.equal(await evaluate("document.querySelector('h1').textContent.includes('Dale espacio')"), true, "selected prototype hero")
-  assert.equal(await evaluate("[...document.querySelectorAll('.garden-landing-actions a')].every(e=>new URL(e.href).pathname==='/app/' && new URL(e.href).searchParams.get('appearance')==='garden')"), true, "both CTAs reach the real Garden app")
+  assert.equal(await evaluate("[...document.querySelectorAll('.garden-landing-actions a')].every(e=>new URL(e.href).pathname==='/app/')"), true, "both CTAs reach the real Garden app")
   const storageBeforeDemo = await evaluate("JSON.stringify(Object.entries(localStorage).sort())")
   await evaluate("document.querySelector('.garden-demo-check').focus();true")
   await command("Input.dispatchKeyEvent", { type: "keyDown", key: " ", code: "Space", windowsVirtualKeyCode: 32 }, sessionId)
@@ -134,15 +139,17 @@ try {
   await click(".theme-toggle")
   await screenshot("garden-landing-live", 1440, ".garden-landing-live")
   await screenshot("garden-landing-live-mobile", 390, ".garden-landing-live")
-  await choose(".appearance-picker select", "classic")
-  await until(() => evaluate("!!document.querySelector('.landing') && !document.querySelector('.garden-landing')"), "original landing preserved")
-  assert.equal(await evaluate("document.querySelector('.landing-actions a').getAttribute('href')"), "/app/", "original CTA remains available")
-  await choose(".appearance-picker select", "garden")
-  await until(() => evaluate("!!document.querySelector('.garden-landing')"), "return to garden landing")
   assert.equal(await evaluate("window.__privateRequests"), 0, "public landing never accesses an account")
+  await command("Page.navigate", { url: f.url.origin + "/presentacion/#3.2" }, sessionId)
+  await until(() => evaluate("location.pathname==='/' && !!document.querySelector('.garden-landing')"), "retired presentation URL opens Garden")
+  assert.equal(await evaluate("window.__privateRequests"), 0, "retired route never accesses an account")
   await click(".garden-landing-actions a")
   await until(() => evaluate("!!document.querySelector('#access-code')"), "access form")
   assert.equal(await evaluate("document.documentElement.dataset.presentation"), "garden", "landing opens the real Garden access")
+  assert.equal(await evaluate("!!document.querySelector('.appearance-picker')"), false, "no design selector on login")
+  await command("Page.navigate", { url: f.url.origin + "/app/?appearance=classic" }, sessionId)
+  await until(() => evaluate("!!document.querySelector('#access-code')"), "old app bookmark still opens access")
+  assert.equal(await evaluate("document.documentElement.dataset.presentation"), "garden", "old app bookmark cannot select classic")
   assert.equal((await DB.prepare("SELECT count(*) AS n FROM accounts").first()).n, 0, "following CTA never signs up automatically")
   await choose(".language-picker select", "es")
   if (await evaluate("document.documentElement.dataset.theme==='dark'")) await click(".theme-toggle")
@@ -259,7 +266,6 @@ try {
   await click('[aria-label="Registro diario"]')
   await ready()
   assert.equal((await contents()).fronts.length, 0, "examples can be removed completely")
-  await choose(".appearance-picker select", "classic")
   await ready()
   const create = async (name, icon) => {
     await click(".new-front")
@@ -274,11 +280,10 @@ try {
   await click(".daily-list [role=checkbox]")
   await until(() => evaluate("document.querySelector('.daily-list [role=checkbox]').getAttribute('aria-checked')==='true' && document.querySelector('.daily-list [role=checkbox]').getAttribute('aria-busy')==='false'"), "confirmed original check")
   await evaluate("window.__originalIds=[...document.querySelectorAll('.daily-list [role=checkbox]')].map(e=>e.getAttribute('aria-describedby'));window.__originalCheck=document.querySelector('.daily-list [role=checkbox]');true")
-  await screenshot("classic")
-  await choose(".appearance-picker select", "garden")
+  await screenshot("garden-created-fronts")
   await ready()
   await until(() => evaluate("!!document.querySelector('.garden-week-strip') && document.querySelectorAll('.garden-front-history').length===5"), "real garden")
-  assert.equal(await evaluate("window.__signIns===1 && document.querySelector('.daily-list [role=checkbox]').getAttribute('aria-checked')==='true' && JSON.stringify(window.__originalIds)===JSON.stringify([...document.querySelectorAll('.daily-list [role=checkbox]')].map(e=>e.getAttribute('aria-describedby')))"), true, "switch retains account, front IDs and previous checks")
+  assert.equal(await evaluate("window.__signIns===1 && document.querySelector('.daily-list [role=checkbox]').getAttribute('aria-checked')==='true' && JSON.stringify(window.__originalIds)===JSON.stringify([...document.querySelectorAll('.daily-list [role=checkbox]')].map(e=>e.getAttribute('aria-describedby')))"), true, "account, front IDs and recorded checks stay intact")
   for (const [name, icon] of [["Aprender guitarra", "music"], ["Leer sin prisa", "book"], ["Proyecto personal", "code"], ["Curso de fotografía", "camera"], ["Practicar inglés", "languages"]]) {
     await evaluate("[...document.querySelectorAll('.daily-list > li')].find(e=>e.querySelector('h2').textContent===" + JSON.stringify(name) + ").querySelector('.edit-front').click();true")
     await until(() => evaluate("!!document.querySelector('.front-icon-picker')"), "icon picker")
@@ -318,18 +323,16 @@ try {
   assert.equal(await evaluate("document.querySelector('.daily-list [role=checkbox]')===window.__focusCheck"), true, "focus keeps the existing check")
   assert.equal(await evaluate("[...document.querySelectorAll('.daily-list > li')].filter(e=>e.getClientRects().length).length"), 1, "focus really hides the other cards")
   await click(".garden-focus-bar button")
-  await choose(".appearance-picker select", "classic")
   await ready()
   await click(".daily-list .edit-front")
   await choose("#front-reference", "https://example.com/guitarra")
   await click(".editor-panel [type=submit]")
-  await until(() => evaluate("!document.querySelector('#front-name')"), "classic edit preserves the invisible icon")
+  await until(() => evaluate("!document.querySelector('#front-name')"), "editing a reference preserves the icon")
   await ready()
   await evaluate("document.querySelectorAll('.view-nav button')[1].click();true")
-  await until(() => evaluate("!!document.querySelector('.dashboard-list')"), "original dashboard")
-  assert.equal(await evaluate("document.querySelector('.dashboard-list .front-title h2').textContent==='Aprender guitarra' && document.querySelector('.dashboard-list .period-count').textContent.startsWith('2 de')"), true, "original dashboard reads monthly correction from same vault")
-  await choose(".appearance-picker select", "garden")
-  assert.equal(await evaluate("document.querySelector('.dashboard-list [data-front-icon]').dataset.frontIcon"), "music", "classic edits preserve the chosen icon in garden dashboard")
+  await until(() => evaluate("!!document.querySelector('.dashboard-list')"), "dashboard")
+  assert.equal(await evaluate("document.querySelector('.dashboard-list .front-title h2').textContent==='Aprender guitarra' && document.querySelector('.dashboard-list .period-count').textContent.startsWith('2 de')"), true, "dashboard reads monthly correction from same vault")
+  assert.equal(await evaluate("document.querySelector('.dashboard-list [data-front-icon]').dataset.frontIcon"), "music", "reference edits preserve the chosen icon in dashboard")
   await screenshot("garden-dashboard")
   await click('[aria-label="Registro diario"]')
   await ready()
@@ -385,10 +388,11 @@ try {
 
   assert.equal(await evaluate("window.__rawCodeSent || window.__plainNameSent"), false, "raw code and front names never sent to Worker")
   const encrypted = await DB.prepare("SELECT ciphertext FROM encrypted_vaults").all()
-  assert.equal(encrypted.results.length, 1, "one encrypted vault shared by both designs")
+  assert.equal(encrypted.results.length, 1, "one encrypted vault for the account")
   assert.equal(encrypted.results.some(row => row.ciphertext.includes("Aprender guitarra")), false, "database stores ciphertext")
   assert.equal((await DB.prepare("SELECT count(*) AS n FROM fronts").first()).n, 0, "no plaintext fronts created")
   assert.deepEqual(errors, [], "no unhandled browser exceptions")
+  assert.equal(await evaluate("!!document.querySelector('.appearance-picker')"), false, "no design selector inside the account")
   assert.equal(await evaluate("!!document.querySelector('.onboarding-panel')"), false, "dismissed guide stays off after subsequent use")
   const beforePublic = await DB.prepare("SELECT version, ciphertext FROM encrypted_vaults").first()
   await command("Page.navigate", { url: f.url.origin + "/" }, sessionId)
@@ -397,7 +401,7 @@ try {
   assert.equal(await evaluate("window.__privateRequests"), 0, "remembered cookie does not trigger private reads/writes on landing")
   assert.deepEqual(await DB.prepare("SELECT version, ciphertext FROM encrypted_vaults").first(), beforePublic, "landing leaves encrypted account untouched")
   assert.deepEqual(errors, [], "no unhandled browser exceptions")
-  console.log("PASS: Garden landing/default+classic, memory-only demo, real CTA, no private access with/without cookie, ES/EN/light/dark/1440/768/390/320; starter fronts, tutorial, encrypted app and previous flows. Disposable fixture only.")
+  console.log("PASS: Garden-only landing/app, retired classic URLs ignored, memory-only demo, real CTA, no private access with/without cookie, ES/EN/light/dark/1440/768/390/320; starter fronts, tutorial, encrypted app and previous flows. Disposable fixture only.")
 } finally {
   socket?.close()
   if (browser?.exitCode === null) { browser.kill("SIGTERM"); await Promise.race([once(browser, "exit"), pause(3000)]); if (browser.exitCode === null) browser.kill("SIGKILL") }

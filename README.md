@@ -19,7 +19,7 @@ Activity Hub helps you see what you are working on and how your activity evolves
 
 - Create focus areas with a name, an icon, an optional link and a status: open, standby or archived.
 - Record today's activity or correct past days with one check per focus area and day.
-- Use Garden's week selector, focus mode and editable monthly history; the previous design remains available from the header.
+- Use Garden's week selector, focus mode and editable monthly history.
 - View percentages and calendars for any period, with explicit dates.
 - Move focus areas to Trash, restore them or permanently delete them after confirmation.
 - Use the same app on mobile and desktop, in English or Spanish, with light and dark themes.
@@ -40,7 +40,7 @@ Your focus areas and activity are encrypted in your browser before being sent to
 
 This prevents reading your content directly from D1 or its backups. A website deliberately modified to capture your code could compromise it. Your browser can save the code in its password manager if you allow it. See [details and limitations](docs/APP.md#privacidad-y-acceso) (in Spanish).
 
-The public Garden landing is always available at `/`; its interactive example never reads or changes your account. Bookmark `/app/` for direct access. Select **Previous** in the header to use the earlier landing or app.
+The public Garden landing is always available at `/`; its interactive example never reads or changes your account. Bookmark `/app/` for direct access. Garden is the only public design. The earlier interface remains in the local experiment.
 
 ## Local development
 

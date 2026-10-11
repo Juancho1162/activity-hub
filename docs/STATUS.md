@@ -4,6 +4,16 @@
 
 ## Ahora
 
+**Solo Jardín en la web (en curso):** petición posterior a la PR #22. Se retira
+el selector de diseño de portada, acceso y cuenta; `appearance=classic` deja de
+activar la interfaz anterior. El código y la comparación experimental local se
+conservan. Sin cambios de autenticación, datos o backend de producción.
+Pendientes: verificación completa, revisión e integración/publicación.
+Comprobar enlaces antiguos y ausencia de selector en el artefacto normal; las
+regresiones de la interfaz anterior usan explícitamente el bundle experimental.
+
+La siguiente evidencia corresponde a la publicación anterior:
+
 **Jardín verificado para publicación:** portada y app por defecto en el build
 estándar, con selector «Anterior» que conserva sesión y datos. Iconos cifrados,
 semana, enfoque, mes editable y guía descartable. Las cuentas nuevas reciben

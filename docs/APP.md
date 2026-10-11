@@ -21,16 +21,18 @@ Los recordatorios son **siempre independientes**: no pertenecen a un frente, no 
 
 **Promoción autorizada, 2026-10-11:** publicar la experiencia Jardín elegida en
 GitHub/main y Cloudflare, con portada y aplicación por defecto, iconos y bienvenida.
-Conservar el acceso a las interfaces anteriores y los experimentos locales.
+Decisión posterior: la web pública muestra únicamente Jardín, sin selector de
+diseño; los enlaces antiguos con `appearance=classic` también abren Jardín.
+Las interfaces anteriores y los experimentos se conservan solo para uso local.
 Las cuentas anteriores mantienen sus datos; los ejemplos solo pertenecen a altas
 nuevas y deben sobrevivir a recargar antes de la primera entrada. El alta guarda
 su contenido inicial cifrado junto con la cuenta, sin códigos ni claves en el
 almacenamiento del navegador. La publicación sigue el flujo de PR, verificación,
 revisión e integración que activa Cloudflare Builds.
 
-**Experiencia Jardín elegida:** ambas presentaciones usan la misma cuenta,
-cifrado e historial. Cambiar de diseño desde la cabecera no desmonta la sesión,
-crea cuentas, duplica frentes ni transforma su almacenamiento. Jardín añade
+**Experiencia Jardín elegida:** la web usa Jardín en portada, acceso y aplicación.
+La comparación local conserva ambas presentaciones con la misma cuenta, cifrado
+e historial; el cambio de diseño no transforma su almacenamiento. Jardín añade
 selección semanal, enfoque e historial mensual editable con las mismas reglas
 de checks y reintentos. Los experimentos y sus bases locales quedan conservados.
 
@@ -115,7 +117,7 @@ principal; la cabecera no repite el acceso y no hay un bloque final de llamada
 a la acción. Jardín usa la portada elegida «Dale espacio a lo que crece», planta grande
 y muestra interactiva con ejemplos ficticios solo en memoria, sin consultar
 cuentas ni guardar actividad. La portada anterior conserva sus capturas de la app
-real con datos ficticios. Ambas admiten los dos idiomas y temas. No hay redirección automática desde `/` según
+real con datos ficticios en el runner local. Ambas admiten los dos idiomas y temas. No hay redirección automática desde `/` según
 sesiones o visitas anteriores ni promesas de funcionalidades futuras disponibles.
 
 Las slides y sus antiguos experimentos de presentación se retiraron por decisión
