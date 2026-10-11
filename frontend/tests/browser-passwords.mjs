@@ -115,6 +115,9 @@ try {
   await until(() => evaluate("!!document.querySelector('.app-shell')"), "signup sign-in without waiting for the manager")
   assert.equal(await evaluate(`fetch('/auth/session').then(r=>r.json()).then(proof=>window.__offers.length===1 && window.__offers[0].native
     && window.__offers[0].correct && window.__offers[0].type==='password' && window.__offers[0].id===proof.account_id)`), true, "real PasswordCredential reaches the native store for the verified account")
+  await until(() => evaluate("!!document.querySelector('.onboarding-skip') && !document.querySelector('.onboarding-skip').disabled"), "new account guide")
+  await evaluate("document.querySelector('.onboarding-skip').click();true")
+  await until(() => evaluate("!document.querySelector('.onboarding-panel')"), "dismissed guide")
   await evaluate("document.querySelector('.session-controls button').click();true")
   await until(() => evaluate("!!document.getElementById('access-code')"), "explicit logout")
   await evaluate("document.getElementById('access-code').value='wrong-test-code';document.querySelector('#login-form [type=submit]').click();true")

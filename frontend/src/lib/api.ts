@@ -1,10 +1,11 @@
 import { isDay } from "./dates"
 
 export type FrontState = "open" | "standby" | "archived"
-export type FrontDraft = { name: string; reference: string | null; state: FrontState }
+export type FrontDraft = { name: string; reference: string | null; state: FrontState; icon?: string | null }
 export type Front = FrontDraft & { id: string; created_at: string; updated_at: string; trashed_at?: string | null }
 export type DashboardItem = { front: Front; marked_dates: string[]; last_registered_day: string | null; count: number }
-export type DashboardPage = { items: DashboardItem[]; total: number; limit: number; offset: number; start: string; end: string }
+export type Onboarding = { version: 1; tutorialDismissed: boolean }
+export type DashboardPage = { items: DashboardItem[]; total: number; limit: number; offset: number; start: string; end: string; onboarding?: Onboarding }
 export type DashboardQuery = { start: string; end: string; state?: FrontState | "all"; search?: string; limit?: number; offset?: number; order?: "created" | "activity_desc"; trashed?: boolean }
 export type CheckResult = { front_id: string; day: string; marked: boolean }
 export type DeleteResult = { front_id: string; deleted: true }
@@ -13,6 +14,7 @@ export class ApiError extends Error {
   constructor(public kind: ErrorKind, message: string, public uncertain = false) { super(message) }
 }
 export interface ActivityApi {
+  supportsFrontIcons?: boolean
   dashboard(query: DashboardQuery, signal?: AbortSignal): Promise<DashboardPage>
   createFront(data: FrontDraft, requestId: string): Promise<Front>
   patchFront(id: string, data: FrontDraft): Promise<Front>
@@ -20,6 +22,7 @@ export interface ActivityApi {
   trashFront?(id: string, requestId: string): Promise<Front>
   restoreFront?(id: string, requestId: string): Promise<Front>
   deleteFront?(id: string, requestId: string): Promise<DeleteResult>
+  dismissTutorial?(requestId: string): Promise<void>
   /** Project only the authenticated snapshot confirmed by this exact request. */
   confirmedDashboard?(requestId: string, query: DashboardQuery): DashboardPage | null
   forgetSnapshot?(): void

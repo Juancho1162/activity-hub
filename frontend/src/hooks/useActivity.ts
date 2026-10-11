@@ -6,6 +6,7 @@ export type Intent =
   | { kind: "edit"; id: string; data: FrontDraft }
   | { kind: "check"; id: string; day: string; marked: boolean; requestId: string }
   | { kind: "trash" | "restore" | "delete"; id: string; requestId: string }
+  | { kind: "dismiss-tutorial"; requestId: string }
 type ReadState = { context: number; token: string; page: DashboardPage | null; error: ApiError | null }
 
 /** Confirmed data stays separate from the immediate checkbox preview. No automatic retries or browser persistence. */
@@ -93,13 +94,14 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
       else if (intent.kind === "trash" && api.trashFront) await api.trashFront(intent.id, intent.requestId)
       else if (intent.kind === "restore" && api.restoreFront) await api.restoreFront(intent.id, intent.requestId)
       else if (intent.kind === "delete" && api.deleteFront) await api.deleteFront(intent.id, intent.requestId)
+      else if (intent.kind === "dismiss-tutorial" && api.dismissTutorial) await api.dismissTutorial(intent.requestId)
       else throw new ApiError("unavailable", "La papelera no está disponible en este cliente.")
       pendingRef.current = null
       if (mounted.current) {
         setPending(null)
         setNotice("Cambio confirmado por el servidor.")
         let confirmedPage: DashboardPage | null = null
-        if ((intent.kind === "check" || intent.kind === "trash" || intent.kind === "restore" || intent.kind === "delete") && query
+        if ((intent.kind === "check" || intent.kind === "trash" || intent.kind === "restore" || intent.kind === "delete" || intent.kind === "dismiss-tutorial") && query
           && client.current.generation === clientGeneration && scope.current.generation === context) {
           // This projects the complete document acknowledged by this exact
           // commit/replay. It never guesses a checkbox value from the intent.

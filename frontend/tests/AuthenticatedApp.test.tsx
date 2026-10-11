@@ -47,6 +47,36 @@ it("ofrece volver a la landing solo desde el acceso sin una operación pendiente
   expect(screen.queryByRole("link", { name: "Conoce Activity Hub" })).toBeNull()
 })
 
+it.each([false, true])("describe el inicio de la cuenta según la opción local de ejemplos (%s)", async examples => {
+  render(<AuthenticatedApp authFactory={createAuthClient} fetcher={transport()} clock={clock} signupWithExamples={examples} />)
+  await screen.findByLabelText("Código de acceso")
+  await userEvent.click(screen.getByRole("button", { name: "Crear cuenta" }))
+  await screen.findByLabelText("Tu código permanente")
+  const description = examples
+    ? "Tu cuenta empieza con algunos frentes de ejemplo. Puedes editarlos o eliminarlos. Este es su único código permanente y solo se muestra ahora."
+    : "Tu cuenta empieza vacía. Este es su único código permanente y solo se muestra ahora."
+  expect(screen.getByText(description)).toBeTruthy()
+})
+
+it("cambiar Jardín y la interfaz anterior conserva sesión y borrador en la misma aplicación", async () => {
+  const fetcher = transport()
+  const app = render(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} />)
+  await enter()
+  await screen.findByText("Guitarra")
+  await userEvent.click(screen.getByRole("button", { name: "Nuevo frente" }))
+  await userEvent.type(screen.getByLabelText("Nombre"), "Borrador compartido")
+  const sessionReads = fetcher.mock.calls.filter(([url]) => url === "/auth/session").length
+  app.rerender(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} presentation="garden" />)
+  expect((screen.getByLabelText("Nombre") as HTMLInputElement).value).toBe("Borrador compartido")
+  await userEvent.keyboard("{Escape}")
+  expect(await screen.findByRole("button", { name: "Ver historial de Guitarra" })).toBeTruthy()
+  app.rerender(<AuthenticatedApp authFactory={createAuthClient} fetcher={fetcher} clock={clock} presentation="classic" />)
+  expect(await screen.findByRole("checkbox", { name: "Actividad en Guitarra" })).toBeTruthy()
+  expect(fetcher.mock.calls.filter(([url]) => url === "/auth/session")).toHaveLength(sessionReads)
+  expect(fetcher.mock.calls.filter(([url]) => url === "/auth/login")).toHaveLength(1)
+  expect(writes(fetcher)).toHaveLength(0)
+})
+
 const originalCredentials = Object.getOwnPropertyDescriptor(navigator, "credentials")
 beforeEach(() => {
   // Radix measures its native checkbox input inside a form; jsdom has no layout.

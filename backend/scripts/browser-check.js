@@ -8,6 +8,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fixture, root } from '../tests/fixture.js';
+import { browserVault } from '../tests/browser-vault.js';
 
 const temporary = await mkdtemp(path.join(tmpdir(), 'activity-hub-d1-browser-'));
 const profile = path.join(temporary, 'profile');
@@ -78,7 +79,7 @@ try {
     if (result.type !== 'success') throw new Error('Browser assertion evaluation failed');
     return result.result.value;
   }
-  const navigate = (ctx = context) => command('browsingContext.navigate', { context: ctx, url: `${origin}/app/`, wait: 'complete' });
+  const navigate = (ctx = context) => command('browsingContext.navigate', { context: ctx, url: `${origin}/app/?appearance=classic`, wait: 'complete' });
   const click = async (label, ctx = context) => {
     await waitFor(() => evaluate(`([...document.querySelectorAll('button')].some(b=>b.textContent.trim()===${JSON.stringify(label)} && !b.disabled))`, ctx), `enabled ${label}`);
     return evaluate(`([...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)}).click(), true)`, ctx);
@@ -92,6 +93,7 @@ try {
   const currentAccount = (ctx = context) => evaluate("fetch('/auth/session').then(r=>r.json()).then(p=>p.account_id)", ctx);
   // Independent test oracle: decrypt only our synthetic accounts in memory.
   const codes = new Map();
+  const emptyFixture = browserVault({ evaluate, account: currentAccount, origin, defaultContext: context });
   async function api(route, ctx = context) {
     const id = await currentAccount(ctx);
     const result = JSON.parse(await evaluate(`(async()=>{
@@ -120,8 +122,15 @@ try {
     assert.equal(await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Entrar en mi cuenta').disabled", ctx), true);
     await evaluate("document.getElementById('saved-code').click()", ctx);
     await click('Entrar en mi cuenta', ctx);
-    await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')", ctx), 'empty private account');
-    codes.set(await currentAccount(ctx), code);
+    await waitFor(() => evaluate("document.querySelectorAll('.daily-list .front-card').length===4", ctx), 'signup examples');
+    const id = await currentAccount(ctx);
+    codes.set(id, code);
+    emptyFixture.remember(id, code);
+    await emptyFixture.clearStarters(ctx);
+    await click('Dashboard', ctx);
+    await waitFor(() => evaluate("document.querySelector('h1')?.textContent==='Dashboard'", ctx), 'fixture dashboard');
+    await click('Registro', ctx);
+    await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')", ctx), 'empty regression fixture');
     return code;
   }
   async function screenshot(name, width) {

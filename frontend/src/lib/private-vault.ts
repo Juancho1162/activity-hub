@@ -1,12 +1,15 @@
-import { ApiError, safeReference, type AccessContext, type ActivityApi, type Front, type FrontDraft, type CheckResult, type DeleteResult, type DashboardQuery, type DashboardPage } from './api'
+import { ApiError, safeReference, type AccessContext, type ActivityApi, type Front, type FrontDraft, type CheckResult, type DeleteResult, type DashboardQuery, type DashboardPage, type Onboarding } from './api'
 import { isDay } from './dates'
 import { decryptVault, encryptVault, type Ciphertext } from './privacy-crypto'
 
 type Replay = { key: string; operation: 'create_front' | 'write_check' | 'patch_front' | 'trash_front' | 'restore_front' | 'delete_front'; target: string | null; payload: Record<string, unknown>; response: Front | CheckResult | DeleteResult; retired_keys?: string[] }
-export type PrivateDocument = { format: 1; fronts: Front[]; checks: { front_id: string; day: string }[]; replays: Replay[] }
+export type PrivateDocument = { format: 1; fronts: Front[]; checks: { front_id: string; day: string }[]; replays: Replay[]; onboarding?: Onboarding }
+type PrivateApiOptions = { initialFronts?: readonly FrontDraft[] }
 type Snapshot = { version: number; day: string; now: string; iv: string | null; ciphertext: string | null; legacy_revision: number | null; legacy: Omit<PrivateDocument, 'format'> | null }
 type Loaded = { snapshot: Snapshot; content: PrivateDocument }
 const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
+// Future catalog IDs remain readable; the UI uses a local fallback for unknown keys.
+const validIcon = (value: unknown) => value == null || typeof value === 'string' && /^[a-z][a-z0-9-]{0,39}$/.test(value)
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)
 const invalid = () => new ApiError('invalid-response', 'No se ha podido verificar o descifrar el registro. Conserva tu código; no se ha sustituido ningún dato.')
 const quota = () => new ApiError('validation', 'Has alcanzado el límite de almacenamiento de esta cuenta. Tus datos existentes se conservan.')
@@ -18,9 +21,10 @@ const timestampOrder = (value: string) => value.replace(/(?:\.(\d{1,6}))?Z$/, (_
 
 function document(value: unknown): PrivateDocument {
   if (!record(value) || value.format !== 1 || !Array.isArray(value.fronts) || !Array.isArray(value.checks) || !Array.isArray(value.replays)) throw invalid()
+  if (value.onboarding !== undefined && (!record(value.onboarding) || value.onboarding.version !== 1 || typeof value.onboarding.tutorialDismissed !== 'boolean')) throw invalid()
   const fronts = value.fronts
   if (fronts.some(f => !record(f) || !uuid(f.id) || typeof f.name !== 'string' || !f.name || !['open', 'standby', 'archived'].includes(String(f.state))
-    || !(f.reference === null || typeof f.reference === 'string') || typeof f.created_at !== 'string' || typeof f.updated_at !== 'string'
+    || !(f.reference === null || typeof f.reference === 'string') || !validIcon(f.icon) || typeof f.created_at !== 'string' || typeof f.updated_at !== 'string'
     || !(f.trashed_at == null || typeof f.trashed_at === 'string' && Number.isFinite(Date.parse(f.trashed_at))))) throw invalid()
   const ids = new Set(fronts.map(f => f.id))
   if (ids.size !== fronts.length || value.checks.some(ch => !record(ch) || !ids.has(ch.front_id) || !isDay(ch.day))
@@ -46,7 +50,14 @@ function draft(value: FrontDraft): FrontDraft {
   const reference = safeReference(value.reference)
   if ([...name].length < 1 || [...name].length > 200 || !['open', 'standby', 'archived'].includes(value.state)
     || (value.reference !== null && (!reference || [...reference].length > 2048))) throw new ApiError('validation', 'Revisa el nombre y el enlace del frente.')
-  return { name, reference, state: value.state }
+  if (!validIcon(value.icon)) throw new ApiError('validation', 'El icono del frente no es válido.')
+  // Omitting the field preserves old request identities and concurrent icon edits.
+  return { name, reference, state: value.state, ...(value.icon !== undefined ? { icon: value.icon } : {}) }
+}
+
+export function createInitialPrivateDocument(fronts: readonly FrontDraft[], now: string): PrivateDocument {
+  return { format: 1, fronts: fronts.map(value => ({ ...draft(value), id: crypto.randomUUID(), created_at: now, updated_at: now })),
+    checks: [], replays: [], onboarding: { version: 1, tutorialDismissed: false } }
 }
 
 function project(content: PrivateDocument, query: DashboardQuery): DashboardPage {
@@ -60,10 +71,11 @@ function project(content: PrivateDocument, query: DashboardQuery): DashboardPage
     return { front: { ...front }, marked_dates, last_registered_day: days.at(-1) ?? null, count: marked_dates.length }
   }).sort((a, b) => (query.order === 'activity_desc' ? b.count - a.count : 0) || timestampOrder(a.front.created_at).localeCompare(timestampOrder(b.front.created_at)) || a.front.id.localeCompare(b.front.id))
   const offset = query.offset ?? 0, limit = query.limit ?? 20
-  return { items: items.slice(offset, offset + limit), total: items.length, offset, limit, start, end }
+  return { items: items.slice(offset, offset + limit), total: items.length, offset, limit, start, end,
+    ...(content.onboarding ? { onboarding: { ...content.onboarding } } : {}) }
 }
 
-export function createPrivateApi(fetcher: typeof fetch, access: AccessContext, key: CryptoKey | null): ActivityApi {
+export function createPrivateApi(fetcher: typeof fetch, access: AccessContext, key: CryptoKey | null, options: PrivateApiOptions = {}): ActivityApi {
   const accountId = access.accountId
   let latest: Loaded | null = null
   let confirmed: { requestId: string; content: PrivateDocument } | null = null
@@ -140,6 +152,10 @@ export function createPrivateApi(fetcher: typeof fetch, access: AccessContext, k
     for (let attempt = 0; attempt < 5; attempt++) {
       const current = await load(signal)
       if (current.snapshot.version !== 0) return current
+      if (options.initialFronts?.length && current.content.fronts.length === 0 && current.content.checks.length === 0
+        && current.content.replays.length === 0 && current.content.onboarding === undefined) {
+        current.content = { ...current.content, ...createInitialPrivateDocument(options.initialFronts, current.snapshot.now) }
+      }
       // Encrypt old records (including their replays) before showing the app.
       // The server removes plaintext only with a successful encrypted commit.
       const saved = await save(current.snapshot, current.content, signal)
@@ -210,7 +226,29 @@ export function createPrivateApi(fetcher: typeof fetch, access: AccessContext, k
     }
     throw new ApiError('conflict', 'Otra pestaña está actualizando el registro. Reintenta con la misma solicitud.')
   }
+  async function dismissTutorial(requestId: string): Promise<void> {
+    if (!/^[a-f0-9]{32}$/.test(normalizedKey(requestId))) throw new ApiError('validation', 'El identificador de solicitud no es válido.')
+    const generation = memoryGeneration
+    latest = null; confirmed = null
+    // A monotonic preference needs no replay operation. On a conflict, load the
+    // latest document and only set this flag; never replace another tab's work.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const current = await load()
+      if (!current.content.onboarding || current.content.onboarding.tutorialDismissed) {
+        confirm(current, requestId, generation)
+        return
+      }
+      current.content.onboarding = { ...current.content.onboarding, tutorialDismissed: true }
+      const saved = await save(current.snapshot, current.content)
+      if (saved) {
+        confirm({ snapshot: saved, content: current.content }, requestId, generation)
+        return
+      }
+    }
+    throw new ApiError('conflict', 'Otra pestaña está actualizando el registro. Reintenta con la misma solicitud.')
+  }
   return {
+    supportsFrontIcons: true,
     async dashboard(query: DashboardQuery, signal) {
       const generation = memoryGeneration
       try {
@@ -227,6 +265,7 @@ export function createPrivateApi(fetcher: typeof fetch, access: AccessContext, k
       return project(content, query)
     },
     forgetSnapshot,
+    dismissTutorial,
     async createFront(value, id) { return await mutate('create_front', null, draft(value), id) as Front },
     async patchFront(id, value) { return await mutate('patch_front', id, draft(value), crypto.randomUUID()) as Front },
     async writeCheck(id, day, marked, requestId) { return await mutate('write_check', id, { day, marked }, requestId) as CheckResult },

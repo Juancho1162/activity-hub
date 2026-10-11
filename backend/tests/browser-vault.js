@@ -15,6 +15,17 @@ export function browserVault({ evaluate, account, origin, defaultContext }) {
     const data = await crypto.subtle.decrypt({name:'AES-GCM',iv:Buffer.from(box.iv,'base64'),additionalData:encoder.encode(`activity-hub:vault:v1:${id}:${box.version}`),tagLength:128},key,Buffer.from(box.ciphertext,'base64'));
     return { id, key, box, content: JSON.parse(new TextDecoder().decode(data)) };
   }
+  async function save({ id, key, box, content }, ctx) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode(`activity-hub:vault:v1:${id}:${box.version+1}`),tagLength:128},key,encoder.encode(JSON.stringify(content)));
+      const body = {version:box.version,day:box.day,iv:Buffer.from(iv).toString('base64'),ciphertext:Buffer.from(encrypted).toString('base64')};
+      const status = await evaluate(`(async()=>{
+        const proof=await(await fetch('/auth/session')).json();
+        return (await fetch('/api/vault',{method:'PUT',headers:{'Content-Type':'application/json','X-Activity-Account':${JSON.stringify(id)},'X-CSRF-Token':proof.csrf_token},body:${JSON.stringify(JSON.stringify(body))}})).status;
+      })()`, ctx);
+      if (status !== 200) throw new Error('Encrypted fixture write failed');
+  }
+
   return {
     remember(id, code) { codes.set(id, code); },
     async inspect(ctx = defaultContext) {
@@ -35,6 +46,13 @@ export function browserVault({ evaluate, account, origin, defaultContext }) {
         : content.fronts.filter(f=>!!f.trashed_at === (url.searchParams.get('trashed') === 'true') && (!states.length || states.includes(f.state)) && (!url.searchParams.has('search') || f.name.includes(url.searchParams.get('search'))));
       return { status:200, body:{items,total:items.length}, version:box.version };
     },
+    async clearStarters(ctx = defaultContext) {
+      const current = await read(ctx), { content } = current;
+      if (content.fronts.length !== 4 || content.checks.length !== 0 || content.replays.length !== 0 || content.onboarding?.tutorialDismissed !== false) throw new Error('Expected untouched signup examples');
+      content.fronts = [];
+      content.onboarding.tutorialDismissed = true;
+      await save(current, ctx);
+    },
     async seed(fixtures, ctx = defaultContext) {
       const { id, key, box, content } = await read(ctx);
       for (const [index, data] of fixtures.entries()) {
@@ -43,14 +61,7 @@ export function browserVault({ evaluate, account, origin, defaultContext }) {
         content.fronts.push(front);
         for (const day of data.days || []) content.checks.push({front_id:front.id,day});
       }
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const encrypted = await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode(`activity-hub:vault:v1:${id}:${box.version+1}`),tagLength:128},key,encoder.encode(JSON.stringify(content)));
-      const body = {version:box.version,day:box.day,iv:Buffer.from(iv).toString('base64'),ciphertext:Buffer.from(encrypted).toString('base64')};
-      const status = await evaluate(`(async()=>{
-        const proof=await(await fetch('/auth/session')).json();
-        return (await fetch('/api/vault',{method:'PUT',headers:{'Content-Type':'application/json','X-Activity-Account':${JSON.stringify(id)},'X-CSRF-Token':proof.csrf_token},body:${JSON.stringify(JSON.stringify(body))}})).status;
-      })()`, ctx);
-      if (status !== 200) throw new Error('Encrypted fixture write failed');
+      await save({ id, key, box, content }, ctx);
     },
   };
 }

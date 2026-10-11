@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { fixture, request, origin } from './fixture.js';
 import { createWorker } from '../src/worker.js';
 
@@ -18,6 +18,91 @@ async function privateAccount(fetcher) {
   } };
 }
 const envelope = (version, day, legacy_revision = 0) => ({ version, day, legacy_revision, iv: randomBytes(12).toString('base64'), ciphertext: randomBytes(48).toString('base64') });
+const initialVault = (account_id = randomUUID()) => ({ account_id, iv: randomBytes(12).toString('base64'), ciphertext: randomBytes(48).toString('base64') });
+
+test('signup atomically stores an optional opaque initial vault before any login', async t => {
+  const { DB, fetcher } = await fixture(t, { legacy: false });
+  const secret = credential(), initial_vault = initialVault();
+  const signup = await request(fetcher, 'POST', '/auth/signup', { credential: secret, initial_vault }, { Origin: origin });
+  assert.equal(signup.status, 201);
+  assert.deepEqual(signup.value, { account_id: initial_vault.account_id });
+  assert.equal(signup.headers.get('set-cookie'), null);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM web_sessions').first()).n, 0);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM fronts').first()).n, 0);
+  const stored = await DB.prepare('SELECT * FROM encrypted_vaults').first();
+  assert.equal(stored.account_id, initial_vault.account_id.replaceAll('-', ''));
+  assert.equal(stored.version, 1);
+  assert.equal(stored.iv, initial_vault.iv);
+  assert.equal(stored.ciphertext, initial_vault.ciphertext);
+  assert.equal(stored.updated_at, (await DB.prepare('SELECT created_at FROM accounts').first()).created_at);
+  const login = await request(fetcher, 'POST', '/auth/login', { credential: secret }, { Origin: origin });
+  assert.equal(login.status, 200);
+  const headers = { Origin: origin, Cookie: login.headers.get('set-cookie').split(';')[0], 'X-CSRF-Token': login.value.csrf_token, 'X-Activity-Account': login.value.account_id };
+  const read = await request(fetcher, 'GET', '/api/vault', undefined, headers);
+  assert.equal(read.status, 200);
+  assert.equal(read.value.version, 1);
+  assert.equal(read.value.legacy, null);
+  assert.equal(read.value.ciphertext, initial_vault.ciphertext);
+});
+
+test('an initial vault failure rolls back the new account and leaves signup retryable', async t => {
+  const { DB, fetcher } = await fixture(t, { legacy: false });
+  const body = { credential: credential(), initial_vault: initialVault() };
+  await DB.prepare("CREATE TRIGGER fail_initial_vault BEFORE INSERT ON encrypted_vaults BEGIN SELECT RAISE(ABORT,'synthetic'); END").run();
+  assert.equal((await request(fetcher, 'POST', '/auth/signup', body, { Origin: origin })).status, 503);
+  for (const table of ['accounts', 'encrypted_vaults', 'worker_batch_context']) {
+    assert.equal((await DB.prepare(`SELECT count(*) AS n FROM ${table}`).first()).n, 0);
+  }
+  await DB.prepare('DROP TRIGGER fail_initial_vault').run();
+  assert.equal((await request(fetcher, 'POST', '/auth/signup', body, { Origin: origin })).status, 201);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM accounts').first()).n, 1);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM encrypted_vaults').first()).n, 1);
+});
+
+test('colliding and concurrent initial signups never overwrite or attach a vault to an existing account', async t => {
+  const { DB, fetcher } = await fixture(t, { legacy: false });
+  const secret = credential(), original = initialVault();
+  assert.equal((await request(fetcher, 'POST', '/auth/signup', { credential: secret, initial_vault: original }, { Origin: origin })).status, 201);
+  for (const body of [
+    { credential: secret, initial_vault: original }, // A retry after losing the first acknowledgement.
+    { credential: credential(), initial_vault: initialVault(original.account_id) },
+    { credential: secret, initial_vault: initialVault() },
+  ]) assert.equal((await request(fetcher, 'POST', '/auth/signup', body, { Origin: origin })).status, 409);
+  const empty = await privateAccount(fetcher);
+  assert.equal((await request(fetcher, 'POST', '/auth/signup', { credential: credential(), initial_vault: initialVault(empty.id) }, { Origin: origin })).status, 409);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM encrypted_vaults').first()).n, 1);
+  assert.equal((await DB.prepare('SELECT ciphertext FROM encrypted_vaults').first()).ciphertext, original.ciphertext);
+  const account_id = randomUUID();
+  const responses = await Promise.all(Array.from({ length: 2 }, () => request(fetcher, 'POST', '/auth/signup', { credential: credential(), initial_vault: initialVault(account_id) }, { Origin: origin })));
+  assert.deepEqual(responses.map(response => response.status).sort(), [201, 409]);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM accounts').first()).n, 3);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM encrypted_vaults').first()).n, 2);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM worker_batch_context').first()).n, 0);
+});
+
+test('initial signup envelopes validate canonical account IDs, ciphertext and the bounded body before creating anything', async t => {
+  const { DB, fetcher } = await fixture(t, { legacy: false });
+  const valid = initialVault();
+  for (const initial_vault of [null, {}, { ...valid, account_id: 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA' },
+    { ...valid, account_id: valid.account_id.replaceAll('-', '') }, { ...valid, iv: 'invalid' },
+    { ...valid, ciphertext: 'not base64' }, { ...valid, ciphertext: 'AAAA' }, { ...valid, extra: true }]) {
+    assert.equal((await request(fetcher, 'POST', '/auth/signup', { credential: credential(), initial_vault }, { Origin: origin })).status, 400);
+  }
+  assert.equal((await request(fetcher, 'POST', '/auth/signup', { initial_vault: valid }, { Origin: origin })).status, 400);
+  assert.equal((await request(fetcher, 'POST', '/auth/signup', { credential: credential(), initial_vault: valid }, { Origin: 'https://other.example' })).status, 403);
+  const oversized = { ...valid, ciphertext: randomBytes(512 * 1024 + 1).toString('base64') };
+  assert.equal((await request(fetcher, 'POST', '/auth/signup', { credential: credential(), initial_vault: oversized }, { Origin: origin })).status, 413);
+  const oversizedBody = { credential: credential(), initial_vault: { ...valid, ciphertext: 'A'.repeat(705 * 1024) } };
+  // Direct transport avoids the HTTP harness turning cancellation of a large
+  // upload into a network error; the same handler still uses the real D1 binding.
+  const worker = createWorker();
+  const direct = (route, options) => worker.fetch(new Request(new URL(route, origin), options), { DB, WEB_ORIGIN: origin });
+  assert.equal((await request(direct, 'POST', '/auth/signup', oversizedBody, { Origin: origin })).status, 413);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM accounts').first()).n, 0);
+  const maximum = { ...valid, ciphertext: randomBytes(512 * 1024).toString('base64') };
+  assert.equal((await request(fetcher, 'POST', '/auth/signup', { credential: credential(), initial_vault: maximum }, { Origin: origin })).status, 201);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM encrypted_vaults').first()).n, 1);
+});
 
 function protectedSignup(DB) {
   const webOrigin = 'https://activity.example';
@@ -28,8 +113,17 @@ function protectedSignup(DB) {
   const env = { DB, WEB_ORIGIN: webOrigin, TURNSTILE_SITEKEY: 'synthetic-sitekey', TURNSTILE_SECRET: 'synthetic-secret',
     GLOBAL_RATE_LIMITER: allow, IP_RATE_LIMITER: allow, AUTH_RATE_LIMITER: allow, ACCOUNT_RATE_LIMITER: allow };
   const fetcher = (route, options) => worker.fetch(new Request(new URL(route, webOrigin), options), env);
-  return (secret, token) => request(fetcher, 'POST', '/auth/signup', { credential: secret, turnstile_token: token }, { Origin: webOrigin });
+  return (secret, token, initial_vault) => request(fetcher, 'POST', '/auth/signup', { credential: secret, turnstile_token: token, ...(initial_vault ? { initial_vault } : {}) }, { Origin: webOrigin });
 }
+
+test('initial vault signups preserve one-account-per-challenge protection', async t => {
+  const { DB } = await fixture(t, { legacy: false });
+  const signup = protectedSignup(DB);
+  assert.equal((await signup(credential(), 'synthetic-initial-challenge', initialVault())).status, 201);
+  assert.equal((await signup(credential(), 'synthetic-initial-challenge', initialVault())).status, 403);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM accounts').first()).n, 1);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM encrypted_vaults').first()).n, 1);
+});
 
 test('a consumed signup challenge rejects exact and different-credential replays even if Siteverify accepts again', async t => {
   const { DB } = await fixture(t, { legacy: false });
@@ -103,10 +197,11 @@ test('100-account cap remains exact under concurrent signup and returns no crede
   const { DB, fetcher } = await fixture(t, { legacy: false });
   await DB.batch(Array.from({ length: 99 }, () => DB.prepare('INSERT INTO accounts(id,code_verifier,created_at) VALUES (?,?,?)')
     .bind(randomBytes(16).toString('hex'), credential(), '2026-10-06 00:00:00.000000')));
-  const results = await Promise.all(Array.from({ length: 4 }, () => request(fetcher, 'POST', '/auth/signup', { credential: credential() }, { Origin: origin })));
+  const results = await Promise.all(Array.from({ length: 4 }, () => request(fetcher, 'POST', '/auth/signup', { credential: credential(), initial_vault: initialVault() }, { Origin: origin })));
   assert.equal(results.filter(r => r.status === 201).length, 1);
   assert.equal(results.filter(r => r.status === 403 && r.value.detail === 'Registration capacity reached').length, 3);
   assert.equal((await DB.prepare('SELECT count(*) AS n FROM accounts').first()).n, 100);
+  assert.equal((await DB.prepare('SELECT count(*) AS n FROM encrypted_vaults').first()).n, 1);
 });
 
 test('private sessions stay bounded; expired and concurrently revoked proofs cannot read or write a vault', async t => {

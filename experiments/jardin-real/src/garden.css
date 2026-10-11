@@ -1,0 +1,12 @@
+@import "../../../frontend/src/garden.css";
+
+/* Local comparison controls, never shipped in the standard build. */
+.local-previewbar { min-height: 46px; display: flex; align-items: center; gap: 12px; padding: 5px 24px; background: #25382c; color: #f4f7ed; font: 12px "Chakra Petch", sans-serif; }
+.local-previewbar .local-preview-label { margin-right: auto; }
+.local-previewbar select { width: auto; max-width: 180px; min-height: 36px; padding: 5px 9px; border: 1px solid #647b65; border-radius: 6px; color: #f4f7ed; background: #354c3a; font-size: 12px; }
+.local-previewbar a { margin-left: 18px; color: #f4f7ed; text-underline-offset: 4px; }
+@media(max-width: 600px) {
+  .local-previewbar { padding: 6px 14px; gap: 8px; flex-wrap: wrap; font-size: 11px; }
+  .local-previewbar .local-preview-label { width: 100%; }
+  .local-previewbar a { margin-left: auto; }
+}

@@ -1,6 +1,7 @@
 import { HttpError, unavailable, uuidText, object } from './contracts.js';
 import { batch, statement, context, READY, sessionJSON } from './sql.js';
 import { utcOutput } from './time.js';
+import { ciphertextInput } from './vault.js';
 
 const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const opaque = /^[A-Za-z0-9_-]{43}$/;
@@ -69,13 +70,21 @@ export function loginInput(value) {
 export function signupInput(value) {
   try {
     if (value && Object.hasOwn(value, 'credential')) {
-      object(value, ['credential', 'turnstile_token']);
+      object(value, ['credential', 'turnstile_token', 'initial_vault']);
       if (typeof value.credential !== 'string' || !/^[a-f0-9]{64}$/.test(value.credential)) throw new Error();
+      if (Object.hasOwn(value, 'initial_vault')) {
+        const initial = object(value.initial_vault, ['account_id', 'iv', 'ciphertext']);
+        if (typeof initial.account_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(initial.account_id)) throw new Error();
+        ciphertextInput(initial);
+      }
       return value;
     }
     object(value, []);
     return {};
-  } catch { throw new HttpError(400, 'Invalid request'); }
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 413) throw error;
+    throw new HttpError(400, 'Invalid request');
+  }
 }
 export class Auth {
   constructor(DB, clock) { this.DB = DB; this.clock = clock; }
@@ -112,26 +121,31 @@ export class Auth {
     const ctx = context(this.DB, this.clock, null, { signupVerifier: await sessionVerifier(prior) });
     await ctx.finish({ 409: 'Sign out before creating an account' });
   }
-  async signup(prior, credential, challenge) {
+  async signup(prior, credential, challenge, initialVault) {
     const priorVerifier = await sessionVerifier(prior);
     const challengeVerifier = challenge ? await hash('signup-challenge', challenge) : null;
     for (let attempt = 0; attempt < 8; attempt++) {
       const code = credential ? null : generatedCode();
       const verifier = credential ? await hash('browser-auth', credential) : await hash('access-code', normalizeCode(code));
-      const id = crypto.randomUUID().replaceAll('-', '');
+      const id = (initialVault?.account_id || crypto.randomUUID()).replaceAll('-', '');
       const ctx = context(this.DB, this.clock, null, { signupVerifier: priorVerifier });
       const { c, nonce } = ctx;
       ctx.add(`UPDATE ${c} SET status=403 WHERE nonce=? AND status=200 AND (SELECT count(*) FROM accounts)>=100`, [nonce]);
       ctx.add(`INSERT INTO accounts(id,code_verifier,auth_verifier,signup_challenge,created_at) SELECT ?,?,?,?,now FROM ${c} WHERE nonce=? AND status=200
-        ON CONFLICT(code_verifier) DO NOTHING ON CONFLICT(signup_challenge) DO NOTHING`, [id, verifier, credential ? verifier : null, challengeVerifier, nonce]);
-      ctx.add(`UPDATE ${c} SET response=(SELECT json_object('id',id) FROM accounts WHERE id=?) WHERE nonce=? AND status=200`, [id, nonce]);
+        ON CONFLICT(id) DO NOTHING ON CONFLICT(code_verifier) DO NOTHING ON CONFLICT(signup_challenge) DO NOTHING`, [id, verifier, credential ? verifier : null, challengeVerifier, nonce]);
+      // Capture the INSERT result immediately. Merely finding the requested ID
+      // could acknowledge an existing account or attach ciphertext to it.
+      ctx.add(`UPDATE ${c} SET account_id=? WHERE nonce=? AND status=200 AND changes()=1`, [id, nonce]);
+      if (initialVault) ctx.add(`INSERT INTO encrypted_vaults(account_id,version,iv,ciphertext,updated_at)
+        SELECT account_id,1,?,?,now FROM ${c} WHERE nonce=? AND status=200 AND account_id IS NOT NULL`, [initialVault.iv, initialVault.ciphertext, nonce]);
+      ctx.add(`UPDATE ${c} SET response=(SELECT json_object('id',id) FROM accounts WHERE id=${c}.account_id) WHERE nonce=? AND status=200`, [nonce]);
       ctx.add(`UPDATE ${c} SET response=json_object('challenge_used',1) WHERE nonce=? AND status=200 AND response IS NULL
         AND EXISTS (SELECT 1 FROM accounts WHERE signup_challenge=?)`, [nonce, challengeVerifier]);
       const result = await ctx.finish({ 403: 'Registration capacity reached', 409: 'Sign out before creating an account' });
       if (result?.challenge_used) throw new HttpError(403, 'Verification required');
       if (result) return { account_id: uuidText(id), ...(code ? { code } : {}) };
       if (credential) throw new HttpError(409, 'Credential already registered');
-      // Only a verifier collision retries. Arbitrary storage failures NEVER do.
+      // Only an insert collision retries. Arbitrary storage failures NEVER do.
     }
     throw unavailable();
   }

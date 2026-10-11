@@ -1,8 +1,107 @@
 # Estado de Activity Hub
 
-Última actualización: 2026-10-09. [Producto y reglas](APP.md) · [Historial de cambios](../CHANGELOG.md) · [Operación y publicación](../backend/README.md#flujo-de-cambio-pruebas-y-publicación).
+Última actualización: 2026-10-11. [Producto y reglas](APP.md) · [Historial de cambios](../CHANGELOG.md) · [Operación y publicación](../backend/README.md#flujo-de-cambio-pruebas-y-publicación).
 
 ## Ahora
+
+**Publicación Jardín (en curso, autorizada):** promover portada, app, iconos y
+bienvenida al build estándar, preservando la interfaz anterior. Guardar los
+ejemplos cifrados atómicamente en el alta para sobrevivir a recargas; sin migración
+de esquema ni alteraciones de cuentas existentes. Implementación terminada. Pendientes:
+pruebas del artefacto final, revisión independiente, PR/merge y comprobación del
+build automático de Cloudflare. Base de rama y origin/main coinciden en `05eb58a`.
+
+Premortem del lanzamiento: (1) que el build remoto siga sirviendo la UI antigua →
+probar los entrypoints estándar; (2) alta parcial o recarga pierda ejemplos →
+transacción cuenta/cifrado y pruebas de recarga/fallos; (3) cuentas existentes o
+concurrencia pierdan datos → contratos antiguos, CAS e integración con dos
+cuentas/pestañas; (4) controles locales o secretos lleguen a assets/Git → revisar
+artefacto y archivos incluidos; (5) merge no equivalga a despliegue correcto →
+seguir el commit en Cloudflare y ejecutar smoke remoto. Sin doble despliegue manual.
+
+Los siguientes apartados conservan la evidencia de las etapas locales anteriores;
+la promoción de arriba sustituye su restricción de publicación y su límite de
+ejemplos en memoria.
+
+**Portada Jardín, solo local (verificado):** `/` en 8791 muestra «Dale espacio a
+lo que crece», la planta, muestra interactiva y tres pasos del experimento elegido.
+«Empezar» y «Ya tengo cuenta» abren la app real Jardín. Portada anterior disponible
+con `?appearance=classic` y el selector; build normal conserva su entrada.
+Ejemplos solo en memoria, sin autenticación ni datos privados. Build experimental,
+`browser-check.mjs` y `npm --prefix frontend run build` (tipos y Vite) correctos.
+Smoke Worker/D1/Brave desechables verifica teclado/reinicio, CTA sin alta automática,
+cero peticiones privadas con/sin cookie y cuenta cifrada intacta después de usar
+la muestra. ES/EN, ambos temas y 1440/768/390/320 px sin desbordamiento; capturas
+revisadas. También pasan los recorridos anteriores de app, iconos y bienvenida.
+Revisión independiente PASS sin hallazgos. La batería general anterior no se ha
+repetido para este incremento de portada aislado. Sin publicación ni cambios en
+la base local persistente; Safari/iPhone físico sigue pendiente.
+
+**Bienvenida Jardín, solo local (verificado):** las altas nuevas empiezan con
+Leer, Proyecto A, Proyecto B y Aprender algo, abiertos, editables, con iconos y
+sin actividad marcada. Guía de tres pasos con «No volver a mostrar»; cerrarla o
+terminarla guarda el descarte cifrado. «Guía rápida» permite volver a consultarla.
+Las cuentas existentes y el alta del build normal conservan su comportamiento.
+Solo un signup confirmado permite inicializar ejemplos: un único commit cifrado
+con CAS evita duplicados y nunca los repone tras borrarlos. El descarte usa el
+bloqueo/reintento existente y combina cambios concurrentes sin sobrescribirlos.
+Pruebas nuevas RED/GREEN; `npm run verify` final correcto: 37 pruebas backend,
+303 frontend, tipos/build/dry-run e integración/UI Firefox y Brave. Smoke Jardín
+con Worker/D1 desechables correcto: ejemplos sin checks, cierre con respuesta
+perdida, reintento, recarga/reentrada, guía manual, eliminación de ejemplos y
+funciones anteriores. Capturas revisadas a 1440/390/320 px, ES/EN y ambos temas.
+Revisión independiente aprobada tras resolver la recuperación de una lectura
+fallida al reautenticar con la guía abierta; regresión y recorrido real correctos.
+Límite del ensayo: recargar entre el alta y la primera inicialización pierde
+la elegibilidad en memoria; la cuenta permanece válida y vacía. No se añaden
+identificadores/códigos a almacenamiento del navegador ni cambios en backend.
+
+**Iconos por frente, solo local (verificado):** catálogo de 12 iconos en
+Nuevo/Editar frente de Jardín, elegido por el usuario. Se muestran en registro,
+dashboard, papelera e historial mensual y se guardan en el documento cifrado.
+Campo opcional compatible con frentes anteriores; editar sin cambiar el icono
+lo conserva, también desde la interfaz clásica. Claves futuras desconocidas
+usan una planta visual y conservan su valor. Sin cambios de esquema D1 ni datos
+de producción. Cinco pruebas nuevas fallaron antes de implementar; 47 pruebas
+focalizadas y smoke Brave cifrado correctos, incluido selector a 320/390 px,
+restauración y entrada de nuevo. `npm run verify` completo correcto: 37 pruebas
+backend, 278 frontend, tipos/build/dry-run e integración/UI Firefox y Brave.
+Revisión independiente del incremento aprobada, sin hallazgos. Disponible en
+`http://localhost:8791/app/?appearance=garden`; sin publicación.
+
+**Jardín con funciones reales, solo local (verificado):** el usuario autoriza
+integrar la presentación elegida manteniendo la anterior. El [nuevo runner](../experiments/jardin-real/README.md)
+sirve ambas en `http://localhost:8791/app/`, con selector de diseño y una única
+sesión/cuenta local. Reutiliza acceso, cifrado, CRUD, dashboard, papelera,
+restauración, borrado confirmado, ES/EN y temas; añade semana, enfoque e historial
+mensual editable. Base persistente independiente e inicialmente vacía; sin acceso
+a producción ni importación de cuentas. Los prototipos y sus datos siguen intactos.
+`npm run verify` completo correcto: 37 pruebas backend, 273 frontend,
+tipos/build/dry-run e integración/UI Firefox y Brave. Smoke experimental con
+Worker y D1 reales desechables correcto: misma cuenta/IDs/checks entre diseños,
+corrección mensual visible en dashboard anterior, enlaces, papelera/restauración,
+borrado confirmado, cierre/entrada, cifrado y ausencia de nombres/código en las
+peticiones. Capturas revisadas a 1440/390/320 px, ES/EN y ambos temas. Revisión
+independiente aprobada, sin hallazgos. Safari/iPhone físico pendiente.
+Premortem aplicado: evitar dos
+gestores de escritura, impedir cambios contra snapshots de otro mes, conservar
+solicitudes inciertas y ocultar contenido al perder acceso; pruebas específicas
+cubren esos casos. No publicar ni eliminar la interfaz anterior.
+
+**Laboratorio local solicitado, 2026-10-11:** [Jardín, Órbita y Cuaderno](../experiments/local-lab/README.md)
+exploran tres estéticas con portada y registro interactivo: enfoque diario,
+matriz semanal y calendario/diario. Galería en `http://127.0.0.1:5174/`, portada
+de main en `http://127.0.0.1:5173/`; datos ficticios independientes por versión.
+Trabajo aislado en `experiments/local-lab/`, basado en `origin/main` `05eb58a`.
+8 pruebas del modelo, 264 del frontend original, ambos builds y smoke Brave
+a 1440/390/320 px correctos. Revisión independiente aprobada tras corregir
+fechas extremas, carga de más de 200 frentes y nombres largos en móvil.
+El usuario elige **Jardín**: refinadas las tarjetas, registro móvil en una columna,
+historial mensual editable por frente y muestra interactiva en portada.
+Calendario, persistencia, febrero bisiesto, foco, nombres largos y aislamiento
+entre versiones comprobados en Brave. Revisión independiente de esta iteración
+aprobada, sin hallazgos; conserva los datos guardados y la identidad elegida.
+Ninguna propuesta se promueve a producción automáticamente. Sin cambios en API, dependencias o despliegue.
 
 «Crear cuenta» tiene el mismo ancho, alto y tamaño de texto que «Entrar»,
 conservando su color. Prueba local aceptada; geometría/color comprobados en Brave
@@ -28,7 +127,7 @@ La portada `/` presenta el producto y permanece pública siempre; `/app/` abre e
 acceso privado. La landing reutiliza identidad, temas e idiomas de la app. Sus
 capturas muestran la app real con datos ficticios, en ES/EN y claro/oscuro; no
 consulta cuentas ni actividad. Hay un único «Empezar» y «Ya tengo cuenta» junto al
-texto principal, sin acceso duplicado en cabecera ni bloque final de llamada a la acción. Las slides y los experimentos se han retirado del repositorio; permanecen en el
+texto principal, sin acceso duplicado en cabecera ni bloque final de llamada a la acción. Las slides y los experimentos anteriores se retiraron del repositorio; permanecen en el
 historial de Git. `/presentacion` y sus subrutas redirigen a la landing.
 
 El enlace «Código fuente»/«Source code» de la cabecera, la limpieza de
@@ -68,6 +167,17 @@ del build automático y las comprobaciones remotas.
 - [ ] Información/LLM y notificaciones: diseño conservado en [APP.md](APP.md#6-ampliación-de-información-y-aprendizaje--diseño-aplazado), desarrollo aplazado. Modelos mentales siguen separados.
 
 ## Verificación vigente
+
+**Integración Jardín local, 2026-10-11.** `node experiments/jardin-real/run.mjs check`
+y `npm run verify` pasan. 37 pruebas backend y 273 frontend; suite existente de
+integración/UI más smoke cifrado de Jardín. Las primeras 7 pruebas de Jardín
+fallaron por comportamiento ausente antes de implementarlo; dos pruebas de
+aislamiento/sesión se añadieron después. El smoke inicial detectó un handle D1
+caducado al actualizar la configuración del fixture; corregida la prueba y
+repetido el recorrido completo con éxito. Revisión independiente PASS sin
+hallazgos. Servidor local `/health` y ambas presentaciones responden; la galería
+5174 sigue disponible. Sin cambios de esquema, dependencias, cuentas de
+producción, commits, push o publicación.
 
 **Fondo y detalles botánicos verificados, 2026-10-09.** `npm run verify` pasa:
 37 pruebas backend, 264 frontend, tipos/build/dry-run, integración cifrada Firefox
@@ -113,5 +223,8 @@ físico, coste bajo carga y restauración de D1 siguen pendientes.
 
 ## Siguiente paso
 
-Para la siguiente mejora, verificar y revisar antes de integrar la PR: el merge
-en `main` activa producción. Comprobar el build remoto y ejecutar el smoke después.
+Completar la verificación del build estándar y revisión independiente. Integrar
+la PR autorizada en `main`, seguir su despliegue automático de Cloudflare y
+comprobar la versión publicada. No requiere migraciones ni despliegue manual.
+Los runners locales y sus datos siguen disponibles; la interfaz anterior se
+conserva en ambos entornos con el selector de diseño.

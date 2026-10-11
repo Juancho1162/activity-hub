@@ -19,6 +19,33 @@ Los recordatorios son **siempre independientes**: no pertenecen a un frente, no 
 
 **Objetivo:** disponer de una pequeña interfaz web para registrar en qué estoy metido y qué días trabajo en ello, con un dashboard propio que permita ver mi actividad registrada.
 
+**Promoción autorizada, 2026-10-11:** publicar la experiencia Jardín elegida en
+GitHub/main y Cloudflare, con portada y aplicación por defecto, iconos y bienvenida.
+Conservar el acceso a las interfaces anteriores y los experimentos locales.
+Las cuentas anteriores mantienen sus datos; los ejemplos solo pertenecen a altas
+nuevas y deben sobrevivir a recargar antes de la primera entrada. El alta guarda
+su contenido inicial cifrado junto con la cuenta, sin códigos ni claves en el
+almacenamiento del navegador. La publicación sigue el flujo de PR, verificación,
+revisión e integración que activa Cloudflare Builds.
+
+**Experiencia Jardín elegida:** ambas presentaciones usan la misma cuenta,
+cifrado e historial. Cambiar de diseño desde la cabecera no desmonta la sesión,
+crea cuentas, duplica frentes ni transforma su almacenamiento. Jardín añade
+selección semanal, enfoque e historial mensual editable con las mismas reglas
+de checks y reintentos. Los experimentos y sus bases locales quedan conservados.
+
+Se elige un icono por frente desde un catálogo local al crear o editar en Jardín.
+Se guarda cifrado y se conserva al cambiar de interfaz o restaurarlo. Los frentes
+anteriores sin icono muestran una planta. No se suben imágenes.
+
+Las cuentas nuevas incluyen Leer, Proyecto A, Proyecto B y Aprender algo,
+abiertos, editables y sin checks, localizados según el idioma del alta. Una guía
+breve explica registro, personalización e historial. Terminarla, cerrarla o elegir
+«No volver a mostrar» guarda el descarte cifrado; puede abrirse después manualmente.
+Las cuentas anteriores, incluidas las vacías, no reciben ejemplos ni guía automática.
+El documento inicial se cifra antes del alta y se guarda atómicamente con ella;
+recargar antes de entrar no lo pierde. Borrar ejemplos no vuelve a crearlos.
+
 Se conservan las reglas acordadas para este módulo:
 
 - Inventario de frentes con tres estados, decididos siempre por el usuario:
@@ -85,13 +112,14 @@ app, con composición adaptable a móvil y ordenador. «Empezar» y «Ya tengo c
 llevan al acceso existente: visitar la landing o seguir un enlace nunca crea una
 cuenta ni registra actividad. Ambos enlaces aparecen una sola vez, junto al texto
 principal; la cabecera no repite el acceso y no hay un bloque final de llamada
-a la acción. La vista del producto usa capturas de la app real con datos
-ficticios, en ambos idiomas y temas, sin barras de scroll dentro de la imagen ni
-consultas a actividad o datos de cuentas. No hay redirección automática desde `/` según
+a la acción. Jardín usa la portada elegida «Dale espacio a lo que crece», planta grande
+y muestra interactiva con ejemplos ficticios solo en memoria, sin consultar
+cuentas ni guardar actividad. La portada anterior conserva sus capturas de la app
+real con datos ficticios. Ambas admiten los dos idiomas y temas. No hay redirección automática desde `/` según
 sesiones o visitas anteriores ni promesas de funcionalidades futuras disponibles.
 
-Por decisión del usuario, las slides se eliminan del repositorio junto con los
-experimentos. La cabecera enlaza al repositorio público mediante «Código fuente»
+Las slides y sus antiguos experimentos de presentación se retiraron por decisión
+del usuario; los nuevos experimentos de diseño web se conservan. La cabecera enlaza al repositorio público mediante «Código fuente»
 (traducido al inglés). Activity Hub se distribuye bajo la licencia MIT. Las direcciones antiguas `/presentacion` y
 `/presentacion/*` redirigen a la portada.
 
@@ -101,7 +129,7 @@ experimentos. La cabecera enlaza al repositorio público mediante «Código fuen
 - **Una cuenta, un código fijo.** El código secreto largo y aleatorio se genera únicamente al crear la cuenta y se muestra para guardarlo privadamente. No se cambia, regenera ni sustituye. Funciona como una contraseña, no como un identificador público.
 - **Sin recuperación de ningún tipo:** ni administrativa, ni desde una sesión abierta, ni mediante un segundo código. Si se pierde, no existe un procedimiento para recuperarlo o emitir otro para esa cuenta. Una sesión existente no habilita esa posibilidad.
 - **Crear cuenta / iniciar sesión / cerrar sesión**, dentro de la web. Entrar exige el código de una cuenta existente; un código incorrecto no crea una cuenta. Cerrar sesión no borra la cuenta ni sus datos.
-- Una persona puede tener varias cuentas. Cada alta crea un registro vacío e independiente; frentes, checks, historial y reintentos quedan aislados por cuenta. El servidor conserva una huella verificable del código, no el original; no se incluye en URLs, logs ni almacenamiento persistente de la aplicación. El titular puede guardarlo en su gestor de contraseñas.
+- Una persona puede tener varias cuentas. Cada alta web crea un registro independiente con los cuatro frentes de ejemplo y sin actividad; frentes, checks, historial y reintentos quedan aislados por cuenta. El servidor conserva una huella verificable del código, no el original; no se incluye en URLs, logs ni almacenamiento persistente de la aplicación. El titular puede guardarlo en su gestor de contraseñas.
 - **Correo opcional: solo una posibilidad futura, fuera del alcance actual.** No se añade campo, vinculación ni recuperación por correo ahora; su eventual comportamiento no está definido.
 - Se mantienen HTTPS al alojarlo, sesiones seguras, CSRF y límites de entrada y de creación de cuentas. No se generan ni comparten credenciales reales en la documentación o el chat. El flujo multiusuario está implementado y verificado localmente; la evidencia y los límites están en [STATUS.md](STATUS.md).
 - **La autenticación de pi/MCP sigue pendiente de aprobación técnica.** Se mantiene la propuesta de una credencial independiente para la API; elegir el código de acceso web no configura pi ni aprueba reutilizar ese mismo secreto en el conector.
@@ -133,7 +161,7 @@ La integración común será **pi mediante MCP**: una interfaz conversacional pu
 - Un curso terminado puede archivarse para que deje de aparecer en la vista habitual, conservando sus checks. Un curso que se pretende retomar queda en standby por decisión del usuario.
 - Si registro un check desde pi, al consultar esa fecha en la web aparece el mismo registro. Marcar otra vez el mismo frente y día no crea un segundo check.
 - Con mi código válido puedo iniciar sesión en el Mac y en el móvil, sobre los mismos datos y sin proporcionar correo ni nombre. Un código incorrecto no permite consultar ni modificar el registro.
-- Creo una cuenta A, registro actividad, cierro sesión y creo B: B empieza vacía. Al entrar de nuevo con el código A recupero únicamente los datos de A. Una escritura pendiente de A no puede aplicarse a B.
+- Creo una cuenta A, registro actividad, cierro sesión y creo B: B empieza con sus propios ejemplos y sin actividad de A. Al entrar de nuevo con el código A recupero únicamente los datos de A. Una escritura pendiente de A no puede aplicarse a B.
 - El código de A permanece fijo. Si lo pierdo, no hay recuperación ni sustitución, tampoco desde una sesión abierta o administración. Crear otra cuenta no recupera los datos de A.
 
 ## 4. Implementación principal
@@ -195,7 +223,7 @@ Al alternar Registro, Dashboard y Papelera, la vista anterior conserva sus datos
 | Método y ruta | Operación |
 | --- | --- |
 | `GET /auth/config` | Sitekey pública, disponibilidad del alta e indicador de loopback; nunca devuelve secretos. |
-| `POST /auth/signup` | `{credential, turnstile_token}` y Origin exacto; 201 `{account_id}` sin cookie. El código se genera y muestra localmente. 403 por CAPTCHA/capacidad/cierre, 409 si existe sesión válida, 429 por límite. |
+| `POST /auth/signup` | `{credential, turnstile_token, initial_vault?}` y Origin exacto; el sobre opcional `{account_id, iv, ciphertext}` inicializa la cuenta y su documento cifrado de versión 1 en el mismo batch; 201 `{account_id}` sin cookie. El código se genera y muestra localmente. 403 por CAPTCHA/capacidad/cierre, 409 si existe sesión válida, 429 por límite. |
 | `GET /auth/session` | `authenticated`, `account_id`, `csrf_token`, `expires_at`; 401 sin sesión, 503 sin esquema/servicio. Una sesión válida no basta para descifrar. |
 | `POST /auth/login` | `{credential}` y Origin exacto; emite cookie de sesión. No recibe el código ni la clave de cifrado. |
 | `POST /auth/logout` | Cookie, cuenta esperada, Origin y CSRF; 204 sin `Set-Cookie`. |
