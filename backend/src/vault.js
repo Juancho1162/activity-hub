@@ -2,18 +2,21 @@ import { HttpError, invalid, object, isoDay } from './contracts.js';
 import { context, frontJSON, uuidSQL, timestampSQL } from './sql.js';
 
 export const VAULT_BYTES = 512 * 1024;
-export function vaultInput(value) {
-  object(value, ['version', 'day', 'iv', 'ciphertext', 'legacy_revision']);
-  if (!Number.isSafeInteger(value.version) || value.version < 0 || value.version >= Number.MAX_SAFE_INTEGER
-    || !isoDay(value.day) || typeof value.iv !== 'string' || !/^[A-Za-z0-9+/]{16}$/.test(value.iv)
-    || typeof value.ciphertext !== 'string'
-    || ((value.version === 0 || value.legacy_revision != null) && (!Number.isSafeInteger(value.legacy_revision) || value.legacy_revision < 0))) throw invalid();
+export function ciphertextInput(value) {
+  if (typeof value.iv !== 'string' || !/^[A-Za-z0-9+/]{16}$/.test(value.iv) || typeof value.ciphertext !== 'string') throw invalid();
   if (value.ciphertext.length > 4 * Math.ceil(VAULT_BYTES / 3)) throw new HttpError(413, 'Vault storage limit reached');
   if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value.ciphertext)) throw invalid();
   const bytes = atob(value.ciphertext);
   if (bytes.length > VAULT_BYTES) throw new HttpError(413, 'Vault storage limit reached');
   if (bytes.length < 17 || btoa(bytes) !== value.ciphertext) throw invalid();
   return value;
+}
+export function vaultInput(value) {
+  object(value, ['version', 'day', 'iv', 'ciphertext', 'legacy_revision']);
+  if (!Number.isSafeInteger(value.version) || value.version < 0 || value.version >= Number.MAX_SAFE_INTEGER
+    || !isoDay(value.day)
+    || ((value.version === 0 || value.legacy_revision != null) && (!Number.isSafeInteger(value.legacy_revision) || value.legacy_revision < 0))) throw invalid();
+  return ciphertextInput(value);
 }
 
 function response(ctx) {

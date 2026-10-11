@@ -2,6 +2,27 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-11 — Jardín, iconos y bienvenida
+
+Portada y aplicación Jardín por defecto, con «Anterior» para conservar ambas
+interfaces y la misma sesión/cuenta. Semana, enfoque e historial mensual editable;
+catálogo de 12 iconos cifrados. Las cuentas nuevas reciben Leer, Proyecto A,
+Proyecto B y Aprender algo sin actividad, con guía descartable y consulta manual.
+Las cuentas anteriores conservan su contenido y no reciben ejemplos.
+
+Los ejemplos se cifran antes del alta y se guardan en el mismo batch que la cuenta;
+recargar antes del primer login ya no los pierde. Contrato opcional compatible,
+sin migraciones ni paquetes nuevos. La portada interactiva usa solo memoria.
+Se conservan la galería de tres propuestas y el runner Jardín local aislado.
+
+`npm run verify`: PASS, 42 pruebas backend y 306 frontend, tipos/build y recorridos
+Firefox/Brave. `release:prepare` y smoke experimental correctos; 8 pruebas de modelo
+de la galería pasan. Regresiones de recarga, rollback, colisiones y concurrencia
+verificadas; revisión independiente PASS sin hallazgos pendientes. Integración y
+publicación autorizadas. La [PR #22](https://github.com/Juancho1162/activity-hub/pull/22)
+recoge commit, build de Cloudflare, versión activa y smoke remoto. Safari/iPhone
+físico sigue sin comprobar.
+
 ## 2026-10-09 — Botón de crear cuenta más visible
 
 «Crear cuenta» iguala el ancho, alto y tamaño de texto de «Entrar», conservando

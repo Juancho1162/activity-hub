@@ -27,10 +27,252 @@ function vaultServer() {
   return { fetcher, lose() { loseNext = true }, stored: () => stored, replace(value: Record<string, unknown>) { stored = value }, advanceDay(value: string) { day = value } }
 }
 const period = { start: '2026-10-01', end: '2026-10-06' }
-async function contents(server: ReturnType<typeof vaultServer>, key: CryptoKey) {
+async function contents(server: ReturnType<typeof vaultServer>, key: CryptoKey, accountId = account) {
   const box = server.stored()
-  return await decryptVault(key, account, Number(box.version), { iv: String(box.iv), ciphertext: String(box.ciphertext) }) as PrivateDocument
+  return await decryptVault(key, accountId, Number(box.version), { iv: String(box.iv), ciphertext: String(box.ciphertext) }) as PrivateDocument
 }
+const starters = [
+  { name: 'Lectura', reference: null, state: 'open' as const, icon: 'book' },
+  { name: 'Movimiento', reference: null, state: 'open' as const, icon: 'exercise' },
+  { name: 'Aprendizaje', reference: null, state: 'open' as const, icon: 'sprout' },
+]
+function signupServer(server: ReturnType<typeof vaultServer>, resultAccount?: string) {
+  let sessionAccount = account
+  return vi.fn<typeof fetch>(async (url, init) => {
+    if (url === '/auth/config') return Response.json({ local: true, registration_enabled: true, sitekey: null })
+    if (url === '/auth/signup') {
+      const { initial_vault } = JSON.parse(String(init?.body))
+      if (initial_vault) {
+        sessionAccount = initial_vault.account_id
+        server.replace({ version: 1, legacy_revision: null, legacy: null, iv: initial_vault.iv, ciphertext: initial_vault.ciphertext })
+      }
+      return Response.json({ account_id: resultAccount ?? sessionAccount }, { status: 201 })
+    }
+    if (url === '/auth/login') return Response.json({ authenticated: true, account_id: sessionAccount, csrf_token: access.csrfToken, expires_at: '2030-11-02T12:00:00Z' })
+    return server.fetcher(url, init)
+  })
+}
+it('keeps new-account examples after reloading between signup and the first login', async () => {
+  const server = vaultServer(), fetcher = signupServer(server)
+  const created = await createPrivateAuthClient(fetcher, { initialFronts: () => starters }).signup()
+  expect(fetcher.mock.calls.filter(([url]) => url === '/auth/login')).toHaveLength(0)
+  const reloaded = createPrivateAuthClient(fetcher)
+  const session = await reloaded.login(created.code)
+  const page = await reloaded.createApi!({ ...access, accountId: session.account_id }).dashboard(period)
+  expect(page.items.map(item => item.front.name).sort()).toEqual(starters.map(front => front.name).sort())
+  expect(page.items.every(item => item.front.state === 'open' && item.marked_dates.length === 0)).toBe(true)
+  expect(page.onboarding).toEqual({ version: 1, tutorialDismissed: false })
+})
+it('initializes a newly signed up eligible account once with encrypted editable fronts and zero checks', async () => {
+  const server = vaultServer(), fetcher = signupServer(server)
+  const storage = vi.spyOn(Storage.prototype, 'setItem')
+  const auth = createPrivateAuthClient(fetcher, { initialFronts: () => starters })
+  const created = await auth.signup()
+  const { key } = await deriveCredentials(created.code)
+  expect(server.stored().version).toBe(1)
+  expect(auth.canRead!(created.account_id)).toBe(false)
+  await auth.login(created.code)
+  const createdAccess = { ...access, accountId: created.account_id }
+  const api = auth.createApi!(createdAccess)
+  const first = await api.dashboard(period)
+  expect(first.items.map(item => ({ name: item.front.name, icon: item.front.icon, state: item.front.state, reference: item.front.reference, dates: item.marked_dates })).sort((a, b) => a.name.localeCompare(b.name))).toEqual(starters.map(front => ({ ...front, dates: [] })).sort((a, b) => a.name.localeCompare(b.name)))
+  expect(first.items.every(item => item.count === 0 && item.last_registered_day === null)).toBe(true)
+  expect(first.onboarding).toEqual({ version: 1, tutorialDismissed: false })
+  const content = await contents(server, key, created.account_id)
+  expect(content.fronts.every(front => Number.isFinite(Date.parse(front.created_at)) && front.updated_at === front.created_at)).toBe(true)
+  expect(new Set(content.fronts.map(front => front.id)).size).toBe(starters.length)
+  expect(content.checks).toEqual([])
+  expect(content.replays).toEqual([])
+  expect(server.stored().version).toBe(1)
+  expect((await auth.createApi!(createdAccess).dashboard(period)).items.map(item => item.front.id)).toEqual(first.items.map(item => item.front.id))
+  expect(server.stored().version).toBe(1)
+  expect(server.fetcher.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true)
+  for (const front of starters) expect(JSON.stringify(fetcher.mock.calls)).not.toContain(front.name)
+  expect(JSON.stringify(fetcher.mock.calls)).not.toContain(created.code)
+  expect(storage).not.toHaveBeenCalled()
+  const box = server.stored()
+  await expect(decryptVault(key, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 1, { iv: String(box.iv), ciphertext: String(box.ciphertext) })).rejects.toThrow()
+})
+it.each(['default signup', 'existing empty account', 'other account'])('does not seed %s', async scenario => {
+  const server = vaultServer(), fetcher = signupServer(server)
+  const auth = createPrivateAuthClient(fetcher, scenario === 'default signup' ? undefined : { initialFronts: () => starters })
+  let code = generateCode()
+  if (scenario === 'default signup' || scenario === 'other account') code = (await auth.signup()).code
+  if (scenario === 'other account') {
+    server.replace({ version: 0, legacy_revision: 0, iv: null, ciphertext: null, legacy: { fronts: [], checks: [], replays: [] } })
+    fetcher.mockImplementation(async (url, init) => url === '/auth/login'
+      ? Response.json({ authenticated: true, account_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', csrf_token: access.csrfToken, expires_at: '2030-11-02T12:00:00Z' }) : server.fetcher(url, init))
+  }
+  const session = await auth.login(code)
+  const result = await auth.createApi!({ ...access, accountId: session.account_id }).dashboard(period)
+  expect(result.total).toBe(0)
+  expect(result).not.toHaveProperty('onboarding')
+  if (scenario === 'default signup') {
+    const signup = fetcher.mock.calls.find(([url]) => url === '/auth/signup')
+    expect(JSON.parse(String(signup?.[1]?.body))).not.toHaveProperty('initial_vault')
+  }
+})
+it.each(['invalid', account])('does not reveal a code or unlock when signup acknowledges a different or invalid account: %s', async resultAccount => {
+  const server = vaultServer(), fetcher = signupServer(server, resultAccount)
+  const auth = createPrivateAuthClient(fetcher, { initialFronts: () => starters })
+  const failure = await auth.signup().then(() => null, error => error)
+  expect(failure).toMatchObject({ kind: 'invalid-response' })
+  expect(auth.canRead!(resultAccount)).toBe(false)
+  expect(fetcher.mock.calls.filter(([url]) => url === '/auth/login')).toHaveLength(0)
+  expect(server.fetcher).not.toHaveBeenCalled()
+})
+it('a lost signup response leaves explicit uncertainty without automatic retry or login', async () => {
+  const server = vaultServer(), real = signupServer(server)
+  const fetcher = vi.fn<typeof fetch>(async (url, init) => {
+    const response = await real(url, init)
+    if (url === '/auth/signup') throw new TypeError('Synthetic lost signup acknowledgement')
+    return response
+  })
+  const auth = createPrivateAuthClient(fetcher, { initialFronts: () => starters })
+  await expect(auth.signup()).rejects.toMatchObject({ kind: 'network', message: expect.stringContaining('No se ha podido confirmar la creación') })
+  expect(server.stored().version).toBe(1)
+  expect(fetcher.mock.calls.filter(([url]) => url === '/auth/signup')).toHaveLength(1)
+  expect(fetcher.mock.calls.filter(([url]) => url === '/auth/login')).toHaveLength(0)
+})
+it('captures the signup language once while keeping the same private auth client', async () => {
+  const server = vaultServer(), fetcher = signupServer(server)
+  let names = starters
+  const choose = vi.fn(() => names)
+  const auth = createPrivateAuthClient(fetcher, { initialFronts: choose })
+  const signingUp = auth.signup()
+  names = starters.map((front, index) => ({ ...front, name: ['Reading', 'Movement', 'Learning'][index] }))
+  const created = await signingUp
+  const session = await auth.login(created.code)
+  expect((await auth.createApi!({ ...access, accountId: session.account_id }).dashboard(period)).items.map(item => item.front.name).sort()).toEqual(starters.map(front => front.name).sort())
+  expect(choose).toHaveBeenCalledTimes(1)
+  expect(fetcher.mock.calls.filter(([url]) => url === '/auth/login')).toHaveLength(1)
+})
+it('never seeds initialized empty vaults or legacy data, even when initialization options are supplied', async () => {
+  const { key } = await deriveCredentials(generateCode())
+  for (const initialized of [false, true]) {
+    const server = vaultServer()
+    const front = { ...draft, id: randomUUID(), created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }
+    if (initialized) {
+      const box = await encryptVault(key, account, 1, { format: 1, fronts: [], checks: [], replays: [] })
+      server.replace({ version: 1, legacy_revision: null, legacy: null, ...box })
+    } else server.replace({ version: 0, legacy_revision: 0, iv: null, ciphertext: null, legacy: { fronts: [front], checks: [{ front_id: front.id, day: '2026-10-02' }], replays: [] } })
+    const api = createPrivateApi(server.fetcher, access, key, { initialFronts: starters })
+    const result = await api.dashboard(period)
+    expect(result.total).toBe(initialized ? 0 : 1)
+    expect(result).not.toHaveProperty('onboarding')
+    if (!initialized) expect(result.items[0]).toMatchObject({ front, marked_dates: ['2026-10-02'] })
+  }
+})
+it('preserves a legacy deletion receipt in an otherwise empty eligible vault without adding starters', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const id = randomUUID(), request = randomUUID().replaceAll('-', '')
+  const receipt = { key: request, operation: 'delete_front', target: id.replaceAll('-', ''), payload: {}, response: { front_id: id, deleted: true } }
+  server.replace({ version: 0, legacy_revision: 1, iv: null, ciphertext: null, legacy: { fronts: [], checks: [], replays: [receipt] } })
+  const api = createPrivateApi(server.fetcher, access, key, { initialFronts: starters })
+  expect((await api.dashboard(period)).total).toBe(0)
+  const saved = await contents(server, key)
+  expect(saved.replays).toEqual([receipt])
+  expect(saved).not.toHaveProperty('onboarding')
+})
+it('concurrent eligible initialization commits only one set and deleting all examples never seeds again', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const first = createPrivateApi(server.fetcher, access, key, { initialFronts: starters })
+  const second = createPrivateApi(server.fetcher, access, key, { initialFronts: starters })
+  const results = await Promise.all([first.dashboard(period), second.dashboard(period)])
+  expect(results[0].items.map(item => item.front.id)).toEqual(results[1].items.map(item => item.front.id))
+  expect(results[0].total).toBe(3)
+  expect(server.stored().version).toBe(1)
+  for (const item of results[0].items) {
+    await first.trashFront!(item.front.id, randomUUID())
+    await first.deleteFront!(item.front.id, randomUUID())
+  }
+  expect((await createPrivateApi(server.fetcher, access, key, { initialFronts: starters }).dashboard(period)).total).toBe(0)
+})
+it('a lost initialization response reloads the committed examples without duplicating them', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const api = createPrivateApi(server.fetcher, access, key, { initialFronts: starters })
+  server.lose()
+  await expect(api.dashboard(period)).rejects.toMatchObject({ uncertain: true })
+  const saved = await contents(server, key)
+  expect(saved.fronts).toHaveLength(3)
+  expect((await api.dashboard(period)).items.map(item => item.front.id)).toEqual(saved.fronts.map(front => front.id).sort())
+  expect(server.stored().version).toBe(1)
+})
+it('dismissal merges a concurrent check, preserves receipts and confirms metadata without a new replay type', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const first = createPrivateApi(server.fetcher, access, key, { initialFronts: starters })
+  const seeded = await first.dashboard(period)
+  const other = createPrivateApi(server.fetcher, access, key)
+  const checkRequest = randomUUID(), dismissal = randomUUID()
+  await Promise.all([first.dismissTutorial!(dismissal), other.writeCheck(seeded.items[0].front.id, '2026-10-04', true, checkRequest)])
+  const saved = await contents(server, key)
+  expect(saved.onboarding).toEqual({ version: 1, tutorialDismissed: true })
+  expect(saved.checks).toEqual([{ front_id: seeded.items[0].front.id, day: '2026-10-04' }])
+  expect(saved.replays.map(replay => replay.operation)).toEqual(['write_check'])
+  expect((await createPrivateApi(server.fetcher, access, key).dashboard(period)).onboarding?.tutorialDismissed).toBe(true)
+  expect(first.confirmedDashboard!(dismissal, period)?.onboarding?.tutorialDismissed).toBe(true)
+  const responses = await Promise.all(server.fetcher.mock.results.map(result => result.value))
+  expect(responses.some(response => response.status === 409)).toBe(true)
+})
+it('a lost dismissal response is an idempotent setter: retry reads the latest document without another PUT', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const api = createPrivateApi(server.fetcher, access, key, { initialFronts: starters })
+  await api.dashboard(period)
+  const request = randomUUID(); server.lose()
+  await expect(api.dismissTutorial!(request)).rejects.toMatchObject({ uncertain: true })
+  const version = server.stored().version
+  server.fetcher.mockClear()
+  await api.dismissTutorial!(request)
+  expect(server.stored().version).toBe(version)
+  expect(server.fetcher.mock.calls.map(([, init]) => init?.method)).toEqual(['GET'])
+  expect(api.confirmedDashboard!(request, period)?.onboarding?.tutorialDismissed).toBe(true)
+  expect((await contents(server, key)).replays).toEqual([])
+})
+it('keeps optional icons encrypted through reload, legacy edits, checks and trash restoration', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const api = createPrivateApi(server.fetcher, access, key)
+  const old = await api.createFront(draft, randomUUID())
+  expect(old).not.toHaveProperty('icon')
+  const chosen = await api.patchFront(old.id, { ...draft, icon: 'music' })
+  expect(chosen).toMatchObject({ id: old.id, icon: 'music' })
+  await api.writeCheck(old.id, '2026-10-04', true, randomUUID())
+  // A client/editor without the new field must preserve a more recent icon.
+  await api.patchFront(old.id, { ...draft, name: 'Nombre desde la interfaz anterior' })
+  await api.trashFront!(old.id, randomUUID())
+  await api.restoreFront!(old.id, randomUUID())
+  const reloaded = createPrivateApi(server.fetcher, access, key)
+  expect((await reloaded.dashboard(period)).items[0]).toMatchObject({ front: { id: old.id, icon: 'music' }, marked_dates: ['2026-10-04'] })
+  expect((await contents(server, key)).fronts[0].icon).toBe('music')
+  expect(server.fetcher.mock.calls.filter(([, init]) => init?.method === 'PUT').every(([, init]) => !String(init?.body).includes('music'))).toBe(true)
+})
+it('includes the icon in encrypted create retries without duplicating a front or reverting a later edit', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const api = createPrivateApi(server.fetcher, access, key)
+  await api.dashboard(period)
+  const data = { ...draft, icon: 'camera' }, request = randomUUID()
+  server.lose()
+  await expect(api.createFront(data, request)).rejects.toMatchObject({ uncertain: true })
+  const saved = (await contents(server, key)).fronts[0]
+  expect(saved.icon).toBe('camera')
+  await api.patchFront(saved.id, { ...draft, icon: 'book' })
+  expect(await api.createFront(data, request)).toMatchObject({ id: saved.id, icon: 'camera' })
+  await expect(api.createFront({ ...data, icon: 'book' }, request)).rejects.toMatchObject({ kind: 'conflict' })
+  expect((await api.dashboard(period)).items.map(item => item.front.icon)).toEqual(['book'])
+})
+it('preserves future icon keys and rejects invalid icon data without overwriting the vault', async () => {
+  const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
+  const api = createPrivateApi(server.fetcher, access, key)
+  const front = await api.createFront({ ...draft, icon: 'future-icon' }, randomUUID())
+  const reloaded = createPrivateApi(server.fetcher, access, key)
+  expect((await reloaded.dashboard(period)).items[0].front.icon).toBe('future-icon')
+  await reloaded.patchFront(front.id, { ...draft, icon: undefined })
+  expect((await reloaded.dashboard(period)).items[0].front.icon).toBe('future-icon')
+  const before = structuredClone(server.stored())
+  await expect(api.patchFront(front.id, { ...draft, icon: 'https://example.com/icon.svg' })).rejects.toMatchObject({ kind: 'validation' })
+  expect(server.stored()).toEqual(before)
+  await api.patchFront(front.id, { ...draft, icon: null })
+  expect((await api.dashboard(period)).items[0].front.icon).toBeNull()
+})
 it.each(['open', 'standby', 'archived'] as const)('permanent deletion removes a %s front, its checks and replay content, preserving other records', async state => {
   const server = vaultServer(); const { key } = await deriveCredentials(generateCode())
   const api = createPrivateApi(server.fetcher, access, key)

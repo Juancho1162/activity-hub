@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
-import App from "./App"
+import App, { type Presentation } from "./App"
 import { Button } from "@/components/ui/8bit/button"
+import { AppearanceSelect } from "./components/Appearance"
 import { ThemeToggle } from "@/components/Theme"
 import { Card, CardContent } from "@/components/ui/8bit/card"
 import { Checkbox } from "@/components/ui/8bit/checkbox"
@@ -20,7 +21,7 @@ const asAuthError = (error: unknown) => error instanceof AuthError ? error : new
 type Notice = { key: MessageKey; values?: MessageValues }
 const expiryNotice: Notice = { key: "La sesión ha caducado o se ha revocado. Vuelve a entrar; las solicitudes pendientes siguen en memoria." }
 
-export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory = createPrivateAuthClient }: { fetcher?: typeof fetch; clock?: () => Date; authFactory?: (fetcher: typeof fetch) => AuthClient }) {
+export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory = createPrivateAuthClient, presentation = "classic", signupWithExamples = false }: { fetcher?: typeof fetch; clock?: () => Date; authFactory?: (fetcher: typeof fetch) => AuthClient; presentation?: Presentation; signupWithExamples?: boolean }) {
   const { t, message } = useLanguage()
   const auth = useMemo(() => authFactory(fetcher), [fetcher, authFactory])
   const [mode, setMode] = useState<Mode>("checking")
@@ -318,7 +319,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
     {(active || (mode === "login" && context !== null)) && <nav className="session-controls" aria-label={t("Sesión privada")}>
       <p className="muted">{t("Cuenta {account}", { account: context?.proof.account_id.slice(0, 8) ?? "" })}{writeLocked && <span className="sr-only">{t(" · Confirma la solicitud pendiente antes de cerrar.")}</span>}</p>
       <Button type="button" variant="outline" font="normal" className="text-button" disabled={writeLocked} onClick={() => { void logout() }}>{t("Cerrar sesión")}</Button>
-    </nav>}<LanguageSelect /><ThemeToggle /></div>
+    </nav>}<AppearanceSelect /><LanguageSelect /><ThemeToggle /></div>
     {!active && <main className="auth-shell">
       <Card font="normal" className="message-card auth-card"><CardContent font="normal" className="card-body">
         <div className="brand auth-brand"><PlantLogo welcome /><span className="brand-name retro">Activity Hub</span></div>
@@ -327,7 +328,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
         {notice && <p role="status">{t(notice.key, notice.values)}</p>}
         {mode === "checking" && <p role="status" className="loading-message"><span className="loading-pixel" aria-hidden="true" />{t("Comprobando la sesión de este dispositivo…")}</p>}
         {mode === "logging-out" && <p role="status">{t("Cerrando la sesión… Espera la confirmación del servidor.")}</p>}
-        {mode === "signing-up" && <p role="status">{t("Creando una cuenta vacía… No recargues; espera el resultado.")}</p>}
+        {mode === "signing-up" && <p role="status">{t(signupWithExamples ? "Preparando tu cuenta… No recargues; espera el resultado." : "Creando una cuenta vacía… No recargues; espera el resultado.")}</p>}
         <div id="signup-challenge" aria-label={t("Verificación de acceso")} />
         {error && <div role="alert" id="auth-error">
           {mode === "logout-error" && <p>{t("No se ha podido confirmar el cierre. Los datos permanecen ocultos. Reintenta el cierre explícitamente.")}</p>}
@@ -345,7 +346,7 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
           {!writeLocked && mode === "login" && context === null && <Button type="button" variant="outline" font="normal" className="text-button auth-signup" disabled={signupCooling} onClick={() => { void signup() }}>{t("Crear cuenta")}</Button>}
         </>}
         {codeView && <form id="signup-code-form" method="post" autoComplete="on" className="auth-form signup-code-view" onSubmit={(event) => { event.preventDefault(); void enterCreatedAccount() }}>
-          <p>{t("Tu cuenta empieza vacía. Este es su único código permanente y solo se muestra ahora.")}</p>
+          <p>{t(signupWithExamples ? "Tu cuenta empieza con algunos frentes de ejemplo. Puedes editarlos o eliminarlos. Este es su único código permanente y solo se muestra ahora." : "Tu cuenta empieza vacía. Este es su único código permanente y solo se muestra ahora.")}</p>
           <input type="hidden" name="username" autoComplete="username" value={created.account_id} readOnly />
           <div className="field"><label htmlFor="signup-code">{t("Tu código permanente")}</label><Input id="signup-code" name="password" type={showCreatedCode ? "text" : "password"} font="normal" className="field-input permanent-code" readOnly value={created.code} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-describedby="permanent-code-warning" onFocus={(event) => event.currentTarget.select()} /></div>
           <div className="code-actions"><Button type="button" variant="outline" font="normal" className="text-button" aria-controls="signup-code" aria-pressed={showCreatedCode} onClick={() => setShowCreatedCode(current => !current)}>{showCreatedCode ? t("Ocultar código") : t("Mostrar código")}</Button><Button type="button" variant="outline" font="normal" className="text-button" onClick={() => { void copyCode() }}>{t("Copiar")}</Button></div>
@@ -371,6 +372,6 @@ export default function AuthenticatedApp({ fetcher = fetch, clock, authFactory =
         {mode === "login" && context === null && !writeLocked && <a href="/" className="auth-landing-link">{t("Conoce Activity Hub")}</a>}
       </CardContent></Card>
     </main>}
-    {mountedAppAccountId && <App key={mountedAppAccountId} api={api} clock={clock} enabled={active} onWriteLockChange={reportWriteLock} />}
+    {mountedAppAccountId && <App key={mountedAppAccountId} api={api} clock={clock} enabled={active} onWriteLockChange={reportWriteLock} presentation={presentation} />}
   </>
 }

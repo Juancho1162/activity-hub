@@ -102,7 +102,7 @@ try {
     if (result.type !== "success") throw new Error("Browser assertion evaluation failed")
     return result.result.type === "null" ? null : result.result.value
   }
-  const navigate = (targetContext = context) => command("browsingContext.navigate", { context: targetContext, url: `${origin}/app/`, wait: "complete" })
+  const navigate = (targetContext = context) => command("browsingContext.navigate", { context: targetContext, url: `${origin}/app/?appearance=classic`, wait: "complete" })
   async function screenshot(name, width, height) {
     await command("browsingContext.activate", { context })
     await command("browsingContext.setViewport", { context, viewport: { width, height }, devicePixelRatio: 1 })
@@ -234,9 +234,18 @@ try {
   async function acknowledge(ctx = context) {
     await evaluate("document.getElementById('saved-code').click()", ctx)
     await click("Entrar en mi cuenta", ctx)
-    await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')", ctx), "new account starts empty")
+    await waitFor(() => evaluate("document.querySelectorAll('.daily-list .front-card').length===4", ctx), "new account starts with examples")
     assert.equal(await evaluate("document.querySelector('#signup-code') === null", ctx), true)
     encrypted.remember(await account(ctx), pendingCodes.get(ctx))
+    const initial = await encrypted.inspect(ctx)
+    assert.deepEqual(initial.content.fronts.map(f=>f.name).sort(), ['Leer','Proyecto A','Proyecto B','Aprender algo'].sort())
+    assert.deepEqual(initial.content.checks, [])
+    // Prepare the empty synthetic account needed by the existing regression cases.
+    await encrypted.clearStarters(ctx)
+    await click("Dashboard", ctx)
+    await waitFor(() => evaluate("document.querySelector('h1')?.textContent==='Dashboard'", ctx), "fixture dashboard")
+    await click("Registro", ctx)
+    await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')", ctx), "empty regression fixture")
   }
 
   async function assertDashboardRowGeometry(label) {
@@ -1150,7 +1159,7 @@ try {
   await waitFor(() => evaluate("document.body.textContent.includes('Signed out on this device.')"), "English logout notice")
   await writeFile(join(output, "row-geometry.json"), JSON.stringify(rowGeometryChecks, null, 2))
   await writeFile(join(output, "daily-geometry.json"), JSON.stringify(dailyGeometryChecks, null, 2))
-  console.log("Primary JavaScript/workerd/D1. Real signup: two empty private accounts, code ACK before login, permanent-code reuse, no recovery; local assets and responsive 1366/390px")
+  console.log("Primary JavaScript/workerd/D1. Real signup: four encrypted examples per account, then two empty regression fixtures, code ACK before login, permanent-code reuse, no recovery; local assets and responsive 1366/390px")
   console.log("Real HTTP: HttpOnly cookie/resume, CSRF and foreign-account rejection, check/create/edit/archive/link clearing")
   console.log("Dashboard: global descending order across 23 filtered fronts/two pages, changed period reorders and resets page; daily order unchanged")
   console.log("Layout: both themes at 1920/1684/1366/1024/768/390/320px, four wide/two intermediate/one mobile columns; contained controls and 44px touch height")

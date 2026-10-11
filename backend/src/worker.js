@@ -64,10 +64,10 @@ export function createWorker({ clock = databaseClock, legacy = false, turnstileF
           // Signed-in 409 remains explicit even if the public limiter is full.
           if (legacy) await auth.signupAllowed(prior);
           if (rateError) throw rateError;
-          const data = signupInput(await input(request, true, 4096));
+          const data = signupInput(await input(request, true, 704 * 1024));
           if (!legacy && !data.credential) throw new HttpError(400, 'Browser credential required');
           if (!legacy) await verifySignup(request, env, config, data.turnstile_token, turnstileFetch);
-          response = Response.json(await auth.signup(prior, data.credential, !legacy && config.secure ? data.turnstile_token : undefined), { status: 201 });
+          response = Response.json(await auth.signup(prior, data.credential, !legacy && config.secure ? data.turnstile_token : undefined, data.initial_vault), { status: 201 });
         } else if (path === '/auth/login' && request.method === 'POST') {
           requireOrigin(request, config);
           if (legacy) await auth.reserve('login'); // Characterization of the retired protocol.
