@@ -4,13 +4,16 @@
 
 ## Ahora
 
-**Solo Jardín en la web (en curso):** petición posterior a la PR #22. Se retira
+**Solo Jardín en la web (verificado):** petición posterior a la PR #22. Se retira
 el selector de diseño de portada, acceso y cuenta; `appearance=classic` deja de
 activar la interfaz anterior. El código y la comparación experimental local se
 conservan. Sin cambios de autenticación, datos o backend de producción.
-Pendientes: verificación completa, revisión e integración/publicación.
-Comprobar enlaces antiguos y ausencia de selector en el artefacto normal; las
-regresiones de la interfaz anterior usan explícitamente el bundle experimental.
+`npm run verify` completo correcto: 42 backend, 306 frontend y recorridos de
+navegador; `release:prepare` correcto. Revisión independiente PASS sin hallazgos.
+Comprobados enlaces antiguos y ausencia de selector en el artefacto normal;
+las regresiones de la interfaz anterior usan explícitamente el bundle experimental.
+Integración y publicación autorizadas; el resultado remoto se registra en la
+[PR #23](https://github.com/Juancho1162/activity-hub/pull/23).
 
 La siguiente evidencia corresponde a la publicación anterior:
 
@@ -257,7 +260,7 @@ físico, coste bajo carga y restauración de D1 siguen pendientes.
 
 ## Siguiente paso
 
-Seguir el resultado de integración y despliegue en la [PR #22](https://github.com/Juancho1162/activity-hub/pull/22).
-No queda desarrollo pendiente de Jardín. Los runners locales y sus datos siguen
-disponibles; la interfaz anterior se conserva con el selector de diseño.
+Seguir el resultado de integración y despliegue en la [PR #23](https://github.com/Juancho1162/activity-hub/pull/23).
+No queda desarrollo pendiente de este ajuste. La web muestra solo Jardín; los
+runners locales conservan sus datos y el selector para comparar la interfaz anterior.
 Las mejoras futuras y límites de verificación siguen en «Trabajo».
