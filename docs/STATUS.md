@@ -4,12 +4,20 @@
 
 ## Ahora
 
-**Publicación Jardín (en curso, autorizada):** promover portada, app, iconos y
-bienvenida al build estándar, preservando la interfaz anterior. Guardar los
-ejemplos cifrados atómicamente en el alta para sobrevivir a recargas; sin migración
-de esquema ni alteraciones de cuentas existentes. Implementación terminada. Pendientes:
-pruebas del artefacto final, revisión independiente, PR/merge y comprobación del
-build automático de Cloudflare. Base de rama y origin/main coinciden en `05eb58a`.
+**Jardín verificado para publicación:** portada y app por defecto en el build
+estándar, con selector «Anterior» que conserva sesión y datos. Iconos cifrados,
+semana, enfoque, mes editable y guía descartable. Las cuentas nuevas reciben
+cuatro ejemplos sin actividad, cifrados y guardados junto con el alta; sobreviven
+a recargar antes de entrar. Las cuentas anteriores no reciben ejemplos. Se
+conservan los runners y bases locales. Sin migraciones ni dependencias nuevas.
+
+`npm run verify` pasa: 42 pruebas backend, 306 frontend, tipos/build e integración
+y UI Firefox/Brave. El runner experimental también pasa y el modelo de la galería
+suma 8 pruebas correctas. `npm run release:prepare` valida y congela el artefacto.
+Revisión independiente PASS sin hallazgos pendientes. Integración y publicación
+autorizadas; la [PR #22](https://github.com/Juancho1162/activity-hub/pull/22)
+recoge el commit, build automático, versión activa y smoke remoto, sin otra
+publicación solo para actualizar esta evidencia.
 
 Premortem del lanzamiento: (1) que el build remoto siga sirviendo la UI antigua →
 probar los entrypoints estándar; (2) alta parcial o recarga pierda ejemplos →
@@ -168,6 +176,22 @@ del build automático y las comprobaciones remotas.
 
 ## Verificación vigente
 
+**Promoción Jardín, 2026-10-11.** Verificación completa de producción correcta:
+42 backend y 306 frontend; Firefox prueba dos cuentas/pestañas, cifrado,
+concurrencia, respuestas perdidas, cierre y recarga. Brave comprueba portada,
+selector, tutorial, iconos, recuperación de sesión, historial y funciones previas;
+ES/EN, claro/oscuro y móvil/escritorio. La nueva regresión reproduce la pérdida de
+ejemplos antes del arreglo y pasa después; también se prueba rollback real del
+batch, colisiones, CAPTCHA y límites. El smoke del build normal verifica el vault
+antes del primer login y recarga expresamente desde la pantalla del código.
+El harness acepta el aviso de salida esperado; dos selectores nuevos se corrigieron
+para usar el texto «Registro» y toda la batería se repitió con éxito.
+Revisión independiente de fuentes/tests completa y capturas revisadas. Assets y
+archivos Git sin controles locales, códigos, claves ni bases de prueba. El
+resultado de publicación y pruebas remotas queda en la PR #22 enlazada arriba.
+
+La siguiente evidencia corresponde a etapas anteriores:
+
 **Integración Jardín local, 2026-10-11.** `node experiments/jardin-real/run.mjs check`
 y `npm run verify` pasan. 37 pruebas backend y 273 frontend; suite existente de
 integración/UI más smoke cifrado de Jardín. Las primeras 7 pruebas de Jardín
@@ -223,8 +247,7 @@ físico, coste bajo carga y restauración de D1 siguen pendientes.
 
 ## Siguiente paso
 
-Completar la verificación del build estándar y revisión independiente. Integrar
-la PR autorizada en `main`, seguir su despliegue automático de Cloudflare y
-comprobar la versión publicada. No requiere migraciones ni despliegue manual.
-Los runners locales y sus datos siguen disponibles; la interfaz anterior se
-conserva en ambos entornos con el selector de diseño.
+Seguir el resultado de integración y despliegue en la [PR #22](https://github.com/Juancho1162/activity-hub/pull/22).
+No queda desarrollo pendiente de Jardín. Los runners locales y sus datos siguen
+disponibles; la interfaz anterior se conserva con el selector de diseño.
+Las mejoras futuras y límites de verificación siguen en «Trabajo».
