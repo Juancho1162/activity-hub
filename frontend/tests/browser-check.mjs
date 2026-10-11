@@ -1,5 +1,6 @@
 // Existing Firefox, own profile/ports and temporary D1; no personal data.
-// React -> real workerd/D1, with normal signup, cookies, CSRF and commits.
+// Retained classic UI in the experimental build -> real workerd/D1.
+// Production Garden is covered by garden-browser, browser-passwords and backend integration.
 // Random fixture codes remain in memory and are hidden in screenshots.
 import assert from "node:assert/strict"
 import { spawn, spawnSync } from "node:child_process"
@@ -63,7 +64,7 @@ try {
     'user_pref("network.captive-portal-service.enabled", false);',
   ].join("\n"))
   const bidiPort = await freePort()
-  const { url } = await workerFixture({ after: callback => cleanup.push(callback) }, { assets: true, webOrigin: null, legacy: false })
+  const { url } = await workerFixture({ after: callback => cleanup.push(callback) }, { assets: fileURLToPath(new URL("../../experiments/jardin-real/dist/", import.meta.url)), webOrigin: null, legacy: false })
   const origin = url.origin
   assert.equal((await fetch(`${origin}/health`)).status, 200, "real primary Worker/D1 ready")
   assert.equal((await fetch(`${origin}/api/fronts`)).status, 401)
@@ -1159,7 +1160,7 @@ try {
   await waitFor(() => evaluate("document.body.textContent.includes('Signed out on this device.')"), "English logout notice")
   await writeFile(join(output, "row-geometry.json"), JSON.stringify(rowGeometryChecks, null, 2))
   await writeFile(join(output, "daily-geometry.json"), JSON.stringify(dailyGeometryChecks, null, 2))
-  console.log("Primary JavaScript/workerd/D1. Real signup: four encrypted examples per account, then two empty regression fixtures, code ACK before login, permanent-code reuse, no recovery; local assets and responsive 1366/390px")
+  console.log("Retained classic experiment + real workerd/D1. Real signup: four encrypted examples per account, then two empty regression fixtures, code ACK before login, permanent-code reuse, no recovery; local assets and responsive 1366/390px")
   console.log("Real HTTP: HttpOnly cookie/resume, CSRF and foreign-account rejection, check/create/edit/archive/link clearing")
   console.log("Dashboard: global descending order across 23 filtered fronts/two pages, changed period reorders and resets page; daily order unchanged")
   console.log("Layout: both themes at 1920/1684/1366/1024/768/390/320px, four wide/two intermediate/one mobile columns; contained controls and 44px touch height")

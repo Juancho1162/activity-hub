@@ -97,8 +97,8 @@ borradores e idioma. `AuthenticatedApp.test.tsx` comprueba que cambiar de diseñ
 conserva la sesión y los frentes. Los resultados finales se registran en
 [STATUS.md](../../docs/STATUS.md).
 
-El build normal usa Jardín por defecto y conserva «Anterior» en la cabecera.
-Este runner añade únicamente los controles de comparación local. El icono es un
+El build normal muestra únicamente Jardín y no permite seleccionar «Anterior»,
+tampoco mediante la URL. Este runner conserva los controles de comparación local. El icono es un
 campo opcional del documento cifrado; no hay cambios de esquema D1. El endpoint
 de alta acepta opcionalmente el documento inicial cifrado.
 El CAPTCHA de producción no se ejecuta en el entorno

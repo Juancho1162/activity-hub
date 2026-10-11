@@ -2,6 +2,17 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-11 — Solo Jardín en la web
+
+Retirado el selector público de diseño. Portada, acceso y cuenta muestran Jardín,
+también con enlaces antiguos `appearance=classic`. La interfaz anterior queda
+en el runner experimental local; no cambia autenticación, almacenamiento o datos.
+
+`npm run verify` PASS: 42 backend, 306 frontend, integración/UI de producción y
+regresiones experimentales Firefox/Brave. `release:prepare` correcto y revisión
+independiente sin hallazgos. Publicación autorizada; build y smoke remoto en la
+[PR #23](https://github.com/Juancho1162/activity-hub/pull/23).
+
 ## 2026-10-11 — Jardín, iconos y bienvenida
 
 Portada y aplicación Jardín por defecto, con «Anterior» para conservar ambas

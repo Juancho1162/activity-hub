@@ -1,10 +1,12 @@
-// Public routes under the real Worker headers, using a disposable Brave profile
+// Retained classic landing in the experimental build, under real Worker headers.
+// Uses a disposable Brave profile
 // and D1. Only illustrative content is captured; no credentials leave memory.
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { fixture } from "../../backend/tests/fixture.js"
 
 const temporary = await mkdtemp(join(tmpdir(), "activity-hub-public-pages-"))
@@ -18,7 +20,7 @@ async function until(check, label) {
   throw new Error(`Timed out: ${label}`)
 }
 try {
-  const { url, DB } = await fixture({ after: callback => cleanup.push(callback) }, { assets: true, webOrigin: null, legacy: false })
+  const { url, DB } = await fixture({ after: callback => cleanup.push(callback) }, { assets: fileURLToPath(new URL("../../experiments/jardin-real/dist/", import.meta.url)), webOrigin: null, legacy: false })
   const origin = url.origin
   const profile = join(temporary, "profile")
   browser = spawn("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser", [
@@ -114,7 +116,7 @@ try {
   await evaluate("document.querySelector('a[href=\"/app/\"]').click();true")
   await until(() => evaluate("location.pathname==='/app/' && !!document.getElementById('access-code')"), "CTA opens existing private access")
   assert.equal((await DB.prepare("SELECT count(*) AS n FROM accounts").first()).n, 0, "CTA does not sign up")
-  console.log("PASS public landing with cookie, no private requests/writes, 1366/390/320 px light/dark, ES/EN/preferences, plant/reduced motion, app CTA, no presentation links, old presentation redirect under Worker CSP.")
+  console.log("PASS retained experimental landing with cookie, no private requests/writes, 1366/390/320 px light/dark, ES/EN/preferences, plant/reduced motion, app CTA, no presentation links, old presentation redirect under Worker CSP.")
 } finally {
   socket?.close()
   if (browser?.exitCode === null) browser.kill("SIGTERM")

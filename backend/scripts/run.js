@@ -40,6 +40,8 @@ if (mode === 'migrate') {
   console.log('Activity Hub: http://127.0.0.1:8787 — Ctrl+C para detener.');
   wrangler(['dev', '--env', 'local', '--local', '--ip', '127.0.0.1', '--port', '8787', '--persist-to', '.state/local']);
 } else if (mode === 'browser-ui') {
+  // Retained classic UI has its own local-only entrypoints and artifact.
+  run(process.execPath, ['../experiments/jardin-real/run.mjs', 'build']);
   run(process.execPath, ['../frontend/tests/public-pages.mjs']);
   run(process.execPath, ['../frontend/tests/garden-browser.mjs']);
   run(process.execPath, ['../frontend/tests/browser-check.mjs']);

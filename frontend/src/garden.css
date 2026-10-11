@@ -284,6 +284,3 @@
 [data-presentation="garden"] [data-front-icon="health"] { background: #f5e5dc; color: #a26447; }
 [data-presentation="garden"][data-theme="dark"] .garden-front-symbol { background: var(--accent); color: var(--primary); }
 @media(max-width: 600px) { .front-icon-options { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; } }
-.appearance-picker { display: inline-flex; flex-shrink: 0; }
-.appearance-picker select { width: 106px; min-height: 44px; padding: 8px; border: 1px solid var(--border); background: var(--card); color: var(--foreground); font: inherit; font-size: 13px; }
-.app-controls:has(.appearance-picker) { flex-wrap: wrap; }
