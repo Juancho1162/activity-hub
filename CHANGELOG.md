@@ -2,6 +2,13 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-13 — Texto más legible en Jardín
+
+Base de Jardín a 16 px (antes 14 px) y textos secundarios entre 12 y 15 px,
+sin tamaños de 9–11 px; sobre todo en dashboard/Matriz. Solo cambia CSS de
+Jardín y portada; la interfaz anterior local no cambia. `npm run verify` PASS:
+42 backend, 340 frontend y recorridos Firefox/Brave a 1440/768/390/320 px.
+
 ## 2026-10-13 — Grupos personalizados, Matriz y Semana
 
 Jardín incorpora grupos independientes con nombre e icono editables (iconos
