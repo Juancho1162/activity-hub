@@ -354,6 +354,10 @@ try {
   await until(() => evaluate("!!document.querySelector('.restore-front')"), "recoverable trash")
   await screenshot("garden-trash")
   assert.equal(await evaluate("document.querySelector('.trash-list [data-front-icon]').dataset.frontIcon"), "music", "trash preserves the icon")
+  assert.equal(await evaluate(`[...document.querySelectorAll('.trash-row')].every(row => {
+    const info = row.firstElementChild.getBoundingClientRect(), actions = row.querySelector('.trash-actions').getBoundingClientRect(), title = row.querySelector('h2').getBoundingClientRect()
+    return title.height <= 2.5 * parseFloat(getComputedStyle(row.querySelector('h2')).lineHeight) && actions.top >= info.bottom - .5
+  })`), true, "trash cards keep a readable name above their actions")
   await click(".restore-front")
   await until(() => evaluate("!document.querySelector('.restore-front')"), "restored")
   await click('[aria-label="Registro diario"]')
