@@ -66,7 +66,8 @@ try {
   const { targetId } = await command("Target.createTarget", { url: "about:blank" })
   const { sessionId } = await command("Target.attachToTarget", { targetId, flatten: true })
   const evaluate = async expression => {
-    const result = await command("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, sessionId)
+    const origin = new Error("Browser evaluation requested here")
+    const result = await command("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, sessionId).catch(error => { error.cause = origin; throw error })
     if (result.exceptionDetails) throw new Error("Browser evaluation failed")
     return result.result.value
   }
@@ -179,6 +180,8 @@ try {
   const initial = await contents()
   assert.deepEqual(initial.fronts.map(front => front.name).sort(), ["Leer", "Proyecto A", "Proyecto B", "Aprender algo"].sort(), "chosen starter fronts")
   assert.equal(initial.fronts.every(front => front.state === "open" && front.reference === null && !!front.icon), true, "editable open starters with icons")
+  assert.deepEqual(initial.groups.map(group => group.name), ["Personal", "Proyectos", "Aprendizaje", "Salud", "Creatividad"], "basic groups on signup")
+  assert.equal(initial.fronts.every(front => initial.groups.some(group => group.id === front.group_id)), true, "starter assignments refer to existing groups")
   assert.deepEqual(initial.checks, [], "no invented activity")
   assert.equal(initial.onboarding.tutorialDismissed, false)
   const initializationWrites = await evaluate("window.__vaultWrites")
@@ -330,9 +333,10 @@ try {
   await until(() => evaluate("!document.querySelector('#front-name')"), "editing a reference preserves the icon")
   await ready()
   await evaluate("document.querySelectorAll('.view-nav button')[1].click();true")
-  await until(() => evaluate("!!document.querySelector('.dashboard-list')"), "dashboard")
-  assert.equal(await evaluate("document.querySelector('.dashboard-list .front-title h2').textContent==='Aprender guitarra' && document.querySelector('.dashboard-list .period-count').textContent.startsWith('2 de')"), true, "dashboard reads monthly correction from same vault")
-  assert.equal(await evaluate("document.querySelector('.dashboard-list [data-front-icon]').dataset.frontIcon"), "music", "reference edits preserve the chosen icon in dashboard")
+  await until(() => evaluate("!!document.querySelector('.activity-matrix')"), "dashboard")
+  await click('[data-group="none"] .matrix-disclosure')
+  assert.equal(await evaluate("[...document.querySelectorAll('.matrix-front')].some(row=>row.textContent.includes('Aprender guitarra') && row.querySelector('.matrix-total').textContent==='2')"), true, "matrix reads monthly correction from same vault")
+  assert.equal(await evaluate("document.querySelector('.matrix-front [data-front-icon]').dataset.frontIcon"), "music", "reference edits preserve the chosen icon in dashboard")
   await screenshot("garden-dashboard")
   await click('[aria-label="Registro diario"]')
   await ready()
@@ -369,6 +373,88 @@ try {
   await until(() => evaluate("!document.querySelector('.delete-panel') && !document.querySelector('.purge-front')"), "temporary front permanently deleted")
   await click('[aria-label="Registro diario"]')
   await ready()
+
+  // Custom groups use real encrypted writes, share icons without merging, and
+  // retain a single replay identity after a lost batch acknowledgement.
+  const makeGroup = async name => {
+    await click(".manage-groups")
+    await click(".create-group")
+    await choose("#group-name", name)
+    assert.equal(await evaluate("!!document.querySelector('[data-icon-option=coffee]')"), false, "new picker omits coffee")
+    await click('[data-icon-option="book"]')
+    await click(".group-form [type=submit]")
+    await until(() => evaluate("!document.querySelector('.group-panel')"), "custom group saved")
+    await ready()
+  }
+  await makeGroup("Biblioteca 1")
+  await makeGroup("Biblioteca 2")
+  let groupedDoc = await contents()
+  const firstGroup = groupedDoc.groups.find(group => group.name === "Biblioteca 1")
+  const secondGroup = groupedDoc.groups.find(group => group.name === "Biblioteca 2")
+  assert.notEqual(firstGroup.id, secondGroup.id)
+  assert.equal(firstGroup.icon, secondGroup.icon)
+  const names = ["Aprender guitarra", "Leer sin prisa", "Proyecto personal", "Curso de fotografía"]
+  for (let index = 0; index < names.length; index++) {
+    await evaluate("[...document.querySelectorAll('.daily-list > li')].find(e=>e.querySelector('h2').textContent===" + JSON.stringify(names[index]) + ").querySelector('.edit-front').click();true")
+    await choose("#front-group", index < 3 ? firstGroup.id : secondGroup.id)
+    await click(".editor-panel [type=submit]")
+    await until(() => evaluate("!document.querySelector('#front-name')"), "front group assignment")
+    await ready()
+  }
+  groupedDoc = await contents()
+  const groupDay = await evaluate("document.getElementById('registration-day').value")
+  const originalMarked = groupedDoc.fronts.find(front => front.name === names[0]).id
+  const laterMarked = groupedDoc.fronts.find(front => front.name === names[1]).id
+  const undoMarked = groupedDoc.fronts.find(front => front.name === names[2]).id
+  const otherGroupFront = groupedDoc.fronts.find(front => front.name === names[3]).id
+  const beforeBatch = await evaluate("window.__vaultWrites")
+  await evaluate("window.__loseNextVaultResponse=true;true")
+  await click('[data-group="' + firstGroup.id + '"] .record-group')
+  await until(() => evaluate("!!document.querySelector('.main-feedback .request-feedback button')"), "lost group response")
+  assert.equal(await evaluate("document.querySelector('.session-controls button').disabled"), true, "batch uncertainty locks session")
+  await click(".main-feedback .request-feedback button")
+  await until(() => evaluate("!!document.querySelector('.undo-group') && !document.querySelector('.undo-group').disabled"), "batch replay confirmed")
+  assert.equal(await evaluate("window.__vaultWrites"), beforeBatch + 1, "one encrypted PUT records the whole group; retry only reads")
+  let groupChecks = (await contents()).checks.filter(check => check.day === groupDay).map(check => check.front_id)
+  for (const frontId of [originalMarked, laterMarked, undoMarked]) assert.ok(groupChecks.includes(frontId), "chosen group marked")
+  assert.ok(!groupChecks.includes(otherGroupFront), "same-icon group unchanged")
+  const checkByName = name => evaluate("[...document.querySelectorAll('.daily-list > li')].find(e=>e.querySelector('h2').textContent===" + JSON.stringify(name) + ").querySelector('[role=checkbox]').click();true")
+  await checkByName(names[1])
+  await until(() => evaluate("!!document.querySelector('.undo-group') && !document.querySelector('.undo-group').disabled"), "manual unmark confirmed")
+  await checkByName(names[1])
+  await until(() => evaluate("!!document.querySelector('.undo-group') && !document.querySelector('.undo-group').disabled"), "later manual mark confirmed")
+  await click(".undo-group")
+  await until(() => evaluate("!document.querySelector('.undo-group')"), "selective undo")
+  groupChecks = (await contents()).checks.filter(check => check.day === groupDay).map(check => check.front_id)
+  assert.ok(groupChecks.includes(originalMarked), "preexisting check survives")
+  assert.ok(groupChecks.includes(laterMarked), "later manual correction survives")
+  assert.ok(!groupChecks.includes(undoMarked), "only untouched batch check undone")
+  for (const language of ["es", "en"]) {
+    await choose(".language-picker select", language)
+    for (const theme of ["light", "dark"]) {
+      if (await evaluate("document.documentElement.dataset.theme") !== theme) await click(".theme-toggle")
+      for (const width of [1440, 390, 320]) await screenshot("groups-log-" + language + "-" + theme + "-" + width, width)
+    }
+  }
+  await choose(".language-picker select", "es")
+  if (await evaluate("document.documentElement.dataset.theme") !== "light") await click(".theme-toggle")
+  await evaluate("document.querySelectorAll('.view-nav button')[1].click();true")
+  await until(() => evaluate("!!document.querySelector('.activity-matrix') && !document.querySelector('.matrix-cell').disabled"), "custom matrix")
+  await click('[data-group="' + firstGroup.id + '"] .matrix-disclosure')
+  assert.equal(await evaluate("document.querySelector('[data-group=\"" + secondGroup.id + "\"] .matrix-disclosure').getAttribute('aria-expanded')"), "false", "same icon does not share expansion")
+  for (const width of [1440, 768, 390, 320]) await screenshot("groups-matrix-" + width, width)
+  await click(".theme-toggle")
+  await choose(".language-picker select", "en")
+  await screenshot("groups-matrix-dark-en", 390)
+  await choose(".language-picker select", "es")
+  await click(".theme-toggle")
+  await click('[data-group="' + firstGroup.id + '"] .matrix-cell')
+  await until(() => evaluate("!!document.querySelector('.group-day-detail')"), "matrix detail")
+  await screenshot("groups-day-detail", 390)
+  await click('.group-panel [aria-label="Cerrar"]')
+  await click('[aria-label="Registro diario"]')
+  await ready()
+
   await choose(".language-picker select", "en")
   await until(() => evaluate("document.documentElement.lang==='en'"), "English")
   await click(".theme-toggle")
@@ -401,7 +487,7 @@ try {
   assert.equal(await evaluate("window.__privateRequests"), 0, "remembered cookie does not trigger private reads/writes on landing")
   assert.deepEqual(await DB.prepare("SELECT version, ciphertext FROM encrypted_vaults").first(), beforePublic, "landing leaves encrypted account untouched")
   assert.deepEqual(errors, [], "no unhandled browser exceptions")
-  console.log("PASS: Garden-only landing/app, retired classic URLs ignored, memory-only demo, real CTA, no private access with/without cookie, ES/EN/light/dark/1440/768/390/320; starter fronts, tutorial, encrypted app and previous flows. Disposable fixture only.")
+  console.log("PASS: Garden-only landing/app, retired classic URLs ignored, memory-only demo, real CTA, no private access with/without cookie, ES/EN/light/dark/1440/768/390/320; starter fronts/groups, tutorial, custom same-icon groups, matrix + weekly log, lost batch response/replay and selective undo preserving later edits, encrypted app and previous flows. Disposable fixture only.")
 } finally {
   socket?.close()
   if (browser?.exitCode === null) { browser.kill("SIGTERM"); await Promise.race([once(browser, "exit"), pause(3000)]); if (browser.exitCode === null) browser.kill("SIGKILL") }

@@ -41,12 +41,12 @@ export function GardenWeekStrip({ day, today, choose }: { day: string; today: st
     </Button>)}</nav>
 }
 
-export function GardenFrontDetails({ item, day, focused, locked, onHistory, onFocus }: {
-  item: DashboardItem; day: string; focused: boolean; locked: boolean
+export function GardenFrontDetails({ item, day, focused, locked, week = false, onHistory, onFocus }: {
+  item: DashboardItem; day: string; focused: boolean; locked: boolean; week?: boolean
   onHistory: (button: HTMLButtonElement) => void; onFocus: () => void
 }) {
   const { t, locale } = useLanguage()
-  const days = gardenHistoryDays(day)
+  const days = gardenHistoryDays(day).slice(week ? -7 : -14)
   return <div className="garden-front-extras">
     <p className="garden-last-record">{item.last_registered_day ? <>{t("Último registro global")}: <time dateTime={item.last_registered_day}>{formatDay(item.last_registered_day, true, locale)}</time></> : t("Tu primer registro, cuando quieras.")}</p>
     <button type="button" className="garden-front-history" aria-label={t("Ver historial de {name}", { name: item.front.name })} disabled={locked} onClick={event => onHistory(event.currentTarget)}>

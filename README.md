@@ -20,7 +20,9 @@ Activity Hub helps you see what you are working on and how your activity evolves
 - Create focus areas with a name, an icon, an optional link and a status: open, standby or archived.
 - Record today's activity or correct past days with one check per focus area and day.
 - Use Garden's week selector, focus mode and editable monthly history.
-- View percentages and calendars for any period, with explicit dates.
+- Organise focus areas into custom groups with independent names and icons. Groups can share an icon.
+- Record all pending open focus areas in a group together, with selective Undo.
+- See groups and days in an activity matrix, expand individual focus areas and inspect any day. Monthly history keeps its percentages and editable calendar.
 - Move focus areas to Trash, restore them or permanently delete them after confirmation.
 - Use the same app on mobile and desktop, in English or Spanish, with light and dark themes.
 
@@ -32,11 +34,11 @@ Percentages describe the days recorded within the selected period; they are not 
 2. Complete the verification and save your private code in your password manager. Confirm that you have saved it to continue.
 3. Personalise the example focus areas or create your own, then mark activity in **Log**. The short guide can be dismissed permanently or opened again when needed.
 
-Use the same code to sign in again. **There is no account recovery: losing your code means losing access to your data.** New accounts start with **Read, Project A, Project B and Learn something**, all editable and without recorded activity. Existing accounts keep their data and receive no examples. Accounts are independent. Activity dates use the `Europe/Madrid` time zone.
+Use the same code to sign in again. **There is no account recovery: losing your code means losing access to your data.** New accounts start with **Read, Project A, Project B and Learn something**, all editable and without recorded activity. New accounts also receive Personal, Projects, Learning, Health and Creativity groups. Existing accounts keep their data, start ungrouped and receive no examples or automatically created groups. Accounts are independent. Activity dates use the `Europe/Madrid` time zone.
 
 ## Privacy
 
-Your focus areas and activity are encrypted in your browser before being sent to Cloudflare D1. The decryption key stays in the tab's memory; reloading requires entering your code again. The server stores account and session metadata alongside encrypted data.
+Your groups, focus areas and activity are encrypted in your browser before being sent to Cloudflare D1. The decryption key stays in the tab's memory; reloading requires entering your code again. The server stores account and session metadata alongside encrypted data.
 
 This prevents reading your content directly from D1 or its backups. A website deliberately modified to capture your code could compromise it. Your browser can save the code in its password manager if you allow it. See [details and limitations](docs/APP.md#privacidad-y-acceso) (in Spanish).
 
@@ -60,6 +62,17 @@ The frontend uses React, TypeScript and Vite. The backend uses JavaScript, Cloud
 
 ## Verification and deployment
 
+[Icon groups and activity dashboards](experiments/icon-groups/README.md): three
+local Garden experiments — Matriz, Semana and Panorama — with grouped logging,
+selective undo and different activity overviews. Run
+`node experiments/icon-groups/run.mjs` and open <http://127.0.0.1:5175/>.
+Each proposal has separate fictional data; these experiments do not access accounts.
+The selected [combined version](http://127.0.0.1:5175/?v=combinada) pairs the
+Matriz dashboard with Semana logging and custom named groups that may share icons.
+That selection is now integrated into the standard encrypted app on the
+`feature/custom-groups` branch; see [verification and release status](docs/STATUS.md).
+The prototype remains available independently.
+
 [Local design experiments](experiments/local-lab/README.md): Jardín, Órbita and
 Cuaderno explore three visual directions and interactive daily, weekly and
 journal views. Run `node experiments/local-lab/run.mjs` and open
@@ -75,6 +88,14 @@ inside the app preserves the account. This experiment uses a
 separate persistent local database, initially empty; production data is not imported.
 
 ```text
+experiments/icon-groups/
+  src/               # Three proposals, selected combination, models and tests
+  index.html
+  vite.config.mjs
+  run.mjs            # Local server on 5175 and isolated build
+  browser-check.mjs  # Disposable Brave journeys and screenshots
+  custom-browser-check.mjs # Selected combination and custom group journeys
+  README.md
 experiments/local-lab/
   src/               # Views, styles and model tests
   index.html

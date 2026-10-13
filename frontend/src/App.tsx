@@ -6,13 +6,15 @@ import { Card, CardContent, CardHeader } from "@/components/ui/8bit/card"
 import { Checkbox } from "@/components/ui/8bit/checkbox"
 import { Input } from "@/components/ui/8bit/input"
 import { useActivity, type Intent } from "@/hooks/useActivity"
-import { createApi, safeReference, type ActivityApi, type DashboardItem, type DashboardPage, type DashboardQuery, type Front, type FrontDraft, type FrontState } from "@/lib/api"
+import { createApi, safeReference, type ActivityApi, type DashboardItem, type DashboardPage, type DashboardQuery, type Front, type FrontDraft, type FrontState, type GroupDraft } from "@/lib/api"
 import { daysInWindow, formatDay, isDay, shiftDay, todayInMadrid } from "@/lib/dates"
 import { useLanguage } from "@/components/Language"
 import { PlantLogo } from "@/components/PlantLogo"
 import { BotanicalAccent } from "@/components/BotanicalAccent"
 import { FrontIcon, FrontIconPicker } from "@/components/FrontIcon"
 import { GardenFrontDetails, GardenHistoryDialog, GardenWeekStrip, gardenHistoryDays, gardenMonth } from "@/components/Garden"
+import { GroupToolbar, GroupLog, GroupMatrix, GroupManager, GroupUndo, groupSections, type GroupEditor } from "@/components/Groups"
+import "@/groups.css"
 import { Onboarding } from "@/components/Onboarding"
 import type { MessageKey } from "@/lib/i18n"
 
@@ -24,7 +26,7 @@ const stateLabels: Record<FrontState, MessageKey> = { open: "Abierto", standby: 
 type View = "daily" | "dashboard" | "trash"
 const viewLabels: Record<View, MessageKey> = { daily: "Registro diario", dashboard: "Dashboard", trash: "Papelera" }
 type Navigation = { api: ActivityApi; source: View; target: View; page: DashboardPage }
-type Editor = { id: string | null; name: string; reference: string; state: FrontState; originalIcon?: string | null; icon?: string | null }
+type Editor = { id: string | null; name: string; reference: string; state: FrontState; originalIcon?: string | null; icon?: string | null; originalGroupId?: string | null; groupId?: string | null }
 type Activity = ReturnType<typeof useActivity>
 type CalendarDay = { date: string; label: string; short: string }
 export type Presentation = "classic" | "garden"
@@ -126,10 +128,15 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   const [requestedView, setRequestedView] = useState<View>("daily")
   const [navigation, setNavigation] = useState<Navigation | null>(null)
   const [day, setDay] = useState(today)
-  const [start, setStart] = useState(() => today < "0001-01-28" ? MIN_DAY : shiftDay(today, -27))
+  const initialRange = presentation === "garden" && api.supportsGroups ? 14 : 28
+  const [start, setStart] = useState(() => today < `0001-01-${initialRange}` ? MIN_DAY : shiftDay(today, 1 - initialRange))
   const [end, setEnd] = useState(today)
   const [state, setState] = useState<FrontState | "all">("open")
   const [search, setSearch] = useState("")
+  const [groupFilter, setGroupFilter] = useState("")
+  const [groupManager, setGroupManager] = useState(false)
+  const [groupEditor, setGroupEditor] = useState<GroupEditor>(null)
+  const groupOpener = useRef<HTMLButtonElement | null>(null)
   const [filtersExpanded, setFiltersExpanded] = useState(false)
   const [offset, setOffset] = useState(0)
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -141,6 +148,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   const historyOpener = useRef<HTMLButtonElement | null>(null)
   const returnHistoryFocus = useRef(false)
   const garden = presentation === "garden"
+  const grouped = garden && !!api.supportsGroups
   const [formError, setFormError] = useState<{ field: "name" | "reference"; message: MessageKey } | null>(null)
   const opener = useRef<HTMLButtonElement | null>(null)
   const newButton = useRef<HTMLButtonElement | null>(null)
@@ -171,8 +179,8 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   const query: DashboardQuery | null = !enabled || invalid ? null : {
     start: historyWindow?.start ?? (requestedView === "daily" ? (garden ? lookback[0] : day) : requestedView === "trash" ? today : start),
     end: historyWindow?.end ?? (requestedView === "daily" ? day : requestedView === "trash" ? today : end),
-    state: requestedView === "trash" ? "all" : state, search: search.trim(), limit: PAGE_SIZE, offset, order: requestedView === "dashboard" ? "activity_desc" : "created",
-    ...(requestedView === "trash" ? { trashed: true } : {}),
+    state: requestedView === "trash" ? "all" : state, search: search.trim(), limit: grouped && requestedView !== "trash" ? 200 : PAGE_SIZE, offset: grouped && requestedView !== "trash" ? 0 : offset, order: requestedView === "dashboard" ? "activity_desc" : "created",
+    ...(requestedView === "trash" ? { trashed: true } : grouped && groupFilter ? { group_id: groupFilter === "none" ? null : groupFilter } : {}),
   }
   const activity = useActivity(api, query, onWriteLockChange)
   const { page: receivedPage, error, pending, saving } = activity
@@ -199,11 +207,11 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   const locked = pending !== null || saving
   const tutorialPending = receivedPage?.onboarding?.version === 1 && !receivedPage.onboarding.tutorialDismissed && !!api.dismissTutorial
   useEffect(() => {
-    if (enabled && garden && tutorialPending && canWrite && !locked && !editor && !deletion && !history && !guide) setGuide({ persist: true, step: 0 })
-  }, [enabled, garden, tutorialPending, canWrite, locked, editor, deletion, history, guide])
+    if (enabled && garden && tutorialPending && canWrite && !locked && !editor && !deletion && !history && !guide && !groupManager) setGuide({ persist: true, step: 0 })
+  }, [enabled, garden, tutorialPending, canWrite, locked, editor, deletion, history, guide, groupManager])
   const historyItem = history && receivedPage && receivedPage.start === historyWindow?.start && receivedPage.end === historyWindow?.end
     ? receivedPage.items.find(item => item.front.id === history.front.id) : undefined
-  useEffect(() => { setFocusedFront(null) }, [presentation, requestedView, day, state, search, offset, api])
+  useEffect(() => { setFocusedFront(null) }, [presentation, requestedView, day, state, search, groupFilter, offset, api])
   useEffect(() => {
     if (!returnHistoryFocus.current || history || loading || navigating || !canWrite) return
     returnHistoryFocus.current = false
@@ -216,6 +224,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
 
   function chooseView(next: View) {
     if (next !== requestedView && page) setNavigation({ api, source: view, target: next, page })
+    if (grouped && next !== requestedView && next !== "trash") setState(next === "dashboard" ? "all" : "open")
     setRequestedView(next); setOffset(0)
   }
   function chooseDay(next: string) { setDay(next); setOffset(0) }
@@ -242,7 +251,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
     if (locked) return
     opener.current = button
     setFormError(null)
-    setEditor(front ? { id: front.id, name: front.name, reference: front.reference ?? "", state: front.state, originalIcon: front.icon } : { id: null, name: "", reference: "", state: "open" })
+    setEditor(front ? { id: front.id, name: front.name, reference: front.reference ?? "", state: front.state, originalIcon: front.icon, originalGroupId: front.group_id ?? null } : { id: null, name: "", reference: "", state: "open", ...(grouped ? { groupId: groupFilter && groupFilter !== "none" ? groupFilter : null } : {}) })
   }
   function updateEditor(patch: Partial<Editor>) {
     if (!locked) { setEditor((current) => current ? { ...current, ...patch } : null); setFormError(null) }
@@ -259,7 +268,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
       setFormError({ field: "reference", message: "El enlace debe ser una URL HTTP o HTTPS de hasta 2048 caracteres." }); return
     }
     setFormError(null)
-    const data: FrontDraft = { name, reference: reference || null, state: editor.state, ...(editor.icon !== undefined ? { icon: editor.icon } : {}) }
+    const data: FrontDraft = { name, reference: reference || null, state: editor.state, ...(editor.icon !== undefined ? { icon: editor.icon } : {}), ...(editor.groupId !== undefined ? { group_id: editor.groupId } : {}) }
     const intent: Intent = editor.id ? { kind: "edit", id: editor.id, data } : { kind: "create", data, requestId: crypto.randomUUID() }
     if (await activity.perform(intent)) setEditor(null)
   }
@@ -267,10 +276,12 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
     const editorRequest = pending?.kind === "create" || pending?.kind === "edit" || pending?.kind === "trash"
     const deleteRequest = pending?.kind === "delete"
     const guideRequest = pending?.kind === "dismiss-tutorial"
+    const groupRequest = pending?.kind === "create-group" || pending?.kind === "edit-group"
     if (await activity.retry()) {
       if (editorRequest) setEditor(null)
       if (deleteRequest) setDeletion(null)
       if (guideRequest) setGuide(null)
+      if (groupRequest) { setGroupManager(false); setGroupEditor(null) }
     }
   }
   async function dismissGuide() {
@@ -316,6 +327,24 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
   }
   const editButton = (front: Front) => <Button type="button" font="normal" variant="ghost" className="edit-front text-button" disabled={locked} aria-label={t("Editar {name}", { name: front.name })} title={t("Editar {name}", { name: front.name })} onClick={(event) => openEditor(front, event.currentTarget)}><Pencil aria-hidden="true" size={18} /><span className="edit-label sr-only">{t("Editar")}</span></Button>
 
+  const renderItem = (item: DashboardItem) => <li key={`${item.front.id}:${view}:${page?.start}:${page?.end}`} hidden={garden && view === "daily" && !!focusedFront && focusedFront !== item.front.id}><Card font="normal" className={`front-card${garden && view === "daily" ? " garden-front-card" : ""}`}><CardContent font="normal" className="card-body">
+                    {view === "daily" ? <><div className="daily-row">{garden && <FrontIcon icon={item.front.icon} />}<Checkbox className="min-h-11 min-w-11 activity-check" aria-label={t("Actividad en {name}", { name: item.front.name })} aria-describedby={`check-status-${item.front.id}`} aria-busy={!!checkPreview(item.front.id)} checked={checkPreview(item.front.id)?.marked ?? item.marked_dates.includes(day)} aria-disabled={!canWrite || !dailyValid} onClick={(event) => { if (!canWrite || !dailyValid) event.preventDefault() }} onCheckedChange={(marked) => check(item.front.id, marked)} />{garden && <span className="garden-check-label">{t((checkPreview(item.front.id)?.marked ?? item.marked_dates.includes(day)) ? "Registrado" : "Registrar día")}<small>{day === today ? t("Hoy") : formatDay(day, true, locale)}</small></span>}<div className="daily-front-info"><FrontInfo front={item.front} /><p id={`check-status-${item.front.id}`} className="sr-only" aria-live="polite">{checkStatus(item)}</p></div><FrontActions front={item.front}>{editButton(item.front)}</FrontActions></div>{garden && <GardenFrontDetails item={item} day={day} week={grouped} focused={focusedFront === item.front.id} locked={locked || !canWrite} onHistory={button => openHistory(item, button)} onFocus={() => setFocusedFront(current => current === item.front.id ? null : item.front.id)} />}</> : view === "trash" ? <div className="trash-row"><FrontInfo front={item.front} withIcon={garden} /><div className="trash-actions"><Button type="button" variant="outline" font="normal" className="restore-front text-button" aria-label={t("Restaurar {name}", { name: item.front.name })} title={t("Restaurar {name}", { name: item.front.name })} disabled={!canWrite || locked} onClick={(event) => { void restore(item.front, event.currentTarget) }}><Undo2 aria-hidden="true" size={18} /><span className="restore-label">{t("Restaurar")}</span></Button>{api.deleteFront && <Button type="button" variant="ghost" font="normal" className="purge-front text-button" aria-label={t("Eliminar para siempre {name}", { name: item.front.name })} title={t("Eliminar para siempre {name}", { name: item.front.name })} disabled={!canWrite || locked} onClick={(event) => confirmDeletion(item.front, event.currentTarget)}><Trash2 aria-hidden="true" size={18} /><span className="purge-label">{t("Eliminar para siempre")}</span></Button>}</div></div> : <DashboardFront item={item} calendarDays={calendarDays} editAction={editButton(item.front)} withIcon={garden} />}
+                  </CardContent></Card></li>
+  const sections = page ? groupSections(page.groups ?? [], page.items, groupFilter, !!search.trim(), t("Sin grupo")) : []
+  function recordGroup(groupId: string | null) {
+    const boundary = todayInMadrid(clock())
+    if (!canWrite || locked || search.trim() || focusedFront || !isDay(day) || day > boundary || (state !== "open" && state !== "all")) { setToday(boundary); return }
+    void activity.perform({ kind: "group-check", groupId, day, requestId: crypto.randomUUID() })
+  }
+  async function saveGroup(id: string | null, data: GroupDraft) {
+    if (!canWrite || locked) return
+    const intent: Intent = id ? { kind: "edit-group", id, data, requestId: crypto.randomUUID() } : { kind: "create-group", data, requestId: crypto.randomUUID() }
+    if (await activity.perform(intent)) { setGroupManager(false); setGroupEditor(null) }
+  }
+  function logFromMatrix(date: string, groupId: string | null) {
+    chooseView("daily"); chooseDay(date); setSearch(""); setGroupFilter(groupId ?? "none"); setState("all")
+  }
+
   // Keep every hook/editor/intent mounted during reauthentication, but remove
   // private reads and the dialog portal from the DOM while the session is inactive.
   if (!enabled) return null
@@ -330,18 +359,18 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
         <Button type="button" variant="ghost" className="nav-button" aria-current={requestedView === "dashboard" ? "page" : undefined} aria-busy={navigating && requestedView === "dashboard"} onClick={() => chooseView("dashboard")}><LayoutDashboard aria-hidden="true" /><span className="nav-label">{t("Dashboard")}</span></Button>
         {hasTrash && <Button type="button" ref={trashButton} variant="ghost" className="nav-button trash-nav" aria-label={t("Papelera")} title={t("Papelera")} aria-current={requestedView === "trash" ? "page" : undefined} aria-busy={navigating && requestedView === "trash"} onClick={() => chooseView("trash")}><Trash2 aria-hidden="true" /><span className="trash-nav-label">{t("Papelera")}</span></Button>}
       </nav>
-      {garden && <Button type="button" ref={guideButton} variant="ghost" font="normal" className="garden-guide-open text-button" disabled={locked || !canWrite || !!editor || !!deletion} onClick={() => { if (!locked && canWrite && !editor && !deletion && !history) setGuide({ persist: tutorialPending, step: 0 }) }}><CircleHelp aria-hidden="true" size={18} />{t("Guía rápida")}</Button>}
+      {garden && <Button type="button" ref={guideButton} variant="ghost" font="normal" className="garden-guide-open text-button" disabled={locked || !canWrite || !!editor || !!deletion || groupManager} onClick={() => { if (!locked && canWrite && !editor && !deletion && !history && !groupManager) setGuide({ persist: tutorialPending, step: 0 }) }}><CircleHelp aria-hidden="true" size={18} />{t("Guía rápida")}</Button>}
       <div className="sidebar-note"><LockKeyhole aria-hidden="true" size={18} /><span>{t("Espacio privado")}</span></div>
     </aside>
 
     <p className="sr-only" role="status">{navigating ? t("Abriendo {view}…", { view: t(viewLabels[requestedView]) }) : ""}</p>
     <main id="contenido" className="main-content" tabIndex={-1} inert={navigating || !!history || !!guide} aria-busy={navigating}>
-      {!editor && !deletion && !history && !guide && <div className="main-feedback">
+      {!editor && !deletion && !history && !guide && !groupManager && <div className="main-feedback">
         <RequestFeedback activity={activity} onRetry={() => { void retryPending() }} />
       </div>}
       <div key={view} className="view-panel">
         <header className="page-header">
-          <div><p className="eyebrow">{t(garden && view === "daily" ? "HAZ SITIO A LO QUE IMPORTA" : "REGISTRO PERSONAL")}</p><h1 className="retro">{t(garden && view === "daily" ? "Tu pequeño jardín de frentes" : viewLabels[view])}</h1></div>
+          <div><p className="eyebrow">{t(garden && view === "daily" ? "HAZ SITIO A LO QUE IMPORTA" : "REGISTRO PERSONAL")}</p><h1 className="retro">{t(grouped ? view === "daily" ? "Hoy, grupo a grupo." : view === "dashboard" ? "Tu jardín, de un vistazo." : viewLabels[view] : garden && view === "daily" ? "Tu pequeño jardín de frentes" : viewLabels[view])}</h1></div>
           {view !== "trash" && <Button type="button" ref={newButton} className="new-front" aria-label={t("Nuevo frente")} title={t("Nuevo frente")} disabled={locked || navigating} onClick={(event) => openEditor(null, event.currentTarget)}><Plus aria-hidden="true" /><span className="new-front-label">{t("Nuevo frente")}</span></Button>}
         </header>
 
@@ -361,6 +390,9 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
           </div>
         </CardContent></Card>
 
+        {grouped && page && view !== "trash" && <GroupToolbar groups={page.groups ?? []} value={groupFilter} locked={locked || !canWrite} onChange={value => { setGroupFilter(value); setOffset(0) }} onManage={() => { groupOpener.current = document.activeElement as HTMLButtonElement; setGroupEditor(null); setGroupManager(true) }}>
+        {view === "dashboard" && <div className="group-period-presets">{[7, 14, 30].map(length => <Button key={length} type="button" variant="outline" font="normal" onClick={() => { setEnd(today); setStart(today < "0001-02-01" && Number(today.slice(-2)) < length ? MIN_DAY : shiftDay(today, 1 - length)); setOffset(0) }}>{t("{count} días", { count: length })}</Button>)}</div>}</GroupToolbar>}
+        {grouped && activity.confirmedBatch && <GroupUndo day={activity.confirmedBatch.result.day} count={activity.confirmedBatch.result.changed_ids.length} disabled={locked || !canWrite} onUndo={() => { if (activity.confirmedBatch) void activity.perform({ kind: "group-undo", batchRequestId: activity.confirmedBatch.requestId, requestId: crypto.randomUUID() }) }} />}
         {garden && view === "daily" && <GardenWeekStrip day={day} today={today} choose={chooseDay} />}
         {garden && view === "daily" && focusedFront && <div className="garden-focus-bar"><p>{t("Un frente a la vez.")}</p><Button type="button" variant="outline" font="normal" className="text-button" onClick={() => setFocusedFront(null)}>{t("Salir del enfoque")}</Button></div>}
 
@@ -375,18 +407,20 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
               <Button type="button" variant="outline" font="normal" className="text-button" onClick={activity.refresh}>{t("Reintentar carga")}</Button>
             </CardContent></Card>
               : page && <>
-                <div className="results-heading"><p>{t(page.total === 1 ? "{count} frente en esta vista" : "{count} frentes en esta vista", { count: page.total })}</p><span>{view === "daily" ? formatDay(day, false, locale) : view === "trash" ? t("Todos los estados") : t("Mayor porcentaje primero")}</span></div>
-                {page.total === 0 ? <Card font="normal" className="message-card"><CardContent font="normal" className="card-body"><FolderOpen className="empty-icon" aria-hidden="true" /><h2>{view === "trash" ? (search.trim() ? t("No hay frentes en la papelera con ese nombre") : t("La papelera está vacía")) : t("No hay frentes en esta vista")}</h2><p className="muted">{view === "trash" ? t("Los frentes que elimines aparecerán aquí para que puedas recuperarlos.") : t("Prueba otro estado o nombre, o crea un nuevo frente. Crear un frente no marca actividad.")}</p></CardContent></Card> : <ul className={`front-list ${view === "dashboard" ? "dashboard-list" : view === "trash" ? "trash-list" : "daily-list"}`} aria-busy={saving || activity.refreshing || navigating} aria-label={view === "daily" ? t("Frentes del registro diario") : view === "trash" ? t("Frentes de la papelera") : t("Frentes del dashboard")}>
-                  {page.items.map((item) => <li key={`${item.front.id}:${view}:${page.start}:${page.end}`} hidden={garden && view === "daily" && !!focusedFront && focusedFront !== item.front.id}><Card font="normal" className={`front-card${garden && view === "daily" ? " garden-front-card" : ""}`}><CardContent font="normal" className="card-body">
-                    {view === "daily" ? <><div className="daily-row">{garden && <FrontIcon icon={item.front.icon} />}<Checkbox className="min-h-11 min-w-11 activity-check" aria-label={t("Actividad en {name}", { name: item.front.name })} aria-describedby={`check-status-${item.front.id}`} aria-busy={!!checkPreview(item.front.id)} checked={checkPreview(item.front.id)?.marked ?? item.marked_dates.includes(day)} aria-disabled={!canWrite || !dailyValid} onClick={(event) => { if (!canWrite || !dailyValid) event.preventDefault() }} onCheckedChange={(marked) => check(item.front.id, marked)} />{garden && <span className="garden-check-label">{t((checkPreview(item.front.id)?.marked ?? item.marked_dates.includes(day)) ? "Registrado" : "Registrar día")}<small>{day === today ? t("Hoy") : formatDay(day, true, locale)}</small></span>}<div className="daily-front-info"><FrontInfo front={item.front} /><p id={`check-status-${item.front.id}`} className="sr-only" aria-live="polite">{checkStatus(item)}</p></div><FrontActions front={item.front}>{editButton(item.front)}</FrontActions></div>{garden && <GardenFrontDetails item={item} day={day} focused={focusedFront === item.front.id} locked={locked || !canWrite} onHistory={button => openHistory(item, button)} onFocus={() => setFocusedFront(current => current === item.front.id ? null : item.front.id)} />}</> : view === "trash" ? <div className="trash-row"><FrontInfo front={item.front} withIcon={garden} /><div className="trash-actions"><Button type="button" variant="outline" font="normal" className="restore-front text-button" aria-label={t("Restaurar {name}", { name: item.front.name })} title={t("Restaurar {name}", { name: item.front.name })} disabled={!canWrite || locked} onClick={(event) => { void restore(item.front, event.currentTarget) }}><Undo2 aria-hidden="true" size={18} /><span className="restore-label">{t("Restaurar")}</span></Button>{api.deleteFront && <Button type="button" variant="ghost" font="normal" className="purge-front text-button" aria-label={t("Eliminar para siempre {name}", { name: item.front.name })} title={t("Eliminar para siempre {name}", { name: item.front.name })} disabled={!canWrite || locked} onClick={(event) => confirmDeletion(item.front, event.currentTarget)}><Trash2 aria-hidden="true" size={18} /><span className="purge-label">{t("Eliminar para siempre")}</span></Button>}</div></div> : <DashboardFront item={item} calendarDays={calendarDays} editAction={editButton(item.front)} withIcon={garden} />}
-                  </CardContent></Card></li>)}
+                <div className="results-heading"><p>{t(page.total === 1 ? "{count} frente en esta vista" : "{count} frentes en esta vista", { count: page.total })}</p><span>{view === "daily" ? formatDay(day, false, locale) : view === "trash" ? t("Todos los estados") : t(grouped ? "Actividad por grupos" : "Mayor porcentaje primero")}</span></div>
+                {grouped && view === "daily" ? <GroupLog sections={sections} day={day} canRecord={canWrite && dailyValid && !locked && (state === "open" || state === "all")} searching={!!search.trim()} focused={focusedFront} busy={saving || activity.refreshing || navigating} renderItem={renderItem} onRecord={recordGroup} onNew={(groupId, button) => { openEditor(null, button); setEditor(current => current ? { ...current, groupId } : null) }} />
+                  : grouped && view === "dashboard" ? <GroupMatrix sections={sections} days={days} locked={locked || !canWrite} renderActions={item => <FrontActions front={item.front}>{editButton(item.front)}</FrontActions>} onLog={logFromMatrix} />
+                  : page.total === 0 ? <Card font="normal" className="message-card"><CardContent font="normal" className="card-body"><FolderOpen className="empty-icon" aria-hidden="true" /><h2>{view === "trash" ? (search.trim() ? t("No hay frentes en la papelera con ese nombre") : t("La papelera está vacía")) : t("No hay frentes en esta vista")}</h2><p className="muted">{view === "trash" ? t("Los frentes que elimines aparecerán aquí para que puedas recuperarlos.") : t("Prueba otro estado o nombre, o crea un nuevo frente. Crear un frente no marca actividad.")}</p></CardContent></Card> : <ul className={`front-list ${view === "dashboard" ? "dashboard-list" : view === "trash" ? "trash-list" : "daily-list"}`} aria-busy={saving || activity.refreshing || navigating} aria-label={view === "daily" ? t("Frentes del registro diario") : view === "trash" ? t("Frentes de la papelera") : t("Frentes del dashboard")}>
+                  {page.items.map(renderItem)}
                 </ul>}
               </>}
 
-        <nav className="pagination" aria-label={t("Paginación de frentes")}><Button type="button" variant="outline" font="normal" className="text-button" aria-label={t("Página anterior")} disabled={navigating || !page || offset === 0} onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))}><ChevronLeft aria-hidden="true" />{" "}{t("Anterior")}</Button><span>{page ? t("Página {page} de {total}", { page: Math.floor(page.offset / PAGE_SIZE) + 1, total: Math.max(1, Math.ceil(page.total / PAGE_SIZE)) }) : t("Página —")}</span><Button type="button" variant="outline" font="normal" className="text-button" aria-label={t("Página siguiente")} disabled={navigating || !page || offset + PAGE_SIZE >= page.total || offset + PAGE_SIZE > 100000} onClick={() => setOffset((current) => current + PAGE_SIZE)}>{t("Siguiente")}{" "}<ChevronRight aria-hidden="true" /></Button></nav>
+        {(!grouped || view === "trash") && <nav className="pagination" aria-label={t("Paginación de frentes")}><Button type="button" variant="outline" font="normal" className="text-button" aria-label={t("Página anterior")} disabled={navigating || !page || offset === 0} onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))}><ChevronLeft aria-hidden="true" />{" "}{t("Anterior")}</Button><span>{page ? t("Página {page} de {total}", { page: Math.floor(page.offset / PAGE_SIZE) + 1, total: Math.max(1, Math.ceil(page.total / PAGE_SIZE)) }) : t("Página —")}</span><Button type="button" variant="outline" font="normal" className="text-button" aria-label={t("Página siguiente")} disabled={navigating || !page || offset + PAGE_SIZE >= page.total || offset + PAGE_SIZE > 100000} onClick={() => setOffset((current) => current + PAGE_SIZE)}>{t("Siguiente")}{" "}<ChevronRight aria-hidden="true" /></Button></nav>}
         <footer className="page-footer">{view === "trash" ? t("Restaurar conserva el estado y todos los checks del frente.") : t("Los estados los decides tú. Los checks se pueden corregir también en standby y archivados.")}</footer>
       </div>
     </main>
+
+    {groupManager && grouped && page && <GroupManager groups={page.groups ?? []} editing={groupEditor} setEditing={setGroupEditor} locked={locked} canWrite={canWrite} feedback={<RequestFeedback activity={activity} onRetry={() => { void retryPending() }} />} onSave={(id, data) => { void saveGroup(id, data) }} onClose={() => { if (!locked) { setGroupManager(false); setGroupEditor(null) } }} onReturnFocus={() => { const target = groupOpener.current; (target?.isConnected && !target.disabled ? target : newButton.current)?.focus({ preventScroll: true }) }} />}
 
     {guide && <Onboarding step={guide.step} locked={locked} saving={saving} canClose={!guide.persist || canWrite} feedback={<>
       {loading && !pending && <p role="status">{t("Cargando tus frentes…")}</p>}
@@ -402,6 +436,7 @@ export default function App({ api = defaultApi, clock = defaultClock, enabled = 
           <form onSubmit={(event) => { void submit(event) }} noValidate>
             <div className="field"><label htmlFor="front-name">{t("Nombre")}</label><Input id="front-name" font="normal" className="field-input" value={editor.name} disabled={locked} aria-invalid={formError?.field === "name"} aria-describedby={formError?.field === "name" ? "form-error" : "name-help"} onChange={(event) => updateEditor({ name: event.target.value })} /><p id="name-help" className="field-help">{t("De 1 a 200 caracteres. No tiene que ser único.")}</p></div>
             {garden && api.supportsFrontIcons && <FrontIconPicker value={editor.icon ?? editor.originalIcon} disabled={locked} onChange={icon => updateEditor({ icon })} />}
+            {grouped && <div className="field"><label htmlFor="front-group">{t("Grupo")}</label><select id="front-group" disabled={locked} value={editor.groupId === undefined ? editor.originalGroupId ?? "" : editor.groupId ?? ""} onChange={event => updateEditor({ groupId: event.target.value || null })}><option value="">{t("Sin grupo")}</option>{(page?.groups ?? []).map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select><p className="field-help">{t("Cambiar de grupo conserva todo el historial del frente.")}</p></div>}
             <div className="field"><label htmlFor="front-reference">{t("Enlace (opcional)")}</label><Input id="front-reference" type="url" font="normal" className="field-input" placeholder="https://…" value={editor.reference} disabled={locked} aria-invalid={formError?.field === "reference"} aria-describedby={formError?.field === "reference" ? "form-error" : "reference-help"} onChange={(event) => updateEditor({ reference: event.target.value })} /><p id="reference-help" className="field-help">{t("Solo HTTP o HTTPS. Déjalo vacío para quitar el enlace.")}</p></div>
             <div className="field"><label htmlFor="front-state">{t("Estado del frente")}</label><select id="front-state" value={editor.state} disabled={locked} onChange={(event) => updateEditor({ state: event.target.value as FrontState })}><StateOptions /></select></div>
             {formError && <p id="form-error" role="alert" className="validation-message">{t(formError.message)}</p>}

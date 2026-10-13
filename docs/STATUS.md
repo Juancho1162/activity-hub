@@ -1,8 +1,70 @@
 # Estado de Activity Hub
 
-Última actualización: 2026-10-11. [Producto y reglas](APP.md) · [Historial de cambios](../CHANGELOG.md) · [Operación y publicación](../backend/README.md#flujo-de-cambio-pruebas-y-publicación).
+Última actualización: 2026-10-12. [Producto y reglas](APP.md) · [Historial de cambios](../CHANGELOG.md) · [Operación y publicación](../backend/README.md#flujo-de-cambio-pruebas-y-publicación).
 
 ## Ahora
+
+**Integración para producción (verificada y preparada):** solicitud de concretar la combinación
+en la app real. Base `origin/main` `51ce31d`, rama `feature/custom-groups`, sin
+publicación todavía. Los frentes existentes quedan en «Sin grupo», decisión
+confirmada; las altas nuevas reciben categorías básicas sin actividad inventada.
+Implementación de datos y UI terminada, revisión independiente PASS y
+`npm run verify` completo correcto: 340/340 pruebas frontend, 42/42 backend,
+tipos/build e integración/UI Firefox y Brave. El navegador real ha validado
+altas, grupos repetidos, registro/reintento/Deshacer, historial, Papelera, ES/EN
+y temas. `npm run release:prepare` ha congelado el artefacto mediante dry-run;
+no se ha hecho commit, push, merge ni despliegue de este incremento.
+La matriz abre 14 días, muestra grupos con frentes y permite consultar también
+grupos vacíos al seleccionarlos. Los días recientes quedan visibles al abrirla.
+Vista local real disponible en `http://127.0.0.1:8792/app/`, con base independiente
+en `backend/.state/groups-preview`; no importa cuentas ni datos de producción.
+Las otras vistas y bases locales se conservan.
+
+- [x] Documento cifrado compatible, grupos por ID, registro atómico y Deshacer con protección frente a escrituras posteriores.
+- [x] Dashboard Matriz + registro Semana en Jardín real; gestión de grupos, ES/EN, temas y funciones anteriores conservadas.
+- [x] Regresiones de datos/cuentas/reintentos, integración y navegador; `npm run verify`, revisión independiente y artefacto preparado.
+
+Riesgos y comprobaciones: (1) pestaña antigua sobrescribe grupos → formato cifrado
+ampliado y prueba CAS con cliente anterior, sin cambiar claves/AAD; (2) registro
+parcial o duplicado → un único commit/replay y respuesta perdida; (3) Deshacer
+borra un registro posterior → propiedad por operación y prueba de desmarcar/remarcar;
+(4) migración/reseed cambia cuentas anteriores → fixtures antiguos, Sin grupo,
+historial/papelera/recibos intactos; (5) grupos parciales por paginación o pérdida
+de referencias tras borrar definitivamente → vista completa, grupos >20 frentes
+y redacción de recibos compartidos. No requiere migración D1 según la inspección
+del transporte opaco; cualquier publicación en main activa Cloudflare Builds.
+El formato 2 conserva claves/AAD. La prueba v1 caracteriza su guard de formato y
+CAS, sin ejecutar todo el bundle antiguo. Tras la primera escritura nueva, las
+pestañas antiguas deben recargarse; una reversión a un bundle anterior a grupos
+no podrá leer esas cuentas: para recuperar acceso se necesita un cliente
+compatible con formato 2, sin reescribir ni restaurar los datos por defecto.
+
+**Combinación elegida y grupos personalizados (verificada, solo local):** el usuario elige
+dashboard Matriz y registro Semana, y sustituye la identidad por icono por grupos
+independientes: nombre e icono editables, iconos repetibles sin fusionar grupos.
+Nueva versión local dentro del mismo laboratorio; conservar las tres propuestas.
+Proponer grupos básicos y retirar Café de las opciones de esta nueva versión.
+Disponible en `http://127.0.0.1:5175/?v=combinada`: crear/editar grupos y mover
+frentes conservando el historial. 22/22 pruebas nuevas del modelo, build y smoke
+Brave a 1440/768/390/320 px correctos; comprobados tres grupos con el mismo icono
+sin mezcla y Deshacer selectivo. También pasan las regresiones de las tres demos
+anteriores tras extraer matriz/controles compartidos. Revisión independiente PASS
+tras corregir el plegado por ID de grupos con icono repetido (regresión RED/GREEN).
+Ambos recorridos completos de navegador y el build pasan después de la corrección.
+La galería enlaza la combinación elegida y conserva las tres propuestas originales.
+Sin conexión con cuentas reales ni promoción a producción.
+
+**Grupos por icono y dashboard (experimentos locales verificados):** requisito
+confirmado de agrupación en registro y dashboard. Registro por grupo de abiertos
+pendientes en el día elegido, conservando los marcados y con Deshacer. Comparar
+Matriz (grupos × días), Semana (actividad por día) y Panorama (resumen temporal).
+Trabajo aislado en `experiments/icon-groups/`, sobre `origin/main` `51ce31d`.
+Tres interfaces interactivas disponibles en `http://127.0.0.1:5175/`, con comparación
+simultánea. 24/24 pruebas del modelo y build correctos; smoke Brave correcto
+a 1440/768/390/320 px, incluidas conservación del historial y Deshacer selectivo.
+Revisión independiente PASS tras corregir búsqueda solo de espacios (RED/GREEN).
+Datos ficticios separados por propuesta. No se publica. [Comandos y límites](../experiments/icon-groups/README.md).
+
 
 **Solo Jardín en la web (verificado):** petición posterior a la PR #22. Se retira
 el selector de diseño de portada, acceso y cuenta; `appearance=classic` deja de
@@ -189,6 +251,34 @@ del build automático y las comprobaciones remotas.
 
 ## Verificación vigente
 
+**Grupos y Matriz/Semana, 2026-10-12.** `npm run verify` y
+`npm run release:prepare` completos correctos sobre el árbol de trabajo de
+`feature/custom-groups`, base `51ce31d`. 42 pruebas backend, 340 frontend;
+integración cifrada con Worker/D1 reales y recorridos Firefox/Brave de la
+interfaz Jardín y la presentación anterior conservada localmente. Grupos
+independientes con el mismo icono, cuentas anteriores en Sin grupo, alta
+atómica, grupos de más de 20 frentes, conflicto CAS, respuesta perdida,
+reintento, Deshacer selectivo, borrado definitivo y sesiones cubiertos.
+Revisión independiente PASS tras corregir tres casos: reintentar una asignación
+sin sobrescribir un cambio posterior de otra pestaña, conservar el borrador de
+grupo al recuperar la sesión y salir del enfoque al cambiar de grupo.
+Las regresiones de esos casos fallaron antes del arreglo y pasan después.
+Actualizados los selectores de navegador que esperaban el dashboard anterior;
+la batería final completa pasa. Capturas finales revisadas y comprobaciones
+de ambos idiomas/temas a 1440/768/390/320 px correctas. Safari/iPhone físico
+sigue pendiente. No se han ejecutado pruebas contra cuentas de producción.
+
+Artefacto local: `.release/build-c1a147ff-89b3-4aa0-9215-7c5a8b44e37f`;
+manifiesto en `.release/manifest.json`, hash del artefacto
+`420ec9165ae9fa672e1d086fd68723dced9fe7db1cdab98d27c1a8d75a0b6830`.
+Huella de fuentes verificadas:
+`36bd1b6fa7e02dbb1e6089a57f889247d01b0fe2b8b24e2d597dd3e10bb45d90`.
+Son huellas del árbol de trabajo, no un nuevo commit. No hay migraciones D1 ni
+dependencias nuevas. La preparación no publica; el siguiente despliegue debe
+seguir el flujo de integración y Cloudflare Builds, sin duplicarlo manualmente.
+
+La siguiente evidencia corresponde a etapas anteriores:
+
 **Promoción Jardín, 2026-10-11.** Verificación completa de producción correcta:
 42 backend y 306 frontend; Firefox prueba dos cuentas/pestañas, cifrado,
 concurrencia, respuestas perdidas, cierre y recarga. Brave comprueba portada,
@@ -260,7 +350,13 @@ físico, coste bajo carga y restauración de D1 siguen pendientes.
 
 ## Siguiente paso
 
-Seguir el resultado de integración y despliegue en la [PR #23](https://github.com/Juancho1162/activity-hub/pull/23).
-No queda desarrollo pendiente de este ajuste. La web muestra solo Jardín; los
-runners locales conservan sus datos y el selector para comparar la interfaz anterior.
-Las mejoras futuras y límites de verificación siguen en «Trabajo».
+La preparación de grupos + Matriz/Semana está terminada y disponible en local.
+El siguiente paso de publicación es registrar el cambio en Git, abrir la PR e
+integrarla en main siguiendo el flujo de despliegue automático, cuando se
+solicite publicar este incremento. Antes del push/merge, confirmar la configuración
+activa de Cloudflare Builds y seguir su build para el commit integrado; comprobar
+después la versión activa y el smoke remoto. Tener presente la compatibilidad
+del formato 2 descrita arriba. La publicación anterior sigue registrada en la
+[PR #23](https://github.com/Juancho1162/activity-hub/pull/23).
+Los experimentos y sus datos se conservan; las mejoras futuras y límites de
+verificación siguen en «Trabajo».

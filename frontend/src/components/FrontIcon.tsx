@@ -23,12 +23,12 @@ export function FrontIcon({ icon, className = "garden-front-symbol" }: { icon?: 
   return <span className={className} data-front-icon={selected.id} aria-hidden="true"><Glyph /></span>
 }
 
-export function FrontIconPicker({ value, disabled, onChange }: { value?: string | null; disabled: boolean; onChange: (icon: string) => void }) {
+export function FrontIconPicker({ value, disabled, group = false, onChange }: { value?: string | null; disabled: boolean; group?: boolean; onChange: (icon: string) => void }) {
   const { t } = useLanguage()
   const selected = choice(value)
   return <fieldset className="front-icon-picker" disabled={disabled}>
-    <legend>{t("Icono del frente")}</legend>
-    <p className="field-help">{t("Elige un icono para reconocer este frente.")}</p>
-    <div className="front-icon-options">{icons.map(({ id, label, glyph: Glyph }) => <button type="button" key={id} data-icon-option={id} aria-pressed={selected.id === id} onClick={() => onChange(id)}><Glyph aria-hidden="true" /><span>{t(label)}</span></button>)}</div>
+    <legend>{t(group ? "Icono del grupo" : "Icono del frente")}</legend>
+    <p className="field-help">{t(group ? "Elige un icono para reconocer este grupo." : "Elige un icono para reconocer este frente.")}</p>
+    <div className="front-icon-options">{icons.filter(icon => icon.id !== "coffee").map(({ id, label, glyph: Glyph }) => <button type="button" key={id} data-icon-option={id} aria-pressed={selected.id === id} onClick={() => onChange(id)}><Glyph aria-hidden="true" /><span>{t(label)}</span></button>)}</div>
   </fieldset>
 }

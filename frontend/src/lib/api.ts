@@ -1,13 +1,16 @@
 import { isDay } from "./dates"
 
 export type FrontState = "open" | "standby" | "archived"
-export type FrontDraft = { name: string; reference: string | null; state: FrontState; icon?: string | null }
+export type GroupDraft = { name: string; icon: string }
+export type Group = GroupDraft & { id: string }
+export type FrontDraft = { name: string; reference: string | null; state: FrontState; icon?: string | null; group_id?: string | null }
 export type Front = FrontDraft & { id: string; created_at: string; updated_at: string; trashed_at?: string | null }
 export type DashboardItem = { front: Front; marked_dates: string[]; last_registered_day: string | null; count: number }
 export type Onboarding = { version: 1; tutorialDismissed: boolean }
-export type DashboardPage = { items: DashboardItem[]; total: number; limit: number; offset: number; start: string; end: string; onboarding?: Onboarding }
-export type DashboardQuery = { start: string; end: string; state?: FrontState | "all"; search?: string; limit?: number; offset?: number; order?: "created" | "activity_desc"; trashed?: boolean }
+export type DashboardPage = { items: DashboardItem[]; total: number; limit: number; offset: number; start: string; end: string; onboarding?: Onboarding; groups?: Group[] }
+export type DashboardQuery = { start: string; end: string; state?: FrontState | "all"; search?: string; limit?: number; offset?: number; order?: "created" | "activity_desc"; trashed?: boolean; group_id?: string | null }
 export type CheckResult = { front_id: string; day: string; marked: boolean }
+export type GroupCheckResult = { day: string; changed_ids: string[] }
 export type DeleteResult = { front_id: string; deleted: true }
 export type ErrorKind = "access-pending" | "unauthorized" | "network" | "validation" | "conflict" | "unavailable" | "invalid-response" | "not-found" | "deleted-request"
 export class ApiError extends Error {
@@ -15,10 +18,15 @@ export class ApiError extends Error {
 }
 export interface ActivityApi {
   supportsFrontIcons?: boolean
+  supportsGroups?: boolean
   dashboard(query: DashboardQuery, signal?: AbortSignal): Promise<DashboardPage>
   createFront(data: FrontDraft, requestId: string): Promise<Front>
-  patchFront(id: string, data: FrontDraft): Promise<Front>
+  patchFront(id: string, data: FrontDraft, requestId?: string): Promise<Front>
   writeCheck(id: string, day: string, marked: boolean, requestId: string): Promise<CheckResult>
+  createGroup?(data: GroupDraft, requestId: string): Promise<Group>
+  patchGroup?(id: string, data: GroupDraft, requestId: string): Promise<Group>
+  recordGroup?(groupId: string | null, day: string, requestId: string): Promise<GroupCheckResult>
+  undoGroup?(batchRequestId: string, requestId: string): Promise<GroupCheckResult>
   trashFront?(id: string, requestId: string): Promise<Front>
   restoreFront?(id: string, requestId: string): Promise<Front>
   deleteFront?(id: string, requestId: string): Promise<DeleteResult>

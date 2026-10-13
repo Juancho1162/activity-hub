@@ -1,0 +1,87 @@
+import React, { useEffect, useState } from 'react'
+import { ArrowLeft, ArrowRight, Check, ChevronLeft, ChevronRight, Grid3X3, Layers, Leaf, ListChecks, Pencil, Plus, RotateCcw, Search, Sprout, Undo2, X } from 'lucide-react'
+import { GROUP_ICONS, statuses, seed, parseSaved, groupFronts, summarize, recordGroup, undoGroup, toggleDay, saveGroup, saveFront, todayInMadrid, shiftDay, formatDay, canSelectDay, MIN_DAY } from './custom-model.mjs'
+import { Brand, Glyph, GroupIcon, Modal, Stats, FrontRow, MatrixDashboard } from './components.jsx'
+
+const STORAGE_KEY = 'activity-garden-custom-groups-v1'
+function GroupManager({ state, initialGroup, onSave, onClose }) {
+  const [editing, setEditing] = useState(initialGroup ?? null)
+  return <Modal title={editing ? editing.id ? 'Editar grupo' : 'Nuevo grupo' : 'Tus grupos'} onClose={onClose}>
+    {editing ? <GroupForm key={editing.id || 'new'} group={editing} onCancel={() => setEditing(null)} onSave={group => { onSave(group); setEditing(null) }} /> : <>
+      <p className="muted">Cada grupo tiene nombre propio. Puedes repetir un icono: sus frentes y registros seguirán separados.</p>
+      <div className="group-manager-list">{state.groups.map(group => <div key={group.id} data-managed-group={group.id}><GroupIcon icon={group.icon} /><span><strong>{group.name}</strong><small>{state.fronts.filter(front => front.groupId === group.id).length} frentes</small></span><button className="icon-button" aria-label={'Editar grupo ' + group.name} onClick={() => setEditing(group)}><Pencil size={17} /></button></div>)}</div>
+      <div className="modal-actions"><button className="primary-button create-group" onClick={() => setEditing({})}><Plus size={17} /> Nuevo grupo</button></div>
+    </>}
+  </Modal>
+}
+function GroupForm({ group, onSave, onCancel }) {
+  const [name, setName] = useState(group.name || ''), [icon, setIcon] = useState(group.icon || 'sprout')
+  return <form className="editor-form group-form" onSubmit={event => { event.preventDefault(); if (name.trim()) onSave({ ...group, id: group.id || crypto.randomUUID(), name: name.trim(), icon }) }}>
+    <label>Nombre del grupo<input id="group-name" required autoFocus maxLength={60} placeholder="Por ejemplo, Casa o Mi proyecto" value={name} onChange={event => setName(event.target.value)} /></label>
+    <fieldset><legend>Icono</legend><p className="muted">Elige el que mejor lo represente. Se puede repetir en otros grupos.</p><div className="icon-options">{GROUP_ICONS.map(item => <button key={item.id} type="button" data-icon-option={item.id} aria-pressed={icon === item.id} onClick={() => setIcon(item.id)}><Glyph icon={item.id} /><span>{item.label}</span></button>)}</div></fieldset>
+    <div className="modal-actions"><button type="button" className="quiet-button" onClick={onCancel}>Volver a grupos</button><button className="primary-button" type="submit" disabled={!name.trim()}>Guardar grupo <Check size={17} /></button></div>
+  </form>
+}
+function FrontEditor({ front, groups, defaultGroupId, onSave, onClose }) {
+  const [name, setName] = useState(front?.name || ''), [groupId, setGroupId] = useState(front?.groupId || defaultGroupId || groups[0]?.id || ''), [status, setStatus] = useState(front?.status || 'open')
+  return <Modal title={front ? 'Editar frente' : 'Nuevo frente'} onClose={onClose}><form className="editor-form front-form" onSubmit={event => { event.preventDefault(); if (name.trim() && groupId) onSave({ ...front, id: front?.id || crypto.randomUUID(), name: name.trim(), groupId, status, days: front?.days || [] }) }}>
+    <label>Nombre<input id="front-name" required autoFocus maxLength={200} value={name} onChange={event => setName(event.target.value)} /></label>
+    <label>Grupo<select id="front-group" value={groupId} onChange={event => setGroupId(event.target.value)} required>{groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
+    <p className="muted">Cambiar de grupo mueve este frente y conserva todo su historial.</p>
+    <label>Estado<select id="front-status" value={status} onChange={event => setStatus(event.target.value)}>{Object.entries(statuses).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+    <div className="modal-actions"><button type="button" className="quiet-button" onClick={onClose}>Cancelar</button><button className="primary-button" type="submit" disabled={!name.trim() || !groupId}>Guardar frente <Check size={17} /></button></div>
+  </form></Modal>
+}
+function CustomLog({ state, filtered, day, today, query, status, onRecord, onToggle, onEdit, onNew }) {
+  const groups = groupFronts(filtered)
+  return <div className="grouped-log log-semana">{groups.map(group => {
+    const allOpen = state.fronts.filter(front => front.groupId === group.id && front.status === 'open')
+    const pending = allOpen.filter(front => !front.days.includes(day)).length
+    const marked = group.fronts.filter(front => front.days.includes(day)).length
+    return <section className="log-group" key={group.id} data-group={group.id}><header className="log-group-header"><GroupIcon icon={group.icon} /><div><h2>{group.label}</h2><span>{marked} de {group.fronts.length} con registro</span></div>{status === 'open' && <button className="record-group" data-record-group={group.id} disabled={!!query || !pending || !canSelectDay(day, today)} onClick={() => onRecord(group.id)} title={query ? 'Borra la búsqueda para registrar el grupo completo' : undefined}>{pending ? <><Plus size={16} /><span>Registrar grupo<small>{pending} {pending === 1 ? 'pendiente' : 'pendientes'}</small></span></> : <><Check size={16} /><span>{allOpen.length ? 'Grupo registrado' : 'Sin abiertos'}</span></>}</button>}</header>
+      <div className="log-group-members">{group.fronts.map(front => <FrontRow key={front.id} front={front} day={day} today={today} variant="semana" onToggle={onToggle} onEdit={onEdit} />)}</div>
+      {!group.fronts.length && <div className="empty-group"><p>{status === 'open' ? 'No hay frentes abiertos en este grupo.' : 'No hay frentes con este estado.'}</p><button className="quiet-button" onClick={() => onNew(group.id)}><Plus size={16} /> Añadir frente</button></div>}
+    </section>
+  })}{!groups.length && <div className="empty-state"><Sprout size={29} /><h2>No hay frentes con estos filtros.</h2><p>Prueba otra búsqueda o elige otro grupo.</p></div>}</div>
+}
+function Detail({ state, day, groupId, onClose, onLog }) {
+  const group = state.groups.find(item => item.id === groupId)
+  const fronts = groupId ? state.fronts.filter(front => front.groupId === groupId) : state.fronts
+  return <Modal title={formatDay(day)} onClose={onClose}><p className="detail-subtitle">{group?.name || 'Todos los grupos'} · {fronts.filter(front => front.days.includes(day)).length} registros</p><div className="day-detail-list">{fronts.map(front => <div key={front.id}><GroupIcon icon={state.groups.find(group => group.id === front.groupId)?.icon || 'sprout'} small /><span>{front.name}<small>{statuses[front.status]}</small></span><span className={'record-state ' + (front.days.includes(day) ? 'recorded' : '')}>{front.days.includes(day) ? <><Check size={15} /> Registrado</> : 'Sin registro'}</span></div>)}</div>{!fronts.length && <p className="muted">Este grupo todavía no tiene frentes.</p>}<p className="muted small-text">Consultar el detalle no cambia tus registros.</p><div className="modal-actions"><button className="primary-button" onClick={() => onLog(day, groupId)}>Abrir registro del día <ArrowRight size={17} /></button></div></Modal>
+}
+export function CustomExperiment() {
+  const [today] = useState(todayInMadrid), [day, setDay] = useState(today), [tab, setTab] = useState('dashboard'), [range, setRange] = useState(14), [query, setQuery] = useState(''), [status, setStatus] = useState('open'), [groupFilter, setGroupFilter] = useState(''), [editor, setEditor] = useState(null), [manager, setManager] = useState(null), [detail, setDetail] = useState(null), [reset, setReset] = useState(false), [undo, setUndo] = useState(null), [notice, setNotice] = useState(''), [storageFailed, setStorageFailed] = useState(false)
+  const [state, setState] = useState(() => { try { return parseSaved(localStorage.getItem(STORAGE_KEY)) ?? seed(today) } catch { return seed(today) } })
+  useEffect(() => { document.title = 'Jardín · Grupos propios · Activity Hub'; document.documentElement.dataset.experiment = 'combinada' }, [])
+  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); setStorageFailed(false) } catch { setStorageFailed(true) } }, [state])
+  useEffect(() => { const onStorage = event => { if (event.key !== STORAGE_KEY) return; const parsed = parseSaved(event.newValue); if (parsed) { setState(parsed); setUndo(null); setEditor(null); setManager(null); setDetail(null); setNotice('Demo actualizada desde otra pestaña.') } }; window.addEventListener('storage', onStorage); return () => window.removeEventListener('storage', onStorage) }, [])
+  useEffect(() => { if (groupFilter && !state.groups.some(group => group.id === groupFilter)) setGroupFilter('') }, [state.groups, groupFilter])
+  const normalizedQuery = query.trim().toLocaleLowerCase('es')
+  const matching = state.fronts.filter(front => (!groupFilter || front.groupId === groupFilter) && front.name.toLocaleLowerCase('es').includes(normalizedQuery))
+  const selectedGroups = state.groups.filter(group => (!groupFilter || group.id === groupFilter) && (!normalizedQuery || matching.some(front => front.groupId === group.id)))
+  const filtered = { ...state, groups: selectedGroups, fronts: matching }
+  const logState = { ...filtered, fronts: matching.filter(front => front.status === status) }
+  const start = shiftDay(day, 1 - range), stats = summarize(filtered, start, day)
+  function record(groupId) { const result = recordGroup(state, groupId, day, today); if (!result.added) return; setState(result.state); setUndo(result.undo); setNotice(result.added + (result.added === 1 ? ' frente registrado en ' : ' frentes registrados en ') + state.groups.find(group => group.id === groupId).name + ' · ' + formatDay(day, true) + '. Los registros anteriores se mantienen.') }
+  function toggle(id) { setState(current => toggleDay(current, id, day, today)); setUndo(null); setNotice('Registro actualizado.') }
+  function handleFrontSave(front) { setState(current => saveFront(current, front)); setUndo(null); setEditor(null); setNotice('Frente guardado. Su historial se conserva.'); setStatus(front.status) }
+  function handleGroupSave(group) { setState(current => saveGroup(current, group)); setUndo(null); setNotice('Grupo guardado. Los grupos con el mismo icono siguen separados.') }
+  function showLog(date, groupId) { setDay(date); setGroupFilter(groupId || ''); setQuery(''); setStatus('open'); setTab('log'); setDetail(null) }
+  return <div className="experiment variant-combinada"><div className="lab-bar custom-lab-bar"><a href="/"><ArrowLeft size={15} /> Propuestas</a><span>Jardín · Matriz + Semana</span><span className="lab-local">Solo local</span></div><div className="app-layout"><aside className="app-sidebar"><Brand /><p className="sidebar-edition">TU COMBINACIÓN<strong>Jardín</strong></p><nav aria-label="Vistas"><button className={tab === 'log' ? 'active' : ''} onClick={() => setTab('log')}><ListChecks size={19} /> Registro</button><button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}><Grid3X3 size={19} /> Dashboard</button></nav><div className="sidebar-note"><Leaf size={22} /><p>Tus grupos, a tu manera.<br />Un lugar para cada frente.</p></div><button className="reset-demo" onClick={() => setReset(true)}><RotateCcw size={15} /> Reiniciar esta demo</button></aside><main className="app-main">
+    <header className="app-heading"><div><span className="eyebrow">{tab === 'log' ? 'REGISTRO POR GRUPOS' : 'LA ACTIVIDAD, DE UN VISTAZO'}</span><h1>{tab === 'log' ? 'Hoy, grupo a grupo.' : 'Tu jardín, de un vistazo.'}</h1><p>{tab === 'log' ? 'Registra juntos los frentes abiertos de un grupo, o marca cada uno por separado.' : 'Grupos y días en una matriz. Despliega una fila para ver sus frentes.'}</p></div><button className="new-front primary-button" aria-label="Nuevo frente" onClick={() => setEditor({groupId:groupFilter})}><Plus size={17} /> Nuevo frente</button></header>
+    <div className="demo-banner"><span className="status-dot" /> Ejemplos ficticios · cambios guardados solo en esta demo</div>
+    {storageFailed && <p className="storage-warning" role="alert">No se puede guardar en este navegador. Puedes probar en memoria; al recargar se perderán los cambios.</p>}
+    <div className="toolbar"><div className="date-control"><button className="icon-button" aria-label="Día anterior" disabled={day <= MIN_DAY} onClick={() => setDay(shiftDay(day, -1))}><ChevronLeft size={18} /></button><label><span>{tab === 'log' ? 'Día del registro' : 'Ver actividad hasta'}</span><input id="selected-day" aria-label="Fecha seleccionada" type="date" value={day} min={MIN_DAY} max={today} onChange={event => { if (canSelectDay(event.target.value, today)) setDay(event.target.value) }} /></label><button className="icon-button" aria-label="Día siguiente" disabled={day >= today} onClick={() => setDay(shiftDay(day, 1))}><ChevronRight size={18} /></button><button className="today-button" onClick={() => setDay(today)}>Hoy</button></div>{tab === 'dashboard' && <div className="range-tabs" aria-label="Período">{[7,14,30].map(value => <button key={value} aria-pressed={range === value} onClick={() => setRange(value)}>{value} días</button>)}</div>}</div>
+    <div className="filters custom-filters"><label className="search"><Search size={17} /><input type="search" aria-label="Buscar frentes" placeholder="Buscar un frente…" value={query} onChange={event => setQuery(event.target.value)} /></label><label className="filter-select"><span>Grupo</span><select aria-label="Filtrar por grupo" value={groupFilter} onChange={event => setGroupFilter(event.target.value)}><option value="">Todos los grupos</option>{state.groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>{tab === 'log' && <label className="filter-select"><span>Estado</span><select aria-label="Estado de los frentes" value={status} onChange={event => setStatus(event.target.value)}>{Object.entries(statuses).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>}<button className="quiet-button manage-groups" onClick={() => setManager({})}><Layers size={17} /> Tus grupos</button></div>
+    {notice && <div className="notice" role="status"><Check size={16} /><span>{notice}</span>{undo && <button className="undo-group" onClick={() => { setState(current => undoGroup(current, undo)); setUndo(null); setNotice('Se han deshecho solo los registros añadidos por ese grupo.') }}><Undo2 size={16} /> Deshacer</button>}<button className="icon-button" aria-label="Cerrar aviso" onClick={() => { setNotice(''); setUndo(null) }}><X size={15} /></button></div>}
+    {tab === 'log' ? <><p className="section-note">{normalizedQuery ? 'Borra la búsqueda para registrar un grupo completo. Puedes seguir marcando frentes de uno en uno.' : status === 'open' ? 'Registrar grupo solo añade los abiertos pendientes del grupo elegido. Los demás grupos no cambian, aunque compartan icono.' : 'Los frentes en pausa o archivados conservan su historial y quedan fuera del registro en grupo.'}</p><CustomLog state={state} filtered={logState} day={day} today={today} query={normalizedQuery} status={status} onRecord={record} onToggle={toggle} onEdit={setEditor} onNew={groupId => setEditor({groupId})} /></>
+    : <><div className="period-line"><span>{formatDay(start)} — {formatDay(day)}</span><span>Incluye el historial de todos los estados</span></div><Stats stats={stats} />{!selectedGroups.length ? <div className="empty-state"><Sprout size={30} /><h2>No hay frentes con estos filtros.</h2><p>Prueba otro grupo o borra la búsqueda.</p></div> : <MatrixDashboard stats={stats} onDetail={(date, groupId) => setDetail({day:date,groupId})} />}</>}
+    <footer className="app-footer"><button className="reset-demo footer-reset" onClick={() => setReset(true)}><RotateCcw size={15} /> Reiniciar esta demo</button><span>Europe/Madrid · Sin objetivos ni puntuaciones.</span><span>Dashboard Matriz + registro Semana + grupos propios.</span></footer>
+  </main></div>
+    {editor && <FrontEditor front={editor.id ? editor : null} groups={state.groups} defaultGroupId={editor.groupId} onSave={handleFrontSave} onClose={() => setEditor(null)} />}
+    {manager && <GroupManager state={state} initialGroup={manager.id ? manager : null} onSave={handleGroupSave} onClose={() => setManager(null)} />}
+    {detail && <Detail state={filtered} day={detail.day} groupId={detail.groupId} onClose={() => setDetail(null)} onLog={showLog} />}
+    {reset && <Modal title="¿Volver a los ejemplos iniciales?" onClose={() => setReset(false)}><p>Se reiniciarán solo los grupos y frentes de esta demo combinada. Las tres propuestas anteriores y las cuentas reales se conservan.</p><div className="modal-actions"><button className="quiet-button" onClick={() => setReset(false)}>Cancelar</button><button className="primary-button confirm-reset" onClick={() => { setState(seed(today)); setUndo(null); setGroupFilter(''); setQuery(''); setNotice('Demo reiniciada.'); setReset(false) }}>Reiniciar esta demo</button></div></Modal>}
+  </div>
+}
+
