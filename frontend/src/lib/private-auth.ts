@@ -2,9 +2,9 @@ import { createAuthClient, AuthError, type AuthClient } from './auth'
 import { deriveCredentials, generateCode, encryptVault, type Ciphertext } from './privacy-crypto'
 import { createPrivateApi, createInitialPrivateDocument } from './private-vault'
 import { signupToken } from './turnstile'
-import type { FrontDraft } from './api'
+import type { FrontDraft, Group } from './api'
 
-type PrivateAuthOptions = { initialFronts?: () => readonly FrontDraft[] }
+type PrivateAuthOptions = { initialFronts?: () => readonly FrontDraft[]; initialData?: () => { groups: readonly Group[]; fronts: readonly FrontDraft[] } }
 
 /** Neither secret goes to the server or app storage; users may save their code in a native password manager. */
 export function createPrivateAuthClient(fetcher: typeof fetch = fetch, options: PrivateAuthOptions = {}): AuthClient {
@@ -13,14 +13,17 @@ export function createPrivateAuthClient(fetcher: typeof fetch = fetch, options: 
   return {
     session: signal => sessions.session(signal),
     async signup() {
-      const initialFronts = options.initialFronts ? structuredClone([...options.initialFronts()]) : undefined
+      // Freeze language, generated group IDs and memberships before CAPTCHA or
+      // any network await; changing the page cannot change an in-flight signup.
+      const initialData = options.initialData ? structuredClone(options.initialData()) : undefined
+      const initialFronts = initialData?.fronts ?? (options.initialFronts ? structuredClone([...options.initialFronts()]) : undefined)
       const turnstile_token = await signupToken(fetcher)
       const code = generateCode()
       const { credential, key } = await deriveCredentials(code)
       let initial_vault: (Ciphertext & { account_id: string }) | undefined
-      if (initialFronts?.length) {
+      if (initialFronts?.length || initialData?.groups.length) {
         const account_id = crypto.randomUUID()
-        const content = createInitialPrivateDocument(initialFronts, new Date().toISOString())
+        const content = createInitialPrivateDocument(initialFronts ?? [], new Date().toISOString(), initialData?.groups)
         initial_vault = { account_id, ...await encryptVault(key, account_id, 1, content) }
       }
       const client = createAuthClient(async (url, init) => {

@@ -2,6 +2,21 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-13 — Grupos personalizados, Matriz y Semana
+
+Jardín incorpora grupos independientes con nombre e icono editables (iconos
+repetibles sin fusionar grupos), dashboard Matriz (grupos × 14 días) y registro
+Semana con alta conjunta por grupo y Deshacer selectivo. Los frentes existentes
+quedan en «Sin grupo» conservando nombres, iconos e historial; las altas nuevas
+reciben grupos básicos sin actividad. Documento cifrado en formato 2 con las
+mismas claves/AAD; sin migraciones D1 ni dependencias nuevas. Tras la primera
+escritura nueva, las pestañas antiguas deben recargarse.
+
+`npm run verify` PASS: 42 backend, 340 frontend, integración/UI Firefox y Brave.
+`release:prepare` correcto; revisión independiente PASS tras corregir tres casos
+con regresiones RED/GREEN. Experimentos de `experiments/icon-groups/` conservados.
+Publicación autorizada; build y smoke remoto en la PR correspondiente.
+
 ## 2026-10-11 — Solo Jardín en la web
 
 Retirado el selector público de diseño. Portada, acceso y cuenta muestran Jardín,

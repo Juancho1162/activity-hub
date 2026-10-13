@@ -48,6 +48,45 @@ Las cuentas anteriores, incluidas las vacías, no reciben ejemplos ni guía auto
 El documento inicial se cifra antes del alta y se guarda atómicamente con ella;
 recargar antes de entrar no lo pierde. Borrar ejemplos no vuelve a crearlos.
 
+**Experimento local de grupos y dashboard (2026-10-11):** cada icono define un
+grupo, visible tanto en el registro como en el dashboard. Registrar un grupo
+marca en el día elegido únicamente sus frentes abiertos que estén pendientes;
+conserva los ya marcados y excluye los frentes en pausa o archivados. Debe ofrecer
+«Deshacer». El usuario confirma esta regla. Se comparan varias presentaciones
+para ver la actividad de un vistazo, manteniendo la identidad Jardín.
+El alcance actual es una galería local con datos ficticios, sin promover cambios
+a la web publicada ni conectar cuentas reales. Agrupar no modifica el historial.
+
+**Refinamiento elegido:** dashboard Matriz y registro Semana. El usuario sustituye
+la regla de un grupo por icono: los grupos personalizados tienen identidad propia,
+nombre e icono editables y pueden compartir icono sin fusionarse. Cada frente
+pertenece a un grupo; cambiarlo de grupo conserva sus registros. El registro en
+bloque y Deshacer siguen las reglas anteriores, aplicadas al ID del grupo elegido.
+Se proponen categorías básicas y se retira Café de las opciones nuevas. Esta
+iteración continúa solo en local, manteniendo las tres propuestas anteriores.
+
+**Preparación para producción solicitada:** integrar esa combinación en la app
+real con cifrado, sesiones, ES/EN, temas, enlaces, historial y Papelera. El usuario
+elige que los frentes de cuentas existentes permanezcan en «Sin grupo» para
+organizarlos después; se conservan IDs, nombres, iconos, enlaces, estados y checks.
+Las altas nuevas conservan los cuatro frentes de ejemplo sin actividad y reciben
+los grupos básicos Personal, Proyectos, Aprendizaje, Salud y Creatividad; se pueden
+editar o crear otros. Las cuentas existentes pueden elegir esas sugerencias al
+crear grupos, sin escrituras automáticas ni asignaciones inferidas.
+Registrar un grupo aplica una única escritura a los abiertos pendientes de ese
+grupo en el momento de confirmar el cambio. Deshacer solo retira los checks de
+esa operación que no hayan sido escritos de nuevo posteriormente. El documento
+cifrado debe admitir la lectura de cuentas antiguas e impedir que una pestaña
+con código anterior sobrescriba el formato ampliado. Se prepara y verifica la
+integración antes de promoverla; los experimentos se conservan como referencia.
+La matriz parte de 14 días y todos los estados, con 7/14/30 días como atajos
+y fechas libres hasta 366 días. Los grupos usan su composición actual para
+consultar el historial. Las vistas agrupadas cargan hasta los 200 frentes de
+la cuenta completos; los grupos vacíos se consultan seleccionándolos y siempre
+están disponibles en «Tus grupos». En cuentas existentes no se crean grupos
+al leer ni al entrar. Café sigue renderizándose en datos anteriores, aunque
+se retira de los selectores para nuevos cambios.
+
 Se conservan las reglas acordadas para este módulo:
 
 - Inventario de frentes con tres estados, decididos siempre por el usuario:
@@ -69,7 +108,7 @@ Se conservan las reglas acordadas para este módulo:
 
 **Vista de registro diario:**
 
-- Tarjetas compactas de frentes abiertos, con un check por frente: varias columnas según el espacio disponible en ordenador y una columna en móvil. Con pocos resultados conservan un ancho contenido; las tarjetas de una misma fila tienen igual altura y muestran los nombres completos. El orden de lectura va de izquierda a derecha y después hacia abajo. **Marcar y desmarcar se dibujan en el clic**, sin esperar al servidor ni usar animaciones, transiciones o un indicador giratorio. El guardado cifrado continúa en segundo plano; la vista previa está separada de los datos confirmados. Ante un error vuelve al último estado confirmado y lo explica; una respuesta perdida conserva su identidad para reintento explícito. Se mantienen posición, foco y DOM; sin avisos transitorios de envío o éxito, ni atenuación de los demás checks y botones.
+- Filas compactas por grupo, con un check por frente y siete días recientes. Los grupos tienen nombre e icono propios; «Sin grupo» reúne los frentes sin asignación. Registrar un grupo añade en una sola operación los abiertos pendientes del día, conserva los ya marcados y permite Deshacer selectivo. Una búsqueda activa o el enfoque individual deshabilitan el registro en bloque para evitar actuar sobre frentes ocultos. **Marcar y desmarcar se dibujan en el clic**, sin esperar al servidor ni usar animaciones, transiciones o un indicador giratorio. El guardado cifrado continúa en segundo plano; la vista previa está separada de los datos confirmados. Ante un error vuelve al último estado confirmado y lo explica; una respuesta perdida conserva su identidad para reintento explícito. Se mantienen posición, foco y DOM; sin avisos transitorios de envío o éxito, ni atenuación de los demás checks y botones.
 - Hoy seleccionado por defecto, con posibilidad de elegir una fecha pasada.
 - Añadir o editar un frente con nombre y enlace opcional. La referencia no aumenta el tamaño de su tarjeta: aparece como acción compacta independiente. Tarjetas del registro diario densas, con un área de pulsación del check de al menos 44 px.
 - Acceso a los frentes en standby y archivados para consultarlos y gestionar su estado.
@@ -77,11 +116,12 @@ Se conservan las reglas acordadas para este módulo:
 
 **Vista de dashboard:**
 
-- Resumen por frente con el porcentaje de días registrados respecto a **todos los días del período seleccionado, ambos extremos incluidos**. Ejemplo: 4 días marcados de 10 seleccionados → 40 %. No es una puntuación ni un objetivo.
-- Último día registrado global y número de días registrados frente al total del período.
-- Detalle de todos los días en un desplegable por frente, cerrado inicialmente. Al abrirlo se ven el intervalo con año y la fecha de cada casilla, con o sin actividad registrada; los huecos no se interpretan como abandono.
-- Dashboard ordenado de mayor a menor porcentaje del período, **antes de paginar** y dentro de los filtros/cuenta actuales. Empates estables por creación/UUID. El registro diario conserva su orden anterior.
-- Tarjetas de la misma fila con altura uniforme y acciones del calendario alineadas. El nombre más largo determina el espacio necesario, sin recortes ni una altura fija. Abrir o cerrar un calendario abre o cierra todos los de su fila visible, según el ancho actual; las demás filas conservan su despliegue. En móvil con una sola columna afecta únicamente al frente elegido. Cambiar de período vuelve a plegarlos; el despliegue no consulta ni escribe actividad.
+- Matriz por grupos y días; el número de una celda cuenta los frentes con registro ese día. Desplegar un grupo muestra cada frente, su estado, último registro global, total del período, referencia y editor.
+- Resumen del período: registros, días con alguna actividad y frentes con actividad. Los blancos significan ausencia de registro, sin objetivos ni puntuaciones.
+- Catorce días y todos los estados inicialmente; atajos de 7/14/30 días, fechas libres hasta 366 y filtros de estado, nombre y grupo. Los grupos reflejan su composición actual, también para fechas anteriores.
+- Consultar una celda abre un detalle sin modificar datos. Desde allí se puede abrir el registro de ese día y grupo para corregirlo.
+- Se cargan todos los frentes de la cuenta, hasta su límite de 200. La matriz puede desplazarse horizontalmente y mantiene los nombres visibles. Las cuentas existentes permanecen sin agrupar hasta que el usuario las organice.
+- Los porcentajes y el calendario editable mensual siguen disponibles desde el historial de cada frente. La presentación anterior de tarjetas se conserva en el experimento local.
 
 **Acceso equivalente desde pi/MCP:** consultar frentes e historial, añadir o editar un frente, cambiar su estado, marcar o desmarcar un día, mover a Papelera, restaurar o borrar para siempre. Las dos interfaces operan sobre los mismos datos y reglas, siempre con peticiones explícitas para los cambios; el conector sigue pendiente.
 

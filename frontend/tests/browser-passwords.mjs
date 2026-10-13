@@ -132,7 +132,7 @@ try {
   for (const view of ["daily", "dashboard"]) {
     if (view === "dashboard") {
       await evaluate("document.querySelectorAll('.view-nav button')[1].click();true")
-      await until(() => evaluate("document.querySelector('h1')?.textContent==='Dashboard' && document.querySelector('main').getAttribute('aria-busy')==='false'"), "dashboard layout")
+      await until(() => evaluate("!!document.querySelector('.activity-matrix') && document.querySelector('main').getAttribute('aria-busy')==='false'"), "matrix dashboard layout")
     }
     for (const language of ["es", "en"]) for (const theme of ["light", "dark"]) {
       await chooseLanguage(language)

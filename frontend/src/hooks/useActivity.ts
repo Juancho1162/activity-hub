@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react"
-import { type ActivityApi, ApiError, type DashboardPage, type DashboardQuery, type FrontDraft } from "../lib/api"
+import { type ActivityApi, ApiError, type DashboardPage, type DashboardQuery, type FrontDraft, type GroupDraft, type GroupCheckResult } from "../lib/api"
 
 export type Intent =
   | { kind: "create"; data: FrontDraft; requestId: string }
-  | { kind: "edit"; id: string; data: FrontDraft }
+  | { kind: "edit"; id: string; data: FrontDraft; requestId?: string }
   | { kind: "check"; id: string; day: string; marked: boolean; requestId: string }
   | { kind: "trash" | "restore" | "delete"; id: string; requestId: string }
   | { kind: "dismiss-tutorial"; requestId: string }
+  | { kind: "create-group"; data: GroupDraft; requestId: string }
+  | { kind: "edit-group"; id: string; data: GroupDraft; requestId: string }
+  | { kind: "group-check"; groupId: string | null; day: string; requestId: string }
+  | { kind: "group-undo"; batchRequestId: string; requestId: string }
 type ReadState = { context: number; token: string; page: DashboardPage | null; error: ApiError | null }
 
 /** Confirmed data stays separate from the immediate checkbox preview. No automatic retries or browser persistence. */
@@ -18,6 +22,7 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
   const [writeClient, setWriteClient] = useState<{ generation: number; context: number; check: Extract<Intent, { kind: "check" }> | null } | null>(null)
   const [mutationError, setMutationError] = useState<ApiError | null>(null)
   const [notice, setNotice] = useState("")
+  const [batch, setBatch] = useState<{ generation: number; requestId: string; result: GroupCheckResult } | null>(null)
   const pendingRef = useRef<Intent | null>(null)
   const runningRef = useRef(false)
   const lockCallback = useRef(onWriteLockChange)
@@ -88,20 +93,32 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
     lockCallback.current?.(true) // Before transport: an immediate auth callback must see the lock.
     setPending(intent); setSaving(true); setWriteClient({ generation: clientGeneration, context, check: intent.kind === "check" ? intent : null }); setMutationError(null); setNotice("")
     try {
+      let batchResult: GroupCheckResult | null = null
       if (intent.kind === "create") await api.createFront(intent.data, intent.requestId)
-      else if (intent.kind === "edit") await api.patchFront(intent.id, intent.data)
+      else if (intent.kind === "edit") {
+        if (intent.requestId) await api.patchFront(intent.id, intent.data, intent.requestId)
+        else await api.patchFront(intent.id, intent.data)
+      }
       else if (intent.kind === "check") await api.writeCheck(intent.id, intent.day, intent.marked, intent.requestId)
       else if (intent.kind === "trash" && api.trashFront) await api.trashFront(intent.id, intent.requestId)
       else if (intent.kind === "restore" && api.restoreFront) await api.restoreFront(intent.id, intent.requestId)
       else if (intent.kind === "delete" && api.deleteFront) await api.deleteFront(intent.id, intent.requestId)
       else if (intent.kind === "dismiss-tutorial" && api.dismissTutorial) await api.dismissTutorial(intent.requestId)
-      else throw new ApiError("unavailable", "La papelera no está disponible en este cliente.")
+      else if (intent.kind === "create-group" && api.createGroup) await api.createGroup(intent.data, intent.requestId)
+      else if (intent.kind === "edit-group" && api.patchGroup) await api.patchGroup(intent.id, intent.data, intent.requestId)
+      else if (intent.kind === "group-check" && api.recordGroup) batchResult = await api.recordGroup(intent.groupId, intent.day, intent.requestId)
+      else if (intent.kind === "group-undo" && api.undoGroup) await api.undoGroup(intent.batchRequestId, intent.requestId)
+      else throw new ApiError("unavailable", "La operación no está disponible en este cliente.")
       pendingRef.current = null
       if (mounted.current) {
         setPending(null)
+        if (client.current.generation === clientGeneration) {
+          if (intent.kind === "group-check" && batchResult) setBatch({ generation: clientGeneration, requestId: intent.requestId, result: batchResult })
+          else if (intent.kind === "group-undo") setBatch(null)
+        }
         setNotice("Cambio confirmado por el servidor.")
         let confirmedPage: DashboardPage | null = null
-        if ((intent.kind === "check" || intent.kind === "trash" || intent.kind === "restore" || intent.kind === "delete" || intent.kind === "dismiss-tutorial") && query
+        if (("requestId" in intent) && intent.requestId && query
           && client.current.generation === clientGeneration && scope.current.generation === context) {
           // This projects the complete document acknowledged by this exact
           // commit/replay. It never guesses a checkbox value from the intent.
@@ -147,7 +164,9 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
     if (!canWrite || pendingRef.current) return false
     // Freeze the logical request before awaiting anything. Edits to a form or
     // changing the selected day must never mutate the payload of its retry.
-    return run(structuredClone(intent))
+    const frozen = structuredClone(intent)
+    if (frozen.kind === "edit" && api.supportsGroups && !frozen.requestId) frozen.requestId = crypto.randomUUID()
+    return run(frozen)
   }
   async function retry(): Promise<boolean> {
     return pendingRef.current && !runningRef.current ? run(pendingRef.current, true) : false
@@ -157,5 +176,6 @@ export function useActivity(api: ActivityApi, query: DashboardQuery | null, onWr
   // Errors revert to confirmed data; uncertain intents still require explicit retry.
   const optimisticCheck = !mutationError && (saving || refreshing) && writeClient?.generation === clientGeneration
     && writeClient.context === context ? writeClient.check : null
-  return { page, loading: !!query && !current && !page, refreshing, error, mutationError, notice, pending, saving, savingCheck, optimisticCheck, canWrite, refresh, perform, retry }
+  const confirmedBatch = query && batch?.generation === clientGeneration ? batch : null
+  return { confirmedBatch, page, loading: !!query && !current && !page, refreshing, error, mutationError, notice, pending, saving, savingCheck, optimisticCheck, canWrite, refresh, perform, retry }
 }

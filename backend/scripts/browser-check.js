@@ -131,7 +131,7 @@ try {
     await click('No volver a mostrar', ctx);
     await waitFor(() => evaluate("!document.querySelector('.onboarding-panel')", ctx), 'welcome dismissed');
     await click('Dashboard', ctx);
-    await waitFor(() => evaluate("document.querySelector('h1')?.textContent==='Dashboard'", ctx), 'fixture dashboard');
+    await waitFor(() => evaluate("!!document.querySelector('.activity-matrix') && document.querySelector('main').getAttribute('aria-busy')==='false'", ctx), 'fixture matrix dashboard');
     await click('Registro', ctx);
     await waitFor(() => evaluate("document.body.textContent.includes('No hay frentes en esta vista')", ctx), 'empty regression fixture');
     return code;
@@ -172,7 +172,7 @@ try {
   await screenshot('daily-mobile', 390);
   await input('name-search', '');
   await click('Dashboard');
-  await waitFor(() => evaluate("document.querySelectorAll('.coverage-value').length===1"), 'dashboard');
+  await waitFor(() => evaluate("document.querySelectorAll('.matrix-group').length===1 && document.querySelector('.matrix-group .matrix-total')?.textContent==='1'"), 'dashboard shows the recorded activity');
   await screenshot('dashboard-desktop', 1366);
   await screenshot('dashboard-mobile', 390);
   assert.equal(await evaluate("performance.getEntriesByType('resource').every(e=>new URL(e.name).origin===location.origin)"), true, 'all app assets local');
