@@ -304,3 +304,7 @@
   [data-presentation="garden"] .session-controls { font-size: 13px; }
   [data-presentation="garden"] .session-controls [data-slot="button"] { font-size: 14px; }
 }
+
+/* Trash cards: name on top, actions below, so long names never collapse. */
+[data-presentation="garden"] .trash-row { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+[data-presentation="garden"] .trash-actions { flex-wrap: wrap; padding: 0; border-top: 1px solid var(--border); padding-top: 12px; }
