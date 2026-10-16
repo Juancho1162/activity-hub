@@ -5,18 +5,27 @@ import { ciphertextInput } from './vault.js';
 
 const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const opaque = /^[A-Za-z0-9_-]{43}$/;
+// WEB_ORIGIN names the web origin, or several separated by commas when the same
+// Worker answers on more than one address, such as a custom domain and its
+// workers.dev URL. The first is canonical; all are validated and share a scheme.
 export function settings(value) {
-  if (typeof value !== 'string' || !/^(https?):\/\/(\[[0-9a-fA-F:]+\]|[a-zA-Z0-9.-]+)(?::[0-9]+)?$/.test(value)) throw new Error('Invalid web origin configuration');
+  if (typeof value !== 'string') throw new Error('Invalid web origin configuration');
+  const origins = value.split(',').map(part => webOrigin(part.trim()));
+  const secure = origins[0].startsWith('https:');
+  if (new Set(origins).size !== origins.length || origins.some(origin => origin.startsWith('https:') !== secure)) throw new Error('Invalid web origin configuration');
+  return { origin: origins[0], origins, hostnames: origins.map(origin => new URL(origin).hostname), secure, cookie: secure ? '__Host-activity_hub_session' : 'activity_hub_session' };
+}
+function webOrigin(value) {
+  if (!/^(https?):\/\/(\[[0-9a-fA-F:]+\]|[a-zA-Z0-9.-]+)(?::[0-9]+)?$/.test(value)) throw new Error('Invalid web origin configuration');
   const literal = /^(https?):\/\/(\[[0-9a-fA-F:]+\]|[a-zA-Z0-9.-]+)(?::([0-9]+))?$/.exec(value);
   if (literal[3] && !(Number(literal[3]) >= 1 && Number(literal[3]) <= 65535)) throw new Error('Invalid web origin configuration');
   if (literal[1] === 'http' && !['localhost', '127.0.0.1', '[::1]'].includes(literal[2].toLowerCase())) throw new Error('HTTPS required');
   if (!literal[2].startsWith('[') && (literal[2].length > 253 || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(literal[2]))) throw new Error('Invalid web origin configuration');
-  const origin = new URL(value).origin;
-  return { origin, secure: origin.startsWith('https:'), cookie: origin.startsWith('https:') ? '__Host-activity_hub_session' : 'activity_hub_session' };
+  return new URL(value).origin;
 }
 export function requireOrigin(request, config) {
   // Fetch combines duplicate header lines with commas, which cannot match.
-  if (request.headers.get('Origin') !== config.origin) throw new HttpError(403, 'Request forbidden');
+  if (!config.origins.includes(request.headers.get('Origin'))) throw new HttpError(403, 'Request forbidden');
 }
 function sameToken(a, b) {
   if (!opaque.test(a || '') || !opaque.test(b || '')) return false;
@@ -32,7 +41,9 @@ export function privateHeaders(request, config, proof) {
   }
 }
 export function cookieToken(request, config) {
-  const candidates = (request.headers.get('Cookie') || '').split(';').map(part => part.trim()).filter(part => part.startsWith(`${config.cookie}=`));
+  // Trim only space and tab: trim() also strips Unicode spaces, so a sibling
+  // subdomain could plant a cookie whose name only matches after trimming.
+  const candidates = (request.headers.get('Cookie') || '').split(';').map(part => part.replace(/^[ \t]+|[ \t]+$/g, '')).filter(part => part.startsWith(`${config.cookie}=`));
   return candidates.length === 1 ? candidates[0].slice(config.cookie.length + 1) : null;
 }
 async function hash(domain, text) {

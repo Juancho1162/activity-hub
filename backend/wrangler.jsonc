@@ -29,6 +29,7 @@
       "account_id": "72734ad9e032887b9758d0c2216e3d48",
       "workers_dev": true,
       "preview_urls": false,
+      "routes": [{ "pattern": "activity-hub.juancho.dev", "custom_domain": true }],
       "observability": {
         "enabled": true,
         "logs": {
@@ -42,7 +43,7 @@
         }
       },
       "vars": {
-        "WEB_ORIGIN": "https://activity-hub.software-juancho-prego-gundin.workers.dev",
+        "WEB_ORIGIN": "https://activity-hub.juancho.dev,https://activity-hub.software-juancho-prego-gundin.workers.dev",
         "TURNSTILE_SITEKEY": "0x4AAAAAAFPTqGIgedBUAMzm",
         "API_ENABLED": "true", "REGISTRATION_ENABLED": "true", "WRITES_ENABLED": "true"
       },

@@ -45,5 +45,5 @@ export async function verifySignup(request, env, config, token, verifier = fetch
     if (!response.ok) throw new Error();
     result = await response.json();
   } catch { throw new HttpError(403, 'Verification required'); }
-  if (result?.success !== true || result.action !== 'signup' || result.hostname !== new URL(config.origin).hostname) throw new HttpError(403, 'Verification required');
+  if (result?.success !== true || result.action !== 'signup' || !config.hostnames.includes(result.hostname)) throw new HttpError(403, 'Verification required');
 }

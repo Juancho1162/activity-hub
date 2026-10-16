@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createWorker } from '../src/worker.js';
+import { settings, requireOrigin, cookieToken } from '../src/auth.js';
 import { input } from '../src/contracts.js';
 import { verifySignup } from '../src/security.js';
 import { vaultInput } from '../src/vault.js';
@@ -67,7 +68,7 @@ test('production limits and emergency stop reject before D1; missing bindings fa
 });
 
 test('Turnstile validates success, action and exact hostname and fails closed before any D1 effect', async () => {
-  const config = { origin: 'https://activity.example', secure: true };
+  const config = settings('https://activity.example');
   const env = { TURNSTILE_SITEKEY: 'public-test-sitekey', TURNSTILE_SECRET: 'synthetic-test-secret' };
   const request = new Request(`${config.origin}/auth/signup`, { method: 'POST', headers: { Origin: config.origin } });
   const ok = { success: true, hostname: 'activity.example', action: 'signup' };
@@ -88,4 +89,67 @@ test('Turnstile validates success, action and exact hostname and fails closed be
     DB: { prepare() { queries++; throw new Error('D1 must not run'); } } });
   assert.equal(response.status, 403);
   assert.equal(queries, 0);
+});
+
+test('WEB_ORIGIN may list several origins: the first is canonical and every one is validated', () => {
+  const config = settings('https://app.example, https://app.workers.example');
+  assert.equal(config.origin, 'https://app.example');
+  assert.deepEqual(config.origins, ['https://app.example', 'https://app.workers.example']);
+  assert.deepEqual(config.hostnames, ['app.example', 'app.workers.example']);
+  assert.equal(config.cookie, '__Host-activity_hub_session');
+  assert.deepEqual(settings('http://127.0.0.1:8787').origins, ['http://127.0.0.1:8787']);
+  for (const value of ['https://app.example,', ',https://app.example', 'https://app.example,https://app.example', 'https://A.example:443,https://a.example',
+    'https://app.example,http://localhost:8787', 'https://app.example,https://other.example/path', 'https://app.example;https://app.workers.example']) {
+    assert.throws(() => settings(value), /^Error: Invalid web origin configuration$/, value);
+  }
+  assert.throws(() => settings('https://app.example,http://app.workers.example'), /^Error: HTTPS required$/);
+});
+
+test('writes and Turnstile are accepted from every listed origin and from no other', async () => {
+  const config = settings('https://app.example,https://app.workers.example');
+  const at = (origin, headers) => new Request(`${origin}/auth/login`, { method: 'POST', headers });
+  for (const origin of config.origins) requireOrigin(at(origin, { Origin: origin }), config);
+  for (const headers of [{ Origin: 'https://evil.example' }, { Origin: 'https://app.example, https://app.workers.example' }, { Origin: 'null' }, {}]) {
+    assert.throws(() => requireOrigin(at(config.origin, headers), config), error => error.status === 403);
+  }
+  const env = { TURNSTILE_SITEKEY: 'public-test-sitekey', TURNSTILE_SECRET: 'synthetic-test-secret' };
+  const ok = { success: true, action: 'signup' };
+  for (const origin of config.origins) {
+    await verifySignup(at(origin, { Origin: origin }), env, config, 'synthetic-token', async () => Response.json({ ...ok, hostname: new URL(origin).hostname }));
+  }
+  for (const hostname of ['evil.example', 'example', 'app.example.evil.example']) {
+    await assert.rejects(verifySignup(at('https://app.example', { Origin: 'https://app.example' }), env, config, 'synthetic-token', async () => Response.json({ ...ok, hostname })), e => e.status === 403);
+  }
+});
+
+test('login reaches its own checks from every listed origin and is refused from any other', async () => {
+  const origins = 'https://app.example,https://app.workers.example';
+  const allow = { limit: async () => ({ success: true }) };
+  const env = { WEB_ORIGIN: origins, TURNSTILE_SITEKEY: 'public-test-sitekey', TURNSTILE_SECRET: 'synthetic-test-secret',
+    GLOBAL_RATE_LIMITER: allow, IP_RATE_LIMITER: allow, AUTH_RATE_LIMITER: allow, ACCOUNT_RATE_LIMITER: allow,
+    DB: { prepare() { throw new Error('D1 must not run'); } } };
+  const login = (url, origin) => createWorker().fetch(new Request(`${url}/auth/login`, {
+    method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}',
+  }), env);
+  for (const origin of origins.split(',')) {
+    const response = await login(origin, origin);
+    assert.notEqual((await response.json()).detail, 'Request forbidden', origin);
+  }
+  for (const [url, origin] of [['https://app.example', 'https://evil.example'], ['https://app.workers.example', 'https://evil.example'], ['https://app.example', 'null']]) {
+    const response = await login(url, origin);
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).detail, 'Request forbidden');
+  }
+});
+
+test('a cookie whose name only matches after Unicode trimming is not the session cookie', () => {
+  const config = settings('https://app.example');
+  const stub = cookie => ({ headers: { get: name => (name === 'Cookie' ? cookie : null) } });
+  const a = 'A'.repeat(43);
+  const b = 'B'.repeat(43);
+  assert.equal(cookieToken(stub(`\u2000${config.cookie}=${a}; ${config.cookie}=${b}`), config), b);
+  for (const space of ['\u2000', '\u3000', '\ufeff', '\u00a0']) {
+    assert.equal(cookieToken(stub(`${space}${config.cookie}=${a}`), config), null);
+  }
+  assert.equal(cookieToken(stub(` \t${config.cookie}=${b} `), config), b);
 });

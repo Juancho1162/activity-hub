@@ -7,8 +7,8 @@
 <p align="center">Your activity log, simple and private. Open source under the MIT license.</p>
 
 <p align="center">
-  <a href="https://activity-hub.software-juancho-prego-gundin.workers.dev">Discover Activity Hub</a> ·
-  <a href="https://activity-hub.software-juancho-prego-gundin.workers.dev/app/">Open the app</a> ·
+  <a href="https://activity-hub.juancho.dev">Discover Activity Hub</a> ·
+  <a href="https://activity-hub.juancho.dev/app/">Open the app</a> ·
   <a href="docs/STATUS.md">Project status</a> ·
   <a href="LICENSE">MIT license</a>
 </p>
@@ -30,7 +30,7 @@ Percentages describe the days recorded within the selected period; they are not 
 
 ## Getting started
 
-1. Visit the [website](https://activity-hub.software-juancho-prego-gundin.workers.dev), select **Get started**, then **Create account**.
+1. Visit the [website](https://activity-hub.juancho.dev), select **Get started**, then **Create account**.
 2. Complete the verification and save your private code in your password manager. Confirm that you have saved it to continue.
 3. Personalise the example focus areas or create your own, then mark activity in **Log**. The short guide can be dismissed permanently or opened again when needed.
 

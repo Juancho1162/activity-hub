@@ -22,7 +22,7 @@ npm run test:integration
 
 También existen `npm --prefix backend test` y `npm --prefix backend run check`. Las antiguas comparaciones con Python usan ahora resultados fijos en `tests/fixtures/legacy/`, capturados y contrastados con la referencia del commit `942de0d` antes de retirarla. Cubren los mismos casos de normalización, reintentos, tipos de contenido y consultas sin ejecutar Python.
 
-`wrangler.jsonc` sirve `../frontend/dist` como Static Assets. `/api`, `/auth`, `/health` y sus rutas reservadas pasan por el Worker antes del fallback SPA. El entorno `local` usa un ID D1 ficticio estable, `remote: false`, `workers_dev: false`, `preview_urls: false` y observabilidad deshabilitada. `production` tiene su propia cuenta, ID D1 y Origin HTTPS; solo ese entorno habilita `workers_dev`. `scripts/run.js` aísla HOME/config/cache de Wrangler, deshabilita dotenv/variables personales y telemetría. Las dependencias instaladas se trasladaron con esta carpeta, sin reinstalar.
+`wrangler.jsonc` sirve `../frontend/dist` como Static Assets. `/api`, `/auth`, `/health` y sus rutas reservadas pasan por el Worker antes del fallback SPA. El entorno `local` usa un ID D1 ficticio estable, `remote: false`, `workers_dev: false`, `preview_urls: false` y observabilidad deshabilitada. `production` tiene su propia cuenta, ID D1 y sus Origin HTTPS: `WEB_ORIGIN` admite varias direcciones separadas por comas, la primera es la canónica, y las escrituras y el CAPTCHA se aceptan desde cualquiera de ellas y desde ninguna otra. Solo ese entorno habilita `workers_dev` y el dominio propio `activity-hub.juancho.dev`, que el despliegue asocia al Worker con su DNS y su certificado. El widget de Turnstile debe admitir cada hostname para que las altas funcionen en él. `scripts/run.js` aísla HOME/config/cache de Wrangler, deshabilita dotenv/variables personales y telemetría. Las dependencias instaladas se trasladaron con esta carpeta, sin reinstalar.
 
 ## Estado local y datos
 
@@ -43,7 +43,7 @@ Las pruebas de seguridad usan cuentas sintéticas y D1 temporal. Cubren límite 
 
 ## Flujo de cambio, pruebas y publicación
 
-Destino explícito: Worker `activity-hub`, entorno `production`, cuenta `72734ad9e032887b9758d0c2216e3d48`, D1 `activity-hub-production` (`5ffb5d44-eb8f-4fac-8c2b-5714a1251460`), URL **https://activity-hub.software-juancho-prego-gundin.workers.dev**. D1 se creó con jurisdicción `eu`; esto no limita la ejecución mundial del Worker. Los identificadores y la sitekey son públicos; el secreto Turnstile vive en Workers Secrets.
+Destino explícito: Worker `activity-hub`, entorno `production`, cuenta `72734ad9e032887b9758d0c2216e3d48`, D1 `activity-hub-production` (`5ffb5d44-eb8f-4fac-8c2b-5714a1251460`), URL **https://activity-hub.juancho.dev**, dominio propio del Worker; la dirección anterior, **https://activity-hub.software-juancho-prego-gundin.workers.dev**, sigue activa. D1 se creó con jurisdicción `eu`; esto no limita la ejecución mundial del Worker. Los identificadores y la sitekey son públicos; el secreto Turnstile vive en Workers Secrets.
 
 Cada cambio sigue estos pasos desde la raíz con **Node 26**:
 

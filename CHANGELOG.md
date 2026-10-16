@@ -2,6 +2,27 @@
 
 Registra cambios completados, publicaciones y su evidencia. El estado vigente está en [docs/STATUS.md](docs/STATUS.md), las reglas en [docs/APP.md](docs/APP.md) y la operación en [backend/README.md](backend/README.md). Las menciones históricas al README como especificación/estado corresponden a la organización anterior.
 
+## 2026-10-16 — Dominio propio activity-hub.juancho.dev
+
+La web y la API responden también en `https://activity-hub.juancho.dev`, dominio
+propio del Worker cuyo DNS y certificado crea Cloudflare al desplegar. La
+dirección `workers.dev` sigue activa. `WEB_ORIGIN` admite varias direcciones
+separadas por comas, la primera canónica: escrituras y CAPTCHA se aceptan desde
+cualquiera de ellas y desde ninguna otra. Sesión y código guardado van por
+dirección, así que en la nueva hay que entrar una vez con el código. Al leer
+cookies solo se recortan espacios y tabuladores: `trim()` quitaba también
+espacios Unicode, y un subdominio hermano podría plantar una cookie cuyo nombre
+solo coincide tras recortarlo. `release:prepare` exige las dos direcciones y una
+única ruta de dominio propio; `release:smoke` comprueba ambas. Sin migraciones D1
+ni dependencias nuevas.
+
+`npm run verify` PASS: 46 backend (4 nuevas), 340 frontend e integración/UI
+Firefox y Brave. `release:prepare` correcto. Revisión por un agente aparte en
+esta misma sesión, no independiente: cuatro hallazgos corregidos y uno abierto,
+exigir que el Origin coincida con la dirección pedida. Las altas en la nueva
+dirección requieren añadirla a los hostnames del widget de Turnstile.
+Publicación pendiente de autorización.
+
 ## 2026-10-13 — Texto más legible en Jardín
 
 Base de Jardín a 16 px (antes 14 px) y textos secundarios entre 12 y 15 px,

@@ -14,6 +14,11 @@ test('release destination gate rejects wrong accounts/databases, missing limits,
     c => { c.env.production.vars.TURNSTILE_SITEKEY = ''; },
     c => { c.env.production.vars.TURNSTILE_SECRET = 'must-not-be-versioned'; },
     c => { c.env.production.preview_urls = true; },
+    c => { c.env.production.vars.WEB_ORIGIN = 'https://activity-hub.juancho.dev'; },
+    c => { c.env.production.routes = []; },
+    c => { c.env.production.routes.push({ pattern: 'other.juancho.dev', custom_domain: true }); },
+    c => { c.env.production.routes = [{ pattern: 'activity-hub.juancho.dev/*', zone_name: 'juancho.dev' }]; },
+    c => { c.env.production.workers_dev = false; },
   ]) {
     const copy = structuredClone(config);
     change(copy);

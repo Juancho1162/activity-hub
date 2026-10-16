@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const release = path.join(root, '.release');
-const target = { worker: 'activity-hub', account: '72734ad9e032887b9758d0c2216e3d48', database: '5ffb5d44-eb8f-4fac-8c2b-5714a1251460', origin: 'https://activity-hub.software-juancho-prego-gundin.workers.dev' };
+const target = { worker: 'activity-hub', account: '72734ad9e032887b9758d0c2216e3d48', database: '5ffb5d44-eb8f-4fac-8c2b-5714a1251460', origins: ['https://activity-hub.juancho.dev', 'https://activity-hub.software-juancho-prego-gundin.workers.dev'], domain: 'activity-hub.juancho.dev' };
 const sha = value => createHash('sha256').update(value).digest('hex');
 function git(args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
@@ -48,7 +48,8 @@ async function treeFingerprint(directory) {
 }
 export function validateTarget(config) {
   const env = config.env?.production;
-  if (env?.name !== target.worker || env.account_id !== target.account || env.vars?.WEB_ORIGIN !== target.origin
+  if (env?.name !== target.worker || env.account_id !== target.account || env.vars?.WEB_ORIGIN !== target.origins.join(',')
+    || env.workers_dev !== true || env.routes?.length !== 1 || env.routes[0].pattern !== target.domain || env.routes[0].custom_domain !== true
     || env.d1_databases?.length !== 1 || env.d1_databases[0].binding !== 'DB' || env.d1_databases[0].database_id !== target.database
     || env.preview_urls !== false || !env.vars.TURNSTILE_SITEKEY || env.vars.TURNSTILE_SECRET
     || !['GLOBAL_RATE_LIMITER', 'IP_RATE_LIMITER', 'AUTH_RATE_LIMITER', 'ACCOUNT_RATE_LIMITER'].every(name => env.ratelimits?.some(binding => binding.name === name && binding.simple?.limit > 0 && binding.simple?.period === 60))) {
@@ -112,25 +113,30 @@ function frozenCommand(manifest, args, capture = false) {
   });
 }
 async function smoke() {
-  for (const [pathname, status] of [['/', 200], ['/app/', 200], ['/health', 200], ['/auth/session', 401], ['/api/vault', 401]]) {
-    const response = await fetch(target.origin + pathname, { redirect: 'error', signal: AbortSignal.timeout(15000) });
-    if (response.status !== status) throw new Error(`Comprobación remota fallida: ${pathname}.`);
-    if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
-      if (response.headers.get('cache-control') !== 'no-store') throw new Error('Falta no-store en una ruta privada.');
+  for (const origin of target.origins) {
+    for (const [pathname, status] of [['/', 200], ['/app/', 200], ['/health', 200], ['/auth/session', 401], ['/api/vault', 401]]) {
+      const response = await fetch(origin + pathname, { redirect: 'error', signal: AbortSignal.timeout(15000) });
+      if (response.status !== status) throw new Error(`Comprobación remota fallida en ${origin}: ${pathname}.`);
+      if (pathname.startsWith('/api/') || pathname.startsWith('/auth/')) {
+        if (response.headers.get('cache-control') !== 'no-store') throw new Error(`Falta no-store en una ruta privada de ${origin}.`);
+      }
+      if (['/', '/app/'].includes(pathname) && !response.headers.get('content-security-policy')) throw new Error(`Falta CSP en una página pública de ${origin}.`);
+      await response.arrayBuffer();
     }
-    if (['/', '/app/'].includes(pathname) && !response.headers.get('content-security-policy')) throw new Error('Falta CSP en una página pública.');
-    await response.arrayBuffer();
+    for (const pathname of ['/presentacion', '/presentacion/', '/presentacion/assets/old.js']) {
+      const response = await fetch(origin + pathname, { redirect: 'manual', signal: AbortSignal.timeout(15000) });
+      if (response.status !== 302 || new URL(response.headers.get('location'), origin).pathname !== '/') throw new Error(`La presentación retirada no redirige a la portada en ${origin}.`);
+      await response.arrayBuffer();
+    }
+    const settings = await (await fetch(origin + '/auth/config', { signal: AbortSignal.timeout(15000) })).json();
+    if (settings.local !== false || !settings.sitekey || settings.registration_enabled !== true) throw new Error(`Turnstile no está preparado en ${origin}.`);
+    const blocked = await fetch(origin + '/auth/signup', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: 'a'.repeat(64) }), signal: AbortSignal.timeout(15000) });
+    // Only a request that passed the Origin check reaches the CAPTCHA.
+    if (blocked.status !== 403 || (await blocked.json()).detail !== 'Verification required') throw new Error(`El alta sin CAPTCHA no se rechaza por el CAPTCHA en ${origin}.`);
+    const foreign = await fetch(origin + '/auth/login', { method: 'POST', headers: { Origin: 'https://example.invalid', 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: 'a'.repeat(64) }), signal: AbortSignal.timeout(15000) });
+    if (foreign.status !== 403 || (await foreign.json()).detail !== 'Request forbidden') throw new Error(`Un Origin ajeno no se rechaza en ${origin}.`);
   }
-  for (const pathname of ['/presentacion', '/presentacion/', '/presentacion/assets/old.js']) {
-    const response = await fetch(target.origin + pathname, { redirect: 'manual', signal: AbortSignal.timeout(15000) });
-    if (response.status !== 302 || new URL(response.headers.get('location'), target.origin).pathname !== '/') throw new Error('La presentación retirada no redirige a la portada.');
-    await response.arrayBuffer();
-  }
-  const settings = await (await fetch(target.origin + '/auth/config', { signal: AbortSignal.timeout(15000) })).json();
-  if (settings.local !== false || !settings.sitekey || settings.registration_enabled !== true) throw new Error('Turnstile no está preparado en producción.');
-  const blocked = await fetch(target.origin + '/auth/signup', { method: 'POST', headers: { Origin: target.origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: 'a'.repeat(64) }), signal: AbortSignal.timeout(15000) });
-  if (blocked.status !== 403) throw new Error('El alta sin CAPTCHA no está bloqueada.');
-  console.log('Comprobaciones remotas de lectura/acceso correctas; no se han creado cuentas.');
+  console.log(`Comprobaciones remotas de lectura/acceso correctas en ${target.origins.length} direcciones; no se han creado cuentas.`);
 }
 async function main(mode) {
   if (Number(process.versions.node.split('.')[0]) !== 26) throw new Error('Se requiere Node 26.');
